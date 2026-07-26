@@ -120,7 +120,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#E0E5EC] flex flex-col items-center justify-center p-4 font-sans select-none">
+    <main className="min-h-screen bg-[#E0E5EC] flex flex-col items-center justify-center p-4 font-sans select-none">
       
       {/* Animated container */}
       <AnimatePresence mode="wait">
@@ -138,14 +138,14 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                 <Store className="w-8 h-8" />
               </div>
               <h1 className="text-xl font-black text-gray-900 tracking-tight uppercase">REGISTRASI TOKO BARU</h1>
-              <p className="text-xs text-gray-500 mt-1 uppercase tracking-wider">Langkah awal setup Tokku Build Material ERP</p>
+              <p className="text-xs text-gray-600 mt-1 uppercase tracking-wider">Langkah awal setup Tokku Build Material ERP</p>
             </div>
 
             <form onSubmit={handleRegister} className="space-y-4 text-xs">
               <div>
-                <label className="block text-[10px] text-gray-500 font-bold uppercase mb-1.5 ml-1">Nama Toko / Bisnis</label>
+                <label className="block text-[10px] text-gray-600 font-bold uppercase mb-1.5 ml-1">Nama Toko / Bisnis</label>
                 <div className="relative">
-                  <Building className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Building className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
                   <input
                     type="text"
                     required
@@ -158,9 +158,9 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
               </div>
 
               <div>
-                <label className="block text-[10px] text-gray-500 font-bold uppercase mb-1.5 ml-1">Nama Pemilik (Owner)</label>
+                <label className="block text-[10px] text-gray-600 font-bold uppercase mb-1.5 ml-1">Nama Pemilik (Owner)</label>
                 <div className="relative">
-                  <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
                   <input
                     type="text"
                     required
@@ -173,9 +173,9 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
               </div>
 
               <div>
-                <label className="block text-[10px] text-gray-500 font-bold uppercase mb-1.5 ml-1">Email Pemilik</label>
+                <label className="block text-[10px] text-gray-600 font-bold uppercase mb-1.5 ml-1">Email Pemilik</label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
                   <input
                     type="email"
                     required
@@ -188,9 +188,9 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
               </div>
 
               <div>
-                <label className="block text-[10px] text-gray-500 font-bold uppercase mb-1.5 ml-1">PIN Keamanan (6 Digit)</label>
+                <label className="block text-[10px] text-gray-600 font-bold uppercase mb-1.5 ml-1">PIN Keamanan (6 Digit)</label>
                 <div className="relative">
-                  <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
                   <input
                     type="password"
                     maxLength={6}
@@ -228,7 +228,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                 {storeName}
               </span>
               <h1 className="text-xl font-black text-gray-900 tracking-tight uppercase mt-3">MASUK KE SISTEM</h1>
-              <p className="text-xs text-gray-500 mt-1 uppercase tracking-wider">Silakan pilih akun staff Anda</p>
+              <p className="text-xs text-gray-600 mt-1 uppercase tracking-wider">Silakan pilih akun staff Anda</p>
             </div>
 
             <AnimatePresence mode="wait">
@@ -241,7 +241,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                   exit={{ opacity: 0, x: 10 }}
                   className="space-y-3"
                 >
-                  <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Daftar Anggota Staff</span>
+                  <span className="block text-[10px] font-bold text-gray-600 uppercase tracking-widest">Daftar Anggota Staff</span>
                   <div className="grid grid-cols-1 gap-3 max-h-64 overflow-y-auto pr-1">
                     {staffList.map((staff) => (
                       <button
@@ -255,14 +255,14 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full nm-inset flex items-center justify-center text-gray-600">
-                            {staff.role === 'owner' ? <Store className="w-5 h-5 text-blue-600" /> : <Users className="w-5 h-5 text-gray-500" />}
+                            {staff.role === 'owner' ? <Store className="w-5 h-5 text-blue-600" /> : <Users className="w-5 h-5 text-gray-600" />}
                           </div>
                           <div>
                             <p className="font-extrabold text-sm text-gray-800 group-hover:text-blue-600 transition-colors">{staff.name}</p>
-                            <p className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{staff.role === 'owner' ? 'Pemilik Toko' : 'Kasir / Staf Toko'}</p>
+                            <p className="text-[10px] text-gray-600 uppercase tracking-wider mt-0.5">{staff.role === 'owner' ? 'Pemilik Toko' : 'Kasir / Staf Toko'}</p>
                           </div>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-transform group-hover:translate-x-1" />
+                        <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-blue-600 transition-transform group-hover:translate-x-1" />
                       </button>
                     ))}
                   </div>
@@ -282,7 +282,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                           setOwnerPin('');
                         }
                       }}
-                      className="text-[9px] font-bold text-red-500 uppercase tracking-widest hover:underline"
+                      className="text-[9px] font-bold text-red-700 uppercase tracking-widest hover:underline"
                     >
                       Reset Registrasi Toko
                     </button>
@@ -306,7 +306,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                     </div>
                     <button
                       onClick={() => setSelectedStaff(null)}
-                      className="text-[10px] text-gray-500 hover:text-gray-900 font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                      className="text-[10px] text-gray-600 hover:text-gray-900 font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" /> Ganti Akun
                     </button>
@@ -314,7 +314,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
                   {/* PIN Display Indicators */}
                   <div className="text-center space-y-2">
-                    <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Masukkan 6-Digit PIN</span>
+                    <span className="block text-[10px] font-bold text-gray-600 uppercase tracking-widest">Masukkan 6-Digit PIN</span>
                     <div className="flex justify-center gap-3 py-4">
                       {[0, 1, 2, 3, 4, 5].map((index) => (
                         <div
@@ -332,7 +332,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                       <motion.div 
                         initial={{ opacity: 0, y: -5 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="text-[10px] font-extrabold text-red-500 uppercase tracking-wider flex items-center justify-center gap-1.5"
+                        className="text-[10px] font-extrabold text-red-700 uppercase tracking-wider flex items-center justify-center gap-1.5"
                       >
                         <ShieldAlert className="w-4 h-4" /> PIN Salah! Silakan coba lagi.
                       </motion.div>
@@ -355,7 +355,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                     <button
                       type="button"
                       onClick={() => setPinInput('')}
-                      className="w-16 h-16 rounded-full nm-btn font-bold text-xs text-gray-500 flex items-center justify-center active:nm-btn-active cursor-pointer"
+                      className="w-16 h-16 rounded-full nm-btn font-bold text-xs text-gray-600 flex items-center justify-center active:nm-btn-active cursor-pointer"
                     >
                       C
                     </button>
@@ -371,7 +371,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                     <button
                       type="button"
                       onClick={handleBackspace}
-                      className="w-16 h-16 rounded-full nm-btn font-bold text-gray-500 flex items-center justify-center active:nm-btn-active cursor-pointer"
+                      className="w-16 h-16 rounded-full nm-btn font-bold text-gray-600 flex items-center justify-center active:nm-btn-active cursor-pointer"
                     >
                       <Delete className="w-5 h-5" />
                     </button>
@@ -383,9 +383,9 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
         )}
       </AnimatePresence>
 
-      <p className="text-[10px] text-gray-400 mt-8 font-mono text-center uppercase tracking-[0.2em]">
+      <p className="text-[10px] text-gray-600 mt-8 font-mono text-center uppercase tracking-[0.2em]">
         TOKKU BUILD MATERIAL ERP • SECURE ACCESS CONTROL
       </p>
-    </div>
+    </main>
   );
 }

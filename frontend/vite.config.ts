@@ -6,6 +6,13 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
+    build: {
+      // Ship source maps for production bundles (PageSpeed/Lighthouse
+      // flags large first-party JS with no source map). These are only
+      // fetched by browser devtools, not by regular page loads, so this
+      // doesn't add to what real users download.
+      sourcemap: true,
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

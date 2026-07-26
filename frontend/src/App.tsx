@@ -1,24 +1,8 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
-import DashboardView from './features/dashboard/DashboardView';
-import POSView from './features/pos/POSView';
-import ProductsView from './features/products/ProductsView';
-import PurchaseView from './features/purchasing/PurchaseView';
-import CustomerView from './features/customers/CustomerView';
-import FinanceView from './features/finance/FinanceView';
-import ReportsView from './features/reports/ReportsView';
-import SettingsView from './features/settings/SettingsView';
 import LoginView from './features/auth/LoginView';
-import DebtsView from './features/debts/DebtsView';
-import KasHarianView from './features/kas-harian/KasHarianView';
-import ReturView from './features/retur/ReturView';
-import TokoDigitalView from './features/toko-digital/TokoDigitalView';
-import ProductMasterView from './features/product-master/ProductMasterView';
-import PemasokView from './features/suppliers/PemasokView';
-import DepositView from './features/deposits/DepositView';
-import TransactionHistoryView from './features/transactions/TransactionHistoryView';
 import { LayoutDashboard, CornerDownRight, Boxes, Menu, Receipt } from 'lucide-react';
 
 import { Product, PO, Customer, Expense, Activity, Branch, Supplier, SalesInvoice, ReturnRecord, DigitalOrder, Banner, SkuLocation } from './types';
@@ -27,8 +11,37 @@ import { useSupabaseTable } from './lib/useSupabaseTable';
 import { useSupabaseReady } from './lib/useSupabaseReady';
 import { useDialog } from './components/shared/DialogProvider';
 
+// Feature views are only needed once a user is authenticated, and only one
+// is ever visible at a time — code-split each into its own chunk so the
+// login screen doesn't have to download/parse the entire ERP bundle before
+// it can paint. Each dynamic import() below becomes a separate,
+// lazily-fetched file.
+const DashboardView = lazy(() => import('./features/dashboard/DashboardView'));
+const POSView = lazy(() => import('./features/pos/POSView'));
+const ProductsView = lazy(() => import('./features/products/ProductsView'));
+const PurchaseView = lazy(() => import('./features/purchasing/PurchaseView'));
+const CustomerView = lazy(() => import('./features/customers/CustomerView'));
+const FinanceView = lazy(() => import('./features/finance/FinanceView'));
+const ReportsView = lazy(() => import('./features/reports/ReportsView'));
+const SettingsView = lazy(() => import('./features/settings/SettingsView'));
+const DebtsView = lazy(() => import('./features/debts/DebtsView'));
+const KasHarianView = lazy(() => import('./features/kas-harian/KasHarianView'));
+const ReturView = lazy(() => import('./features/retur/ReturView'));
+const TokoDigitalView = lazy(() => import('./features/toko-digital/TokoDigitalView'));
+const ProductMasterView = lazy(() => import('./features/product-master/ProductMasterView'));
+const PemasokView = lazy(() => import('./features/suppliers/PemasokView'));
+const DepositView = lazy(() => import('./features/deposits/DepositView'));
+const TransactionHistoryView = lazy(() => import('./features/transactions/TransactionHistoryView'));
+
+function ViewLoadingFallback() {
+  return (
+    <div className="w-full flex items-center justify-center py-24">
+      <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
 export default function App() {
-  const dialog = useDialog();
   const supabaseReady = useSupabaseReady();
 
   // Wait for anonymous auth before mounting anything that reads/writes
@@ -45,17 +58,57 @@ export default function App() {
     );
   }
 
-  return <AppShell />;
+  return <AuthGate />;
 }
 
-function AppShell() {
-  const dialog = useDialog();
-  // State management
+/**
+ * Owns only auth/session state. Crucially, this component does NOT call
+ * useSupabaseTable/useSupabaseState for the ~13 ERP data tables — those
+ * hooks each kick off a REST fetch *and* open a realtime websocket channel
+ * as soon as they mount. Keeping them out of this component means none of
+ * that network activity happens while the (unauthenticated) login screen
+ * is showing; it only starts once <Dashboard> mounts after a successful
+ * login. LoginView fetches just the two tables it actually needs
+ * (store_owner, staff_list) on its own.
+ */
+function AuthGate() {
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
   const [loginAt, setLoginAt] = useState<number | null>(null);
-  const [registeredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string; address?: string; phone?: string; receiptNote?: string; taxId?: string } | null>('store_owner', null);
+
+  if (!currentUser) {
+    return (
+      <LoginView
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          setLoginAt(Date.now());
+        }}
+      />
+    );
+  }
+
+  return (
+    <Dashboard
+      currentUser={currentUser}
+      loginAt={loginAt}
+      onLogout={() => setCurrentUser(null)}
+    />
+  );
+}
+
+function Dashboard({
+  currentUser,
+  loginAt,
+  onLogout,
+}: {
+  currentUser: { name: string; role: string };
+  loginAt: number | null;
+  onLogout: () => void;
+}) {
+  const dialog = useDialog();
+  // State management
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [registeredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string; address?: string; phone?: string; receiptNote?: string; taxId?: string } | null>('store_owner', null);
   const [products, setProducts] = useSupabaseTable<Product>('products', [], (p) => p.sku);
   const [pos, setPOs] = useSupabaseTable<PO>('purchase_orders', [], (po) => po.poNumber);
   const [customers, setCustomers] = useSupabaseTable<Customer>('customers', [], (c) => c.id);
@@ -79,9 +132,9 @@ function AppShell() {
 
   // Add activities dynamically
   const handleAddActivity = (
-    title: string, 
-    subtitle: string, 
-    amount: number, 
+    title: string,
+    subtitle: string,
+    amount: number,
     type: 'sale' | 'arrival' | 'overdue' | 'quote'
   ) => {
     const nextAct: Activity = {
@@ -138,185 +191,187 @@ function AppShell() {
           transition={{ duration: 0.25, ease: 'easeOut' }}
           className="w-full"
         >
-          {(() => {
-            const baseTab = currentTab.split(':')[0];
-            switch (baseTab) {
-              case 'dashboard':
-                return (
-                  <DashboardView 
-                    products={products}
-                    activities={activities}
-                    salesInvoices={salesInvoices}
-                    customers={customers}
-                    totalSales={totalSales}
-                    totalOrdersCount={totalOrdersCount}
-                    onTabChange={setCurrentTab}
-                    onQuickRestock={handleQuickRestock}
-                  />
-                );
-              case 'pos':
-                return (
-                  <POSView 
-                    products={products}
-                    customers={customers}
-                    onUpdateProducts={setProducts}
-                    onUpdateCustomers={setCustomers}
-                    onAddActivity={handleAddActivity}
-                    onAddSaleToKPIs={handleAddSaleToKPIs}
-                    onRecordSale={handleRecordSale}
-                    cashierName={currentUser?.name}
-                    storeProfile={registeredOwner ? {
-                      storeName: registeredOwner.storeName,
-                      address: registeredOwner.address,
-                      phone: registeredOwner.phone,
-                      receiptNote: registeredOwner.receiptNote,
-                    } : undefined}
-                  />
-                );
-              case 'kas-harian':
-                return (
-                  <KasHarianView 
-                    onAddActivity={handleAddActivity}
-                  />
-                );
-              case 'retur':
-                return (
-                  <ReturView 
-                    products={products}
-                    onUpdateProducts={setProducts}
-                    salesInvoices={salesInvoices}
-                    pos={pos}
-                    returns={returns}
-                    onUpdateReturns={setReturns}
-                    onAddActivity={handleAddActivity}
-                    onNavigateToPOS={() => setCurrentTab('pos')}
-                  />
-                );
-              case 'toko-digital':
-                return (
-                  <TokoDigitalView 
-                    storeName={registeredOwner?.storeName || 'Toko Saya'}
-                    ecommerceUsername={ecommerceUsername}
-                    onUpdateEcommerceUsername={setEcommerceUsername}
-                    products={products}
-                    onUpdateProducts={setProducts}
-                    digitalOrders={digitalOrders}
-                    onUpdateDigitalOrders={setDigitalOrders}
-                    banners={banners}
-                    onUpdateBanners={setBanners}
-                    onAddActivity={handleAddActivity}
-                  />
-                );
-              case 'master-data':
-                return (
-                  <ProductMasterView 
-                    products={products}
-                    onAddActivity={handleAddActivity}
-                    onUpdateProducts={setProducts}
-                    skuLocations={skuLocations}
-                    initialTab={(currentTab.split(':')[1] as any) || 'sku-master'}
-                  />
-                );
-              case 'pemasok':
-                return (
-                  <PemasokView 
-                    suppliers={suppliers}
-                    onUpdateSuppliers={setSuppliers}
-                    onAddActivity={handleAddActivity}
-                  />
-                );
-              case 'deposit':
-                return (
-                  <DepositView 
-                    customers={customers}
-                    onUpdateCustomers={setCustomers}
-                    onAddActivity={handleAddActivity}
-                  />
-                );
-              case 'riwayat-transaksi':
-                return (
-                  <TransactionHistoryView 
-                    salesInvoices={salesInvoices}
-                  />
-                );
-              case 'products':
-                return (
-                  <ProductsView 
-                    products={products}
-                    onUpdateProducts={setProducts}
-                    onAddActivity={handleAddActivity}
-                    currentUserName={currentUser?.name}
-                  />
-                );
-              case 'purchase':
-                return (
-                  <PurchaseView 
-                    pos={pos}
-                    suppliers={suppliers}
-                    products={products}
-                    onUpdatePOs={setPOs}
-                    onUpdateProducts={setProducts}
-                    onAddActivity={handleAddActivity}
-                    onUpdateSuppliers={setSuppliers}
-                  />
-                );
-              case 'customer':
-                return (
-                  <CustomerView 
-                    customers={customers}
-                    onUpdateCustomers={setCustomers}
-                    onAddActivity={handleAddActivity}
-                  />
-                );
-              case 'debts':
-                return (
-                  <DebtsView 
-                    customers={customers}
-                    onUpdateCustomers={setCustomers}
-                    onAddActivity={handleAddActivity}
-                    storeProfile={registeredOwner ? {
-                      storeName: registeredOwner.storeName,
-                      address: registeredOwner.address,
-                      phone: registeredOwner.phone,
-                      taxId: registeredOwner.taxId,
-                    } : undefined}
-                  />
-                );
-              case 'finance':
-                return (
-                  <FinanceView 
-                    expenses={expenses}
-                    onUpdateExpenses={setExpenses}
-                    onAddActivity={handleAddActivity}
-                  />
-                );
-              case 'reports':
-                return <ReportsView />;
-              case 'settings':
-                return (
-                  <SettingsView 
-                    branches={branches}
-                    onUpdateBranches={setBranches}
-                    skuLocations={skuLocations}
-                    onUpdateSkuLocations={setSkuLocations}
-                    onAddActivity={handleAddActivity}
-                  />
-                );
-              default:
-                return (
-                  <DashboardView 
-                    products={products}
-                    activities={activities}
-                    salesInvoices={salesInvoices}
-                    customers={customers}
-                    totalSales={totalSales}
-                    totalOrdersCount={totalOrdersCount}
-                    onTabChange={setCurrentTab}
-                    onQuickRestock={handleQuickRestock}
-                  />
-                );
-            }
-          })()}
+          <Suspense fallback={<ViewLoadingFallback />}>
+            {(() => {
+              const baseTab = currentTab.split(':')[0];
+              switch (baseTab) {
+                case 'dashboard':
+                  return (
+                    <DashboardView
+                      products={products}
+                      activities={activities}
+                      salesInvoices={salesInvoices}
+                      customers={customers}
+                      totalSales={totalSales}
+                      totalOrdersCount={totalOrdersCount}
+                      onTabChange={setCurrentTab}
+                      onQuickRestock={handleQuickRestock}
+                    />
+                  );
+                case 'pos':
+                  return (
+                    <POSView
+                      products={products}
+                      customers={customers}
+                      onUpdateProducts={setProducts}
+                      onUpdateCustomers={setCustomers}
+                      onAddActivity={handleAddActivity}
+                      onAddSaleToKPIs={handleAddSaleToKPIs}
+                      onRecordSale={handleRecordSale}
+                      cashierName={currentUser?.name}
+                      storeProfile={registeredOwner ? {
+                        storeName: registeredOwner.storeName,
+                        address: registeredOwner.address,
+                        phone: registeredOwner.phone,
+                        receiptNote: registeredOwner.receiptNote,
+                      } : undefined}
+                    />
+                  );
+                case 'kas-harian':
+                  return (
+                    <KasHarianView
+                      onAddActivity={handleAddActivity}
+                    />
+                  );
+                case 'retur':
+                  return (
+                    <ReturView
+                      products={products}
+                      onUpdateProducts={setProducts}
+                      salesInvoices={salesInvoices}
+                      pos={pos}
+                      returns={returns}
+                      onUpdateReturns={setReturns}
+                      onAddActivity={handleAddActivity}
+                      onNavigateToPOS={() => setCurrentTab('pos')}
+                    />
+                  );
+                case 'toko-digital':
+                  return (
+                    <TokoDigitalView
+                      storeName={registeredOwner?.storeName || 'Toko Saya'}
+                      ecommerceUsername={ecommerceUsername}
+                      onUpdateEcommerceUsername={setEcommerceUsername}
+                      products={products}
+                      onUpdateProducts={setProducts}
+                      digitalOrders={digitalOrders}
+                      onUpdateDigitalOrders={setDigitalOrders}
+                      banners={banners}
+                      onUpdateBanners={setBanners}
+                      onAddActivity={handleAddActivity}
+                    />
+                  );
+                case 'master-data':
+                  return (
+                    <ProductMasterView
+                      products={products}
+                      onAddActivity={handleAddActivity}
+                      onUpdateProducts={setProducts}
+                      skuLocations={skuLocations}
+                      initialTab={(currentTab.split(':')[1] as any) || 'sku-master'}
+                    />
+                  );
+                case 'pemasok':
+                  return (
+                    <PemasokView
+                      suppliers={suppliers}
+                      onUpdateSuppliers={setSuppliers}
+                      onAddActivity={handleAddActivity}
+                    />
+                  );
+                case 'deposit':
+                  return (
+                    <DepositView
+                      customers={customers}
+                      onUpdateCustomers={setCustomers}
+                      onAddActivity={handleAddActivity}
+                    />
+                  );
+                case 'riwayat-transaksi':
+                  return (
+                    <TransactionHistoryView
+                      salesInvoices={salesInvoices}
+                    />
+                  );
+                case 'products':
+                  return (
+                    <ProductsView
+                      products={products}
+                      onUpdateProducts={setProducts}
+                      onAddActivity={handleAddActivity}
+                      currentUserName={currentUser?.name}
+                    />
+                  );
+                case 'purchase':
+                  return (
+                    <PurchaseView
+                      pos={pos}
+                      suppliers={suppliers}
+                      products={products}
+                      onUpdatePOs={setPOs}
+                      onUpdateProducts={setProducts}
+                      onAddActivity={handleAddActivity}
+                      onUpdateSuppliers={setSuppliers}
+                    />
+                  );
+                case 'customer':
+                  return (
+                    <CustomerView
+                      customers={customers}
+                      onUpdateCustomers={setCustomers}
+                      onAddActivity={handleAddActivity}
+                    />
+                  );
+                case 'debts':
+                  return (
+                    <DebtsView
+                      customers={customers}
+                      onUpdateCustomers={setCustomers}
+                      onAddActivity={handleAddActivity}
+                      storeProfile={registeredOwner ? {
+                        storeName: registeredOwner.storeName,
+                        address: registeredOwner.address,
+                        phone: registeredOwner.phone,
+                        taxId: registeredOwner.taxId,
+                      } : undefined}
+                    />
+                  );
+                case 'finance':
+                  return (
+                    <FinanceView
+                      expenses={expenses}
+                      onUpdateExpenses={setExpenses}
+                      onAddActivity={handleAddActivity}
+                    />
+                  );
+                case 'reports':
+                  return <ReportsView />;
+                case 'settings':
+                  return (
+                    <SettingsView
+                      branches={branches}
+                      onUpdateBranches={setBranches}
+                      skuLocations={skuLocations}
+                      onUpdateSkuLocations={setSkuLocations}
+                      onAddActivity={handleAddActivity}
+                    />
+                  );
+                default:
+                  return (
+                    <DashboardView
+                      products={products}
+                      activities={activities}
+                      salesInvoices={salesInvoices}
+                      customers={customers}
+                      totalSales={totalSales}
+                      totalOrdersCount={totalOrdersCount}
+                      onTabChange={setCurrentTab}
+                      onQuickRestock={handleQuickRestock}
+                    />
+                  );
+              }
+            })()}
+          </Suspense>
         </motion.div>
       </AnimatePresence>
     );
@@ -385,20 +440,15 @@ function AppShell() {
     }
   };
 
-  // Show login screen if not authenticated
-  if (!currentUser) {
-    return <LoginView onLoginSuccess={(user) => { setCurrentUser(user); setLoginAt(Date.now()); }} />;
-  }
-
   return (
     <div className="flex min-h-screen font-sans antialiased text-gray-900 select-none">
       {/* Sidebar - Desktop */}
       <div className="hidden md:flex">
-        <Sidebar 
+        <Sidebar
           currentTab={currentTab}
           onTabChange={handleTabChange}
           onNewTransaction={handleNewTransaction}
-          onLogout={() => setCurrentUser(null)}
+          onLogout={onLogout}
         />
       </div>
 
@@ -407,7 +457,7 @@ function AppShell() {
         {isMobileMenuOpen && (
           <div className="fixed inset-0 z-50 md:hidden flex">
             {/* Backdrop */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -415,18 +465,18 @@ function AppShell() {
               className="fixed inset-0 bg-slate-900/30 backdrop-blur-xs"
             />
             {/* Drawer Content */}
-            <motion.div 
+            <motion.div
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               className="relative w-72 h-full flex flex-col z-10"
             >
-              <Sidebar 
+              <Sidebar
                 currentTab={currentTab}
                 onTabChange={handleTabChange}
                 onNewTransaction={handleNewTransaction}
-                onLogout={() => setCurrentUser(null)}
+                onLogout={onLogout}
                 isMobile={true}
                 onClose={() => setIsMobileMenuOpen(false)}
               />
@@ -438,7 +488,7 @@ function AppShell() {
       {/* Main Content frame */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Dynamic header navigation */}
-        <Header 
+        <Header
           currentTab={currentTab}
           searchValue={searchQuery}
           onSearch={setSearchQuery}
@@ -449,7 +499,7 @@ function AppShell() {
           onSync={handleForceSync}
           currentUser={currentUser}
           onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          onLogout={() => setCurrentUser(null)}
+          onLogout={onLogout}
           storeName={registeredOwner?.storeName}
           loginAt={loginAt ?? undefined}
           products={products}
@@ -465,7 +515,7 @@ function AppShell() {
 
       {/* Mobile Glassmorphic Bottom Navigation Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden p-3 bg-white/80 backdrop-blur-lg border-t border-slate-200/60 flex justify-around items-center shadow-lg shadow-slate-900/10 h-16">
-        <button 
+        <button
           onClick={() => handleTabChange('dashboard')}
           className={`flex flex-col items-center gap-1 py-1 px-3 transition-all ${
             currentTab === 'dashboard' ? 'text-blue-600 font-extrabold scale-105' : 'text-slate-400 font-bold'
@@ -475,7 +525,7 @@ function AppShell() {
           <span className="text-[9px] uppercase tracking-wider">Dasbor</span>
         </button>
 
-        <button 
+        <button
           onClick={() => handleTabChange('products')}
           className={`flex flex-col items-center gap-1 py-1 px-3 transition-all ${
             currentTab === 'products' ? 'text-blue-600 font-extrabold scale-105' : 'text-slate-400 font-bold'
@@ -486,11 +536,11 @@ function AppShell() {
         </button>
 
         {/* Center elevated POS button */}
-        <button 
+        <button
           onClick={() => handleTabChange('pos')}
           className={`relative -top-4 w-12 h-12 rounded-full flex flex-col items-center justify-center transition-all shadow-lg cursor-pointer ${
-            currentTab === 'pos' 
-              ? 'bg-blue-600 text-white scale-110 border-2 border-white shadow-blue-500/40 font-black' 
+            currentTab === 'pos'
+              ? 'bg-blue-600 text-white scale-110 border-2 border-white shadow-blue-500/40 font-black'
               : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-2 border-white'
           }`}
         >
@@ -498,14 +548,14 @@ function AppShell() {
           <span className="text-[7px] uppercase tracking-tighter mt-0.5">Kasir</span>
         </button>
 
-        <button 
+        <button
           onClick={() => handleTabChange('debts')}
           className={`flex flex-col items-center gap-1 py-1 px-3 transition-all ${currentTab === 'debts' ? 'text-blue-600 font-extrabold scale-105' : 'text-slate-400 font-bold'}`}>
           <Receipt className="w-5 h-5" />
           <span className="text-[9px] uppercase tracking-wider">Hutang</span>
         </button>
 
-        <button 
+        <button
           onClick={() => setIsMobileMenuOpen(true)}
           className="flex flex-col items-center gap-1 py-1 px-3 text-slate-400 font-bold transition-all"
         >
