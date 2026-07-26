@@ -846,7 +846,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Jumlah Unit</label>
                     <input 
                       type="number"
-                      min={1}
+                      min={0}
                       value={adjustValue}
                       onChange={(e) => setAdjustValue(Math.max(1, Number(e.target.value)))}
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-700 outline-none"
