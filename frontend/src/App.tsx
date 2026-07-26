@@ -23,6 +23,7 @@ import { LayoutDashboard, CornerDownRight, Boxes, Menu, Receipt } from 'lucide-r
 
 import { Product, PO, Customer, Expense, Activity, Branch, Supplier, SalesInvoice, ReturnRecord, DigitalOrder, Banner, SkuLocation } from './types';
 import { useSupabaseState } from './lib/useSupabaseState';
+import { useSupabaseTable } from './lib/useSupabaseTable';
 import { useSupabaseReady } from './lib/useSupabaseReady';
 
 export default function App() {
@@ -48,20 +49,22 @@ export default function App() {
 function AppShell() {
   // State management
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
+  const [loginAt, setLoginAt] = useState<number | null>(null);
+  const [registeredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string; address?: string; phone?: string; receiptNote?: string; taxId?: string } | null>('registeredOwner', null);
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
-  const [products, setProducts] = useSupabaseState<Product[]>('products', []);
-  const [pos, setPOs] = useSupabaseState<PO[]>('purchaseOrders', []);
-  const [customers, setCustomers] = useSupabaseState<Customer[]>('customers', []);
-  const [suppliers, setSuppliers] = useSupabaseState<Supplier[]>('suppliers', []);
-  const [expenses, setExpenses] = useSupabaseState<Expense[]>('expenses', []);
-  const [activities, setActivities] = useSupabaseState<Activity[]>('activities', []);
-  const [branches, setBranches] = useSupabaseState<Branch[]>('branches', []);
-  const [salesInvoices, setSalesInvoices] = useSupabaseState<SalesInvoice[]>('salesInvoices', []);
-  const [returns, setReturns] = useSupabaseState<ReturnRecord[]>('returns', []);
-  const [digitalOrders, setDigitalOrders] = useSupabaseState<DigitalOrder[]>('digitalOrders', []);
-  const [banners, setBanners] = useSupabaseState<Banner[]>('banners', []);
-  const [skuLocations, setSkuLocations] = useSupabaseState<SkuLocation[]>('skuLocations', []);
+  const [products, setProducts] = useSupabaseTable<Product>('products', [], (p) => p.sku);
+  const [pos, setPOs] = useSupabaseTable<PO>('purchase_orders', [], (po) => po.poNumber);
+  const [customers, setCustomers] = useSupabaseTable<Customer>('customers', [], (c) => c.id);
+  const [suppliers, setSuppliers] = useSupabaseTable<Supplier>('suppliers', [], (s) => s.name);
+  const [expenses, setExpenses] = useSupabaseTable<Expense>('expenses', [], (e) => e.id);
+  const [activities, setActivities] = useSupabaseTable<Activity>('activities', [], (a) => a.id);
+  const [branches, setBranches] = useSupabaseTable<Branch>('branches', [], (b) => b.name);
+  const [salesInvoices, setSalesInvoices] = useSupabaseTable<SalesInvoice>('sales_invoices', [], (s) => s.invoiceNumber);
+  const [returns, setReturns] = useSupabaseTable<ReturnRecord>('returns', [], (r) => r.id);
+  const [digitalOrders, setDigitalOrders] = useSupabaseTable<DigitalOrder>('digital_orders', [], (d) => d.id);
+  const [banners, setBanners] = useSupabaseTable<Banner>('banners', [], (b) => b.id);
+  const [skuLocations, setSkuLocations] = useSupabaseTable<SkuLocation>('sku_locations', [], (s) => s.id);
   const [ecommerceUsername, setEcommerceUsername] = useSupabaseState<string>('ecommerceUsername', '');
 
   // Dynamic metrics added from POS checkout
@@ -158,6 +161,13 @@ function AppShell() {
                     onAddActivity={handleAddActivity}
                     onAddSaleToKPIs={handleAddSaleToKPIs}
                     onRecordSale={handleRecordSale}
+                    cashierName={currentUser?.name}
+                    storeProfile={registeredOwner ? {
+                      storeName: registeredOwner.storeName,
+                      address: registeredOwner.address,
+                      phone: registeredOwner.phone,
+                      receiptNote: registeredOwner.receiptNote,
+                    } : undefined}
                   />
                 );
               case 'kas-harian':
@@ -182,7 +192,7 @@ function AppShell() {
               case 'toko-digital':
                 return (
                   <TokoDigitalView 
-                    storeName="TB Sinar Maju Pusat"
+                    storeName={registeredOwner?.storeName || 'Toko Saya'}
                     ecommerceUsername={ecommerceUsername}
                     onUpdateEcommerceUsername={setEcommerceUsername}
                     products={products}
@@ -232,6 +242,7 @@ function AppShell() {
                     products={products}
                     onUpdateProducts={setProducts}
                     onAddActivity={handleAddActivity}
+                    currentUserName={currentUser?.name}
                   />
                 );
               case 'purchase':
@@ -260,6 +271,12 @@ function AppShell() {
                     customers={customers}
                     onUpdateCustomers={setCustomers}
                     onAddActivity={handleAddActivity}
+                    storeProfile={registeredOwner ? {
+                      storeName: registeredOwner.storeName,
+                      address: registeredOwner.address,
+                      phone: registeredOwner.phone,
+                      taxId: registeredOwner.taxId,
+                    } : undefined}
                   />
                 );
               case 'finance':
@@ -367,7 +384,7 @@ function AppShell() {
 
   // Show login screen if not authenticated
   if (!currentUser) {
-    return <LoginView onLoginSuccess={(user) => setCurrentUser(user)} />;
+    return <LoginView onLoginSuccess={(user) => { setCurrentUser(user); setLoginAt(Date.now()); }} />;
   }
 
   return (
@@ -430,7 +447,11 @@ function AppShell() {
           currentUser={currentUser}
           onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           onLogout={() => setCurrentUser(null)}
-          onUserChange={(usr) => setCurrentUser(usr)}
+          storeName={registeredOwner?.storeName}
+          loginAt={loginAt ?? undefined}
+          products={products}
+          customers={customers}
+          activities={activities}
         />
 
         {/* Dashboard inner canvas - padded for mobile bottom navbar */}

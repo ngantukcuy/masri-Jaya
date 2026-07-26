@@ -7,27 +7,36 @@ import {
   TrendingUp,
   UserCheck,
   Coins,
-  Printer,
+  Printer as PrinterIcon,
   Calendar,
   X,
   PlusCircle,
   FileText
 } from 'lucide-react';
-import { Customer } from '../../types';
+import { Customer, Printer } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
-import { getSupabaseCache } from '../../lib/supabaseCache';
+import { getSupabaseTableCache } from '../../lib/supabaseCache';
+
+interface DebtsStoreProfileLite {
+  storeName: string;
+  address?: string;
+  phone?: string;
+  taxId?: string;
+}
 
 interface DebtsViewProps {
   customers: Customer[];
   onUpdateCustomers: (updatedCustomers: Customer[]) => void;
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  storeProfile?: DebtsStoreProfileLite;
 }
 
 export default function DebtsView({ 
   customers, 
   onUpdateCustomers, 
-  onAddActivity
+  onAddActivity,
+  storeProfile,
 }: DebtsViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Semua' | 'Cleared' | 'Pending' | 'Overdue'>('Semua');
@@ -197,11 +206,13 @@ export default function DebtsView({
 
   const simulatePrint = () => {
     setIsPrinting(true);
-    // Check cached printer status (synced from Supabase, see lib/supabaseCache.ts)
-    const cachedPrinters = getSupabaseCache<any[]>('printers', []);
-    let connectedPrinterName = "Printer Thermal Epson (Aktif)";
-    const activePr = cachedPrinters.find((p: any) => p.status === 'Active');
-    if (activePr) connectedPrinterName = activePr.name;
+    // Printers are registered in Supabase (shared across devices); whether
+    // one is actually connected right now is local to whichever browser
+    // paired it in Pengaturan > Printer, so this just names the first
+    // registered printer for the toast — it doesn't claim to know live
+    // connection state from here.
+    const registeredPrinters = getSupabaseTableCache<Printer>('printers');
+    const connectedPrinterName = registeredPrinters[0]?.name || "printer default";
 
     triggerToast(`Mengirim ke ${connectedPrinterName}...`);
     setTimeout(() => {
@@ -628,9 +639,13 @@ export default function DebtsView({
               {/* Printable Invoice Sheet */}
               <div className="bg-amber-50/20 border border-dashed border-amber-200 rounded-2xl p-6 font-mono text-slate-800 text-[11px] leading-relaxed relative">
                 <div className="text-center border-b border-slate-200 pb-4 mb-4">
-                  <h4 className="font-black text-sm uppercase tracking-wider text-slate-900">TB SINAR MAJU PUSAT</h4>
-                  <p className="text-[9px] text-slate-400 mt-0.5">Kawasan Industri Cilegon, Blok B5 • Telp: (0254) 381-XX2</p>
-                  <p className="text-[9px] text-slate-400">NPWP: NPWP-99.283.4-X10.000</p>
+                  <h4 className="font-black text-sm uppercase tracking-wider text-slate-900">{(storeProfile?.storeName || 'Toko Saya').toUpperCase()}</h4>
+                  {(storeProfile?.address || storeProfile?.phone) && (
+                    <p className="text-[9px] text-slate-400 mt-0.5">
+                      {[storeProfile?.address, storeProfile?.phone ? `Telp: ${storeProfile.phone}` : null].filter(Boolean).join(' • ')}
+                    </p>
+                  )}
+                  {storeProfile?.taxId && <p className="text-[9px] text-slate-400">NPWP: {storeProfile.taxId}</p>}
                 </div>
 
                 <div className="space-y-2 mb-4">
@@ -703,7 +718,7 @@ export default function DebtsView({
                   disabled={isPrinting}
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 rounded-xl cursor-pointer text-xs uppercase shadow-sm flex items-center justify-center gap-2"
                 >
-                  <Printer className={`w-4 h-4 ${isPrinting ? 'animate-spin' : ''}`} />
+                  <PrinterIcon className={`w-4 h-4 ${isPrinting ? 'animate-spin' : ''}`} />
                   <span>{isPrinting ? 'Mencetak...' : 'Cetak Tagihan'}</span>
                 </button>
               </div>

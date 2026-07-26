@@ -16,7 +16,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { Product, Bundle, BundleItem, SkuLocation } from '../../types';
-import { useSupabaseState } from '../../lib/useSupabaseState';
+import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import { uploadProductImage } from '../../lib/uploadProductImage';
 import BarcodeScannerModal from '../../components/shared/BarcodeScannerModal';
 
@@ -39,8 +39,8 @@ interface ProductMasterViewProps {
   initialTab?: 'sku-master' | 'kategori' | 'brand' | 'unit' | 'bundle';
 }
 
-function useLocalList<T extends { id: string }>(key: string, defaults: T[]) {
-  const [list, setList] = useSupabaseState<T[]>(key, defaults);
+function useLocalList<T extends { id: string }>(table: string, defaults: T[]) {
+  const [list, setList] = useSupabaseTable<T>(table, defaults, (item) => item.id);
   return { list, persist: setList };
 }
 
@@ -51,21 +51,21 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     if (initialTab) setActiveTab(initialTab);
   }, [initialTab]);
 
-  const { list: categories, persist: persistCategories } = useLocalList<CategoryEntry>('tokku_categories', [
+  const { list: categories, persist: persistCategories } = useLocalList<CategoryEntry>('product_categories', [
     { id: 'CAT-01', name: 'Bahan Bangunan', level: 1 },
     { id: 'CAT-02', name: 'Semen & Beton', level: 2 },
     { id: 'CAT-03', name: 'Cat & Coating', level: 2 },
   ]);
-  const { list: brands, persist: persistBrands } = useLocalList<SimpleEntry>('tokku_brands', [
+  const { list: brands, persist: persistBrands } = useLocalList<SimpleEntry>('product_brands', [
     { id: 'BRD-01', name: 'Avian' },
     { id: 'BRD-02', name: 'Tiga Roda' },
   ]);
-  const { list: units, persist: persistUnits } = useLocalList<SimpleEntry>('tokku_units', [
+  const { list: units, persist: persistUnits } = useLocalList<SimpleEntry>('product_units', [
     { id: 'UNT-01', name: 'Pcs' },
     { id: 'UNT-02', name: 'Sak' },
     { id: 'UNT-03', name: 'Galon' },
   ]);
-  const { list: bundles, persist: persistBundles } = useLocalList<Bundle>('tokku_bundles', []);
+  const { list: bundles, persist: persistBundles } = useLocalList<Bundle>('product_bundles', []);
 
   // Category form
   const [newCategoryName, setNewCategoryName] = useState('');

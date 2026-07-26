@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Search, MapPin, RotateCw, Bell, Menu, LogOut, Clock, Coins, Shield, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Search, MapPin, RotateCw, Bell, Menu, LogOut, Clock, Coins, Shield, X, AlertTriangle, PackageX, ShoppingBag, Wallet } from 'lucide-react';
+import { getCurrentSession, getMutationTotals } from '../../lib/cashSession';
 
 interface SearchResultItem {
   id: string;
@@ -7,6 +8,34 @@ interface SearchResultItem {
   sublabel: string;
   category: string;
   tab: string;
+}
+
+interface HeaderProductLite {
+  sku: string;
+  name: string;
+  stock: number;
+  stockStatus: 'Healthy' | 'Low Stock' | 'Out of Stock';
+}
+
+interface HeaderCustomerLite {
+  id: string;
+  name: string;
+  debtStatus: 'Cleared' | 'Overdue' | 'Pending';
+  overdueAmount?: number;
+}
+
+interface HeaderActivityLite {
+  id: string;
+  title: string;
+  subtitle: string;
+  time: string;
+  type: 'sale' | 'arrival' | 'overdue' | 'quote';
+}
+
+interface HeaderNotification {
+  id: string;
+  text: string;
+  level: 'warning' | 'error' | 'success' | 'info';
 }
 
 interface HeaderProps {
@@ -18,62 +47,93 @@ interface HeaderProps {
   onTabChange: (tab: string) => void;
   searchPlaceholder?: string;
   onSync: () => void;
-  currentUser?: { name: string; role: string } | null;
+  currentUser: { name: string; role: string } | null;
   onMenuToggle?: () => void;
   onLogout?: () => void;
-  onUserChange?: (user: { name: string; role: string }) => void;
+  storeName?: string;
+  /** Timestamp (Date.now()) captured when this session logged in — powers the real "Uptime Sesi" stat. */
+  loginAt?: number;
+  products?: HeaderProductLite[];
+  customers?: HeaderCustomerLite[];
+  activities?: HeaderActivityLite[];
 }
 
-export default function Header({ 
-  currentTab, 
+/** Deterministic initials + background color from a name — no stock photo, no real avatar upload feature (yet) to pull from. */
+function initialsFor(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+const AVATAR_COLORS = [
+  'bg-blue-600', 'bg-emerald-600', 'bg-violet-600', 'bg-amber-600', 'bg-rose-600', 'bg-cyan-600',
+];
+
+function colorFor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+function formatUptime(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+function formatRupiah(n: number): string {
+  return `Rp ${Math.round(n).toLocaleString('id-ID')}`;
+}
+
+export default function Header({
+  currentTab,
   searchValue,
-  onSearch, 
+  onSearch,
   searchResults = [],
   onSearchResultSelect,
-  onTabChange, 
-  searchPlaceholder, 
-  onSync, 
+  onTabChange,
+  searchPlaceholder,
+  onSync,
   currentUser,
   onMenuToggle,
   onLogout,
-  onUserChange
+  storeName,
+  loginAt,
+  products = [],
+  customers = [],
+  activities = [],
 }: HeaderProps) {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [uptimeMs, setUptimeMs] = useState(0);
+  const [kasLaci, setKasLaci] = useState<number | null>(null);
 
-  // Dynamic user based on active tab or login
-  const getUserProfile = () => {
-    if (currentUser) {
-      return {
-        name: currentUser.name,
-        role: currentUser.role === 'owner' ? 'Pemilik Toko' : 'Staf Kasir',
-        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"
-      };
-    }
-    
-    switch (currentTab) {
-      case 'pos':
-        return {
-          name: "Budi Santoso",
-          role: "Kasir Toko",
-          avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"
-        };
-      case 'products':
-        return {
-          name: "Hendi Pratama",
-          role: "Pengelola Gudang",
-          avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80"
-        };
-      default:
-        return {
-          name: "Alexandra Tokku",
-          role: "Pemilik Toko",
-          avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80"
-        };
-    }
+  const profile = {
+    name: currentUser?.name ?? 'Pengguna',
+    role: currentUser?.role === 'owner' ? 'Pemilik Toko' : currentUser?.role === 'kasir' ? 'Staf Kasir' : (currentUser?.role || '—'),
   };
+
+  // Live-ticking session uptime, only while it's actually visible.
+  useEffect(() => {
+    if (!loginAt) return;
+    const tick = () => setUptimeMs(Date.now() - loginAt);
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [loginAt]);
+
+  // Real cash-drawer balance from the currently open kas harian session, refreshed each time the modal opens.
+  useEffect(() => {
+    if (!showProfileModal) return;
+    const session = getCurrentSession();
+    setKasLaci(session ? getMutationTotals(session).systemTotal : null);
+  }, [showProfileModal]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onSearch(e.target.value);
@@ -92,15 +152,58 @@ export default function Header({
     }, 800);
   };
 
-  const notifications = [
-    { id: 1, text: "Stok semen kritis! Tersisa hanya 3 hari.", type: "warning" },
-    { id: 2, text: "Penjualan POS INV-2024-0891 selesai: +Rp 1.450.000", type: "success" },
-    { id: 3, text: "Peringatan utang jatuh tempo: BuildCorp Ltd telat 15 hari", type: "error" }
-  ];
+  // Real notifications, derived from live data instead of a hardcoded list:
+  // critical stock, overdue customer debts, and the most recent activity feed entries.
+  const notifications = useMemo<HeaderNotification[]>(() => {
+    const list: HeaderNotification[] = [];
 
-  const profile = getUserProfile();
+    products
+      .filter((p) => p.stockStatus !== 'Healthy')
+      .slice(0, 3)
+      .forEach((p) => {
+        list.push({
+          id: `stock-${p.sku}`,
+          level: p.stockStatus === 'Out of Stock' ? 'error' : 'warning',
+          text: p.stockStatus === 'Out of Stock'
+            ? `Stok habis: ${p.name} (${p.sku})`
+            : `Stok menipis: ${p.name} — tersisa ${p.stock}`,
+        });
+      });
+
+    customers
+      .filter((c) => c.debtStatus === 'Overdue')
+      .slice(0, 3)
+      .forEach((c) => {
+        list.push({
+          id: `debt-${c.id}`,
+          level: 'error',
+          text: c.overdueAmount
+            ? `Utang jatuh tempo: ${c.name} — ${formatRupiah(c.overdueAmount)}`
+            : `Utang jatuh tempo: ${c.name}`,
+        });
+      });
+
+    activities.slice(0, 3).forEach((a) => {
+      list.push({
+        id: `activity-${a.id}`,
+        level: a.type === 'overdue' ? 'error' : 'success',
+        text: `${a.title} — ${a.subtitle}`,
+      });
+    });
+
+    return list.slice(0, 8);
+  }, [products, customers, activities]);
+
   const defaultPlaceholder = "Cari pesanan, stok bahan, atau pemasok...";
   const actualPlaceholder = searchPlaceholder || defaultPlaceholder;
+
+  const notifIcon = (level: HeaderNotification['level']) => {
+    switch (level) {
+      case 'error': return <PackageX className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" />;
+      case 'warning': return <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />;
+      default: return <ShoppingBag className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />;
+    }
+  };
 
   return (
     <header className="h-16 w-full bg-white/70 backdrop-blur-md border-b border-slate-200/50 sticky top-0 z-40 flex items-center justify-between px-4 md:px-8 shadow-sm">
@@ -182,13 +285,15 @@ export default function Header({
 
       {/* Right Tools (Branch, Sync, Notify, Profile) */}
       <div className="flex items-center gap-2 md:gap-4 shrink-0">
-        {/* Branch */}
-        <div className="hidden sm:flex flex-col items-end mr-1">
-          <span className="text-[9px] text-slate-400 uppercase tracking-widest font-bold flex items-center gap-1">
-            <MapPin className="w-3 h-3 text-blue-600" /> Cabang
-          </span>
-          <span className="text-xs font-extrabold text-blue-600 mt-0.5">Gudang Utama</span>
-        </div>
+        {/* Store name (real registered store, not a fixed dummy branch label) */}
+        {storeName && (
+          <div className="hidden sm:flex flex-col items-end mr-1">
+            <span className="text-[9px] text-slate-400 uppercase tracking-widest font-bold flex items-center gap-1">
+              <MapPin className="w-3 h-3 text-blue-600" /> Toko
+            </span>
+            <span className="text-xs font-extrabold text-blue-600 mt-0.5">{storeName}</span>
+          </div>
+        )}
 
         {/* Sync Button (Moderate Neumorphic Feel) */}
         <button 
@@ -209,7 +314,9 @@ export default function Header({
             aria-label="Notifikasi"
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
+            {notifications.length > 0 && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
+            )}
           </button>
 
           {/* Notifications Dropdown */}
@@ -217,15 +324,21 @@ export default function Header({
             <div className="absolute right-0 mt-3 w-72 md:w-80 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-2">
               <div className="px-4 py-2 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                 <span className="font-extrabold text-xs text-slate-700 uppercase tracking-wider">Notifikasi Terbaru</span>
-                <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">3 Aktif</span>
+                {notifications.length > 0 && (
+                  <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{notifications.length} Aktif</span>
+                )}
               </div>
               <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
-                {notifications.map((notif) => (
-                  <div key={notif.id} className="p-3 text-xs text-slate-600 hover:bg-slate-50/50 transition-colors flex gap-2">
-                    <span className="w-1.5 h-1.5 mt-1.5 bg-red-500 rounded-full shrink-0"></span>
-                    <p className="uppercase tracking-wide text-[10px] leading-relaxed">{notif.text}</p>
-                  </div>
-                ))}
+                {notifications.length === 0 ? (
+                  <p className="px-4 py-6 text-[10px] text-slate-400 text-center uppercase tracking-wide">Tidak ada notifikasi baru</p>
+                ) : (
+                  notifications.map((notif) => (
+                    <div key={notif.id} className="p-3 text-xs text-slate-600 hover:bg-slate-50/50 transition-colors flex gap-2">
+                      {notifIcon(notif.level)}
+                      <p className="tracking-wide text-[10px] leading-relaxed">{notif.text}</p>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -237,13 +350,8 @@ export default function Header({
           className="flex items-center gap-2 md:gap-3 pl-2 md:pl-4 border-l border-slate-200 cursor-pointer hover:opacity-85 select-none transition-all active:scale-95"
           title="Buka Info Sesi"
         >
-          <div className="p-0.5 rounded-full border border-slate-200">
-            <img 
-              src={profile.avatar} 
-              alt={profile.name}
-              className="w-7 h-7 md:w-8 md:h-8 rounded-full object-cover" 
-              referrerPolicy="no-referrer"
-            />
+          <div className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-white text-[10px] font-extrabold ${colorFor(profile.name)}`}>
+            {initialsFor(profile.name)}
           </div>
           <div className="hidden md:block text-left">
             <p className="text-xs font-bold text-slate-800 leading-none">{profile.name}</p>
@@ -275,15 +383,13 @@ export default function Header({
 
             {/* Profile Detail Card */}
             <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-100 rounded-xl">
-              <img 
-                src={profile.avatar} 
-                alt={profile.name}
-                className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
-                referrerPolicy="no-referrer"
-              />
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-base font-extrabold border-2 border-white shadow-sm ${colorFor(profile.name)}`}>
+                {initialsFor(profile.name)}
+              </div>
               <div className="text-left">
                 <h4 className="font-bold text-gray-900 text-sm">{profile.name}</h4>
                 <p className="text-[10px] text-gray-500 font-semibold">{profile.role}</p>
+                {storeName && <p className="text-[10px] text-gray-400">{storeName}</p>}
                 <span className="inline-block mt-1 text-[8px] bg-emerald-100 text-emerald-800 font-bold uppercase tracking-wider px-1.5 py-0.5 rounded">
                   Status: Online
                 </span>
@@ -298,51 +404,18 @@ export default function Header({
                   <Clock className="w-4 h-4 text-blue-600" />
                   <div className="text-left">
                     <span className="text-[8px] text-gray-400 block uppercase">Uptime Sesi</span>
-                    <span className="font-bold text-slate-800">04:45:12</span>
+                    <span className="font-bold text-slate-800">{loginAt ? formatUptime(uptimeMs) : '—'}</span>
                   </div>
                 </div>
                 <div className="p-2 border border-gray-100 rounded-lg flex items-center gap-2">
-                  <Coins className="w-4 h-4 text-emerald-600" />
+                  {kasLaci === null ? <Wallet className="w-4 h-4 text-slate-400" /> : <Coins className="w-4 h-4 text-emerald-600" />}
                   <div className="text-left">
                     <span className="text-[8px] text-gray-400 block uppercase">Kas Laci</span>
-                    <span className="font-bold text-slate-800">Rp 12.840k</span>
+                    <span className="font-bold text-slate-800">{kasLaci === null ? 'Sesi belum dibuka' : formatRupiah(kasLaci)}</span>
                   </div>
                 </div>
               </div>
             </div>
-
-            {/* Switch user role simulation */}
-            {onUserChange && (
-              <div className="space-y-2 border-t border-gray-100 pt-3">
-                <h5 className="font-bold text-[10px] text-gray-400 uppercase tracking-wider text-left">Simulasi Alih Peran (Role Switcher)</h5>
-                <div className="space-y-1.5">
-                  <button 
-                    onClick={() => {
-                      onUserChange({ name: "Alexandra Tokku", role: "owner" });
-                      setShowProfileModal(false);
-                    }}
-                    className={`w-full text-left p-2 rounded-lg font-bold flex items-center justify-between border ${
-                      currentUser?.role === 'owner' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white hover:bg-slate-50 border-gray-100'
-                    }`}
-                  >
-                    <span>Alexandra Tokku (Pemilik Toko)</span>
-                    <span className="text-[8px] uppercase font-black bg-slate-100 px-1 py-0.5 rounded">Owner</span>
-                  </button>
-                  <button 
-                    onClick={() => {
-                      onUserChange({ name: "Budi Santoso", role: "kasir" });
-                      setShowProfileModal(false);
-                    }}
-                    className={`w-full text-left p-2 rounded-lg font-bold flex items-center justify-between border ${
-                      currentUser?.role === 'kasir' || (!currentUser && profile.role === 'Kasir Toko') ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white hover:bg-slate-50 border-gray-100'
-                    }`}
-                  >
-                    <span>Budi Santoso (Kasir Utama)</span>
-                    <span className="text-[8px] uppercase font-black bg-slate-100 px-1 py-0.5 rounded">Kasir</span>
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Action buttons */}
             <div className="flex gap-3 pt-2 border-t border-gray-100">

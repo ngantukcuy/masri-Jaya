@@ -3,7 +3,7 @@ import {
   Building, 
   MapPin, 
   ShieldCheck, 
-  Printer, 
+  Printer as PrinterIcon, 
   AlertOctagon, 
   Save, 
   CheckCircle2, 
@@ -13,10 +13,22 @@ import {
   Trash2,
   Warehouse,
   CreditCard,
+  Bluetooth,
+  Usb,
+  Loader2,
 } from 'lucide-react';
-import { Branch, StoreProfile, StaffMember, BankAccount, SkuLocation } from '../../types';
+import { Branch, StoreProfile, StaffMember, BankAccount, SkuLocation, Printer } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSupabaseState } from '../../lib/useSupabaseState';
+import { useSupabaseTable } from '../../lib/useSupabaseTable';
+import {
+  connectBluetoothPrinter,
+  connectUsbPrinter,
+  isBluetoothSupported,
+  isUsbSupported,
+  type PrinterConnectionHandle,
+} from '../../lib/printing/printerConnection';
+import { buildTestPrint } from '../../lib/printing/escpos';
 
 interface SettingsViewProps {
   branches: Branch[];
@@ -64,15 +76,15 @@ const ROLE_DEFAULT_PERMISSIONS: Record<'Owner' | 'Admin' | 'Kasir' | 'Stoker', s
 export default function SettingsView({ branches, onUpdateBranches, skuLocations, onUpdateSkuLocations, onAddActivity }: SettingsViewProps) {
   const [activeTab, setActiveTab] = useState<'profile' | 'branches' | 'locations' | 'printers' | 'security' | 'accounts'>('profile');
   const [storeProfile, setStoreProfile] = useState<StoreProfile>({
-    storeName: 'Panglong Masri Jaya',
+    storeName: 'TB Sinar Maju Pusat',
     ownerName: 'Owner',
-    email: 'masrijaya@gmail.com',
-    phone: '+62 813-7483-5519',
-    address: 'Jl. Rawe 7, martubung',
-    city: 'Medan',
-    taxId: '-',
+    email: 'admin@sinarmaju-materials.com',
+    phone: '+62 812-0000-0000',
+    address: 'Jl. Panglima Sudirman No. 45',
+    city: 'Pekanbaru',
+    taxId: 'NPWP-99.283.4-X10.000',
     receiptNote: 'Terima kasih telah berbelanja',
-    pin: '1945'
+    pin: '882100'
   });
   const [branchForm, setBranchForm] = useState({
     name: '',
@@ -96,7 +108,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
       Minggu: { open: '08:00', close: '17:00', status: 'Open' as const }
     }
   });
-  const [bankAccounts, setBankAccounts] = useSupabaseState<BankAccount[]>('bankAccounts', []);
+  const [bankAccounts, setBankAccounts] = useSupabaseTable<BankAccount>('bank_accounts', [], (b) => b.id);
   const [newBankAccount, setNewBankAccount] = useState({ name: '', type: 'Bank' as BankAccount['type'], accountNumber: '', holderName: '', notes: '' });
 
   // SKU Location (Lokasi Penyimpanan) form state - list itself is lifted to App level
@@ -108,27 +120,30 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const [lockdownActive, setLockdownActive] = useState(false);
 
   // Profile forms state
-  const [companyName, setCompanyName] = useState('Panglong Masri Jaya');
-  const [taxId, setTaxId] = useState('-');
-  const [email, setEmail] = useState('masrijaya@gmail.com');
+  const [companyName, setCompanyName] = useState('TB Sinar Maju Pusat');
+  const [taxId, setTaxId] = useState('NPWP-99.283.4-X10.000');
+  const [email, setEmail] = useState('admin@sinarmaju-materials.com');
 
   // Security & Staff states
-  const [ownerPin, setOwnerPin] = useState('1945');
+  const [ownerPin, setOwnerPin] = useState('882100');
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffPhone, setNewStaffPhone] = useState('');
   const [newStaffPin, setNewStaffPin] = useState('');
   const [newStaffRole, setNewStaffRole] = useState<'Owner' | 'Admin' | 'Kasir' | 'Stoker'>('Kasir');
   const [newStaffPermissions, setNewStaffPermissions] = useState<string[]>(ROLE_DEFAULT_PERMISSIONS['Kasir']);
-  const [staffList, setStaffList] = useSupabaseState<StaffMember[]>('staffList', [
-    { id: 'staff-01', name: 'Budi Santoso', phone: '081234567890', pin: '1234', role: 'Kasir', permissions: ROLE_DEFAULT_PERMISSIONS.Kasir },
-    { id: 'staff-02', name: 'Hendi Pratama', phone: '081234567891', pin: '5678', role: 'Admin', permissions: ROLE_DEFAULT_PERMISSIONS.Admin }
-  ]);
+  const [staffList, setStaffList] = useSupabaseTable<StaffMember>('staff_list', [], (s) => s.id!);
 
-  // Printers state
-  const [printers, setPrinters] = useSupabaseState('printers', [
-    { name: "Printer Thermal Kasir Epson (Registrasi 01)", status: "Active", ip: "192.168.1.120" },
-    { name: "Printer Label Star Micronics (Gudang)", status: "Offline", ip: "192.168.1.125" }
-  ]);
+  // Printers: the saved list (name + connection type) lives in Supabase and
+  // is shared across devices; the actual LIVE connection (paired
+  // Bluetooth/USB device) only makes sense on whichever computer/tablet is
+  // physically near the printer, so that part is local-only React state —
+  // see printerConnectionsRef below.
+  const [printers, setPrinters] = useSupabaseTable<Printer>('printers', [], (p) => p.id);
+  const [printerConnections, setPrinterConnections] = useState<Map<string, PrinterConnectionHandle>>(new Map());
+  const [connectingPrinterId, setConnectingPrinterId] = useState<string | null>(null);
+  const [showAddPrinterForm, setShowAddPrinterForm] = useState(false);
+  const [newPrinterName, setNewPrinterName] = useState('');
+  const [newPrinterType, setNewPrinterType] = useState<'bluetooth' | 'usb'>('bluetooth');
 
   // Registered owner record (same Supabase row used by LoginView for first-time registration)
   const [registeredOwner, setRegisteredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string; taxId?: string; address?: string; phone?: string; receiptNote?: string } | null>('registeredOwner', null);
@@ -376,21 +391,81 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     triggerToast('Rekening berhasil dihapus.');
   };
 
-  const handleTestPrinter = (printerName: string) => {
-    triggerToast(`Mengirim data cetak uji coba ke ${printerName}...`);
-    // Play print simulation sound if possible
+  const handleConnectPrinter = async (printer: Printer) => {
+    if (printerConnections.has(printer.id) || connectingPrinterId) return;
+    setConnectingPrinterId(printer.id);
     try {
-      const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/1657/1657-84.wav");
-      audio.volume = 0.25;
-      audio.play().catch(() => {});
-    } catch(e){}
+      const onDisconnect = () => {
+        setPrinterConnections((prev) => {
+          const next = new Map(prev);
+          next.delete(printer.id);
+          return next;
+        });
+        triggerToast(`${printer.name} terputus.`);
+      };
+
+      const { handle, deviceName } =
+        printer.connectionType === 'bluetooth'
+          ? await connectBluetoothPrinter(onDisconnect)
+          : await connectUsbPrinter(onDisconnect);
+
+      setPrinterConnections((prev) => new Map(prev).set(printer.id, handle));
+      triggerToast(`Terhubung ke ${deviceName}.`);
+    } catch (err: any) {
+      if (err?.name === 'NotFoundError') {
+        // User closed the browser's device picker without choosing anything — not a real error.
+        triggerToast('Pemilihan device dibatalkan.');
+      } else {
+        triggerToast(`Gagal menyambungkan: ${err?.message || 'Terjadi kesalahan tidak diketahui.'}`);
+      }
+    } finally {
+      setConnectingPrinterId(null);
+    }
   };
 
-  const handleTogglePrinter = (idx: number) => {
-    const updated = [...printers];
-    updated[idx].status = updated[idx].status === 'Active' ? 'Offline' : 'Active';
-    setPrinters(updated);
-    triggerToast(`Koneksi hardware ${updated[idx].name} diperbarui ke ${updated[idx].status === 'Active' ? 'AKTIF' : 'OFFLINE'}`);
+  const handleDisconnectPrinter = (printer: Printer) => {
+    printerConnections.get(printer.id)?.disconnect();
+    setPrinterConnections((prev) => {
+      const next = new Map(prev);
+      next.delete(printer.id);
+      return next;
+    });
+    triggerToast(`${printer.name} diputuskan.`);
+  };
+
+  const handleTestPrinter = async (printer: Printer) => {
+    const handle = printerConnections.get(printer.id);
+    if (!handle) {
+      triggerToast('Sambungkan printer ini dulu sebelum mencetak.');
+      return;
+    }
+    try {
+      await handle.send(buildTestPrint(printer.name, companyName));
+      triggerToast(`Test print terkirim ke ${printer.name}.`);
+    } catch (err: any) {
+      triggerToast(`Gagal mencetak: ${err?.message || 'Terjadi kesalahan tidak diketahui.'}`);
+    }
+  };
+
+  const handleAddPrinter = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPrinterName.trim()) {
+      alert('Nama printer tidak boleh kosong!');
+      return;
+    }
+    const newPrinter: Printer = { id: `printer-${Date.now()}`, name: newPrinterName.trim(), connectionType: newPrinterType };
+    setPrinters([...printers, newPrinter]);
+    triggerToast(`Printer "${newPrinter.name}" ditambahkan — klik "Sambungkan" untuk memasangkannya.`);
+    setNewPrinterName('');
+    setNewPrinterType('bluetooth');
+    setShowAddPrinterForm(false);
+  };
+
+  const handleDeletePrinter = (printer: Printer) => {
+    if (!window.confirm(`Apakah Anda yakin ingin menghapus printer ${printer.name}?`)) return;
+    if (printerConnections.has(printer.id)) handleDisconnectPrinter(printer);
+    setPrinters(printers.filter((p) => p.id !== printer.id));
+    triggerToast(`Printer dihapus: ${printer.name}`);
   };
 
   const handleLockdown = () => {
@@ -443,7 +518,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
             activeTab === 'printers' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-700'
           }`}
         >
-          <Printer className="w-4 h-4" />
+          <PrinterIcon className="w-4 h-4" />
           <span>Printer Thermal</span>
         </button>
         <button 
@@ -768,71 +843,131 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
         {/* Tab 3: Printers */}
         {activeTab === 'printers' && (
           <div className="space-y-4 text-xs">
-            <div className="flex justify-between items-center border-b border-gray-100 pb-2 mb-4">
+            <div className="flex justify-between items-center border-b border-gray-100 pb-2 mb-1">
               <h4 className="font-extrabold text-sm text-gray-800">Integrasi Hardware Pencetakan Struk</h4>
               <button 
-                onClick={() => {
-                  const name = prompt("Masukkan nama printer baru (contoh: Printer Kasir Star):");
-                  if (!name) return;
-                  const ip = prompt("Masukkan IP Address printer baru (contoh: 192.168.1.150):") || "192.168.1.100";
-                  const newPr = { name, status: "Offline", ip };
-                  const updated = [...printers, newPr];
-                  setPrinters(updated);
-                  triggerToast(`Printer Baru Terdaftar: ${name}`);
-                }}
+                onClick={() => setShowAddPrinterForm((v) => !v)}
                 className="flex items-center gap-1 bg-blue-100/70 text-blue-800 text-xs font-bold px-2.5 py-1 rounded hover:bg-blue-600 hover:text-white transition-all cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" /> Tambah Printer
               </button>
             </div>
-            
-            <div className="space-y-3">
-              {printers.map((pr, pIdx) => (
-                <div key={pr.name} className="p-4 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {pr.status === 'Active' ? (
-                      <Wifi className="w-5 h-5 text-emerald-500" />
-                    ) : (
-                      <WifiOff className="w-5 h-5 text-gray-400" />
-                    )}
-                    <div>
-                      <h5 className="font-bold text-gray-800">{pr.name}</h5>
-                      <p className="text-[10px] text-gray-400 font-mono mt-0.5">IP: {pr.ip} • Status: <span className={pr.status === 'Active' ? 'text-emerald-600 font-bold' : 'text-gray-400'}>{pr.status === 'Active' ? 'Terhubung (Aktif)' : 'Offline'}</span></p>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-1.5">
-                    <button 
-                      onClick={() => handleTogglePrinter(pIdx)}
-                      className="text-[10px] bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 px-2.5 py-1 rounded font-bold cursor-pointer"
-                    >
-                      {pr.status === 'Active' ? 'Putuskan' : 'Sambungkan'}
-                    </button>
-                    {pr.status === 'Active' && (
-                      <button 
-                        onClick={() => handleTestPrinter(pr.name)}
-                        className="text-[10px] bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white px-2.5 py-1 rounded font-bold cursor-pointer transition-colors"
-                      >
-                        Cetak Test Roll
-                      </button>
-                    )}
+            {!isBluetoothSupported() && !isUsbSupported() && (
+              <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800">
+                <AlertOctagon className="w-4 h-4 shrink-0 mt-0.5" />
+                <p className="text-[10px] leading-relaxed">Browser ini tidak mendukung Web Bluetooth maupun WebUSB, jadi printer tidak bisa disambungkan dari sini. Buka halaman ini pakai <strong>Chrome</strong> atau <strong>Edge</strong> terbaru (desktop, atau Android untuk Bluetooth).</p>
+              </div>
+            )}
+
+            {showAddPrinterForm && (
+              <form onSubmit={handleAddPrinter} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+                <div>
+                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Nama Printer</label>
+                  <input
+                    type="text"
+                    value={newPrinterName}
+                    onChange={(e) => setNewPrinterName(e.target.value)}
+                    placeholder="Contoh: Printer Kasir Depan"
+                    className="w-full bg-white border border-gray-200 rounded-lg p-2 font-bold text-gray-800 outline-none"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1.5">Jenis Koneksi</label>
+                  <div className="grid grid-cols-2 gap-2">
                     <button
-                      onClick={() => {
-                        if (window.confirm(`Apakah Anda yakin ingin menghapus printer ${pr.name}?`)) {
-                          const updated = printers.filter((_, idx) => idx !== pIdx);
-                          setPrinters(updated);
-                          triggerToast(`Printer dihapus: ${pr.name}`);
-                        }
-                      }}
-                      className="text-[10px] bg-red-50 hover:bg-red-600 text-red-600 hover:text-white p-1.5 rounded-lg font-bold cursor-pointer transition-colors"
-                      title="Hapus Printer"
+                      type="button"
+                      onClick={() => setNewPrinterType('bluetooth')}
+                      className={`flex items-center justify-center gap-1.5 p-2 rounded-lg border font-bold cursor-pointer ${
+                        newPrinterType === 'bluetooth' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-200 text-gray-500'
+                      }`}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Bluetooth className="w-3.5 h-3.5" /> Bluetooth
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewPrinterType('usb')}
+                      className={`flex items-center justify-center gap-1.5 p-2 rounded-lg border font-bold cursor-pointer ${
+                        newPrinterType === 'usb' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-200 text-gray-500'
+                      }`}
+                    >
+                      <Usb className="w-3.5 h-3.5" /> USB
                     </button>
                   </div>
                 </div>
-              ))}
+                <div className="flex gap-2 pt-1">
+                  <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg cursor-pointer">
+                    Simpan Printer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddPrinterForm(false)}
+                    className="flex-1 bg-white border border-gray-200 hover:bg-gray-100 text-gray-600 font-bold py-2 rounded-lg cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </form>
+            )}
+            
+            <div className="space-y-3">
+              {printers.length === 0 && !showAddPrinterForm && (
+                <p className="text-center text-gray-400 py-8 uppercase tracking-wide text-[10px]">Belum ada printer terdaftar. Klik "Tambah Printer" untuk mulai.</p>
+              )}
+              {printers.map((pr) => {
+                const isConnected = printerConnections.has(pr.id);
+                const isConnecting = connectingPrinterId === pr.id;
+                return (
+                  <div key={pr.id} className="p-4 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      {isConnected ? (
+                        <Wifi className="w-5 h-5 text-emerald-500" />
+                      ) : (
+                        <WifiOff className="w-5 h-5 text-gray-400" />
+                      )}
+                      <div>
+                        <h5 className="font-bold text-gray-800">{pr.name}</h5>
+                        <p className="text-[10px] text-gray-400 font-mono mt-0.5 flex items-center gap-1">
+                          {pr.connectionType === 'bluetooth' ? <Bluetooth className="w-3 h-3" /> : <Usb className="w-3 h-3" />}
+                          {pr.connectionType === 'bluetooth' ? 'Bluetooth' : 'USB'} • Status: <span className={isConnected ? 'text-emerald-600 font-bold' : 'text-gray-400'}>{isConnected ? 'Terhubung (perangkat ini)' : 'Belum terhubung'}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button 
+                        onClick={() => (isConnected ? handleDisconnectPrinter(pr) : handleConnectPrinter(pr))}
+                        disabled={isConnecting}
+                        className="text-[10px] bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 px-2.5 py-1 rounded font-bold cursor-pointer disabled:opacity-50 disabled:cursor-wait flex items-center gap-1"
+                      >
+                        {isConnecting && <Loader2 className="w-3 h-3 animate-spin" />}
+                        {isConnecting ? 'Menyambungkan...' : isConnected ? 'Putuskan' : 'Sambungkan'}
+                      </button>
+                      {isConnected && (
+                        <button 
+                          onClick={() => handleTestPrinter(pr)}
+                          className="text-[10px] bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white px-2.5 py-1 rounded font-bold cursor-pointer transition-colors"
+                        >
+                          Cetak Test Roll
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeletePrinter(pr)}
+                        className="text-[10px] bg-red-50 hover:bg-red-600 text-red-600 hover:text-white p-1.5 rounded-lg font-bold cursor-pointer transition-colors"
+                        title="Hapus Printer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+
+            <p className="text-[9px] text-gray-400 leading-relaxed pt-1">
+              Koneksi Bluetooth/USB bersifat per-perangkat: setiap kasir/komputer yang ada di dekat printer perlu memasangkannya sendiri lewat browser-nya masing-masing (persis seperti menyambungkan Bluetooth headset). Daftar nama printer di atas tersimpan bersama, tapi status "Terhubung" hanya berlaku untuk perangkat yang sedang kamu pakai sekarang.
+            </p>
           </div>
         )}
 
@@ -908,16 +1043,16 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                     type="password" 
                     value={ownerPin}
                     onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 6);
                       setOwnerPin(val);
                     }}
-                    placeholder="8821"
-                    className="w-16 bg-white border border-gray-200 rounded p-1.5 text-center font-bold font-mono text-sm"
+                    placeholder="882100"
+                    className="w-20 bg-white border border-gray-200 rounded p-1.5 text-center font-bold font-mono text-sm"
                   />
                   <button 
                     onClick={() => {
-                      if (ownerPin.length !== 4) {
-                        alert("PIN Owner harus berisi 4 digit angka!");
+                      if (ownerPin.length !== 6) {
+                        alert("PIN Owner harus berisi 6 digit angka!");
                         return;
                       }
                       setRegisteredOwner((prev) => prev ? { ...prev, pin: ownerPin } : prev);
@@ -953,7 +1088,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                     <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">6-Digit PIN Kasir (Hanya Angka)</label>
                     <input 
                       type="password"
-                      placeholder="Contoh: 1234"
+                      placeholder="Contoh: 123456"
                       value={newStaffPin}
                       maxLength={6}
                       onChange={(e) => {

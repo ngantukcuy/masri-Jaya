@@ -39,3 +39,13 @@ export interface StaffMember {
   role: 'Owner' | 'Admin' | 'Kasir' | 'Stoker';
   permissions: string[];
 }
+
+// A *saved* printer profile — name + how to reach it. The live connection
+// itself (paired device, GATT/USB handle, connected/disconnected) is
+// per-browser-tab runtime state, not stored here — see
+// frontend/src/lib/printing/printerConnection.ts.
+export interface Printer {
+  id: string;
+  name: string;
+  connectionType: 'bluetooth' | 'usb';
+}

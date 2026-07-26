@@ -18,16 +18,17 @@ import {
 } from 'lucide-react';
 import { Product } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { useSupabaseState } from '../../lib/useSupabaseState';
+import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import { uploadProductImage } from '../../lib/uploadProductImage';
 
 interface ProductsViewProps {
   products: Product[];
   onUpdateProducts: (updatedProducts: Product[]) => void;
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  currentUserName?: string;
 }
 
-export default function ProductsView({ products, onUpdateProducts, onAddActivity }: ProductsViewProps) {
+export default function ProductsView({ products, onUpdateProducts, onAddActivity, currentUserName }: ProductsViewProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
@@ -76,31 +77,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const [adjustNotes, setAdjustNotes] = useState('');
   const [adjustDirectApply, setAdjustDirectApply] = useState(false);
 
-  const opnameDefaults = [
-    {
-      id: "OPN-9901",
-      productSku: products[0]?.sku || "SKU-209841",
-      productName: products[0]?.name || "Semen Portland Dynamix 50kg",
-      type: 'remove',
-      amount: 5,
-      notes: "Sack semen rusak robek saat pemindahan fork-lift",
-      submittedBy: "Hendi Pratama (Staff)",
-      date: "2026-07-16 10:30",
-      status: 'Pending'
-    },
-    {
-      id: "OPN-9902",
-      productSku: products[1]?.sku || "SKU-774029",
-      productName: products[1]?.name || "Besi Beton Polos 12mm x 12m",
-      type: 'add',
-      amount: 8,
-      notes: "Lebih hitung fisik setelah bongkar muat kontainer",
-      submittedBy: "Budi Santoso (Admin)",
-      date: "2026-07-16 11:15",
-      status: 'Pending'
-    }
-  ];
-  const [opnameSubmissions, setOpnameSubmissions] = useSupabaseState<any[]>('opnameSubmissions', opnameDefaults);
+  const [opnameSubmissions, setOpnameSubmissions] = useSupabaseTable<any>('opname_submissions', [], (s) => s.id);
 
   const saveSubmissions = (subs: any[]) => {
     setOpnameSubmissions(subs);
@@ -205,7 +182,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
         type: adjustType,
         amount: adjustValue,
         notes: adjustNotes || "Pemeriksaan stok berkala",
-        submittedBy: "Hendi Pratama (Staff Kasir)",
+        submittedBy: currentUserName || "Staff Aktif",
         date: new Date().toISOString().slice(0, 16).replace('T', ' '),
         status: 'Pending' as const
       };
@@ -776,7 +753,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                     <span className="font-extrabold text-gray-900">Rp {selectedProduct.retailPrice.toLocaleString('id-ID')} / {selectedProduct.unit}</span>
                   </div>
                   <div className="flex justify-between p-2">
-                    <span className="text-gray-500 font-medium flex items-center gap-1">Harga Grosir <Info className="w-3.5 h-3.5 text-blue-500" aria-label="Auto-aktif jika pembelian >= 10 unit" /></span>
+                    <span className="text-gray-500 font-medium flex items-center gap-1">Harga Grosir <Info className="w-3.5 h-3.5 text-blue-500" title="Auto-aktif jika pembelian >= 10 unit" /></span>
                     <span className="font-extrabold text-gray-900">Rp {selectedProduct.wholesalePrice.toLocaleString('id-ID')} / {selectedProduct.unit}</span>
                   </div>
                   <div className="flex justify-between p-2">

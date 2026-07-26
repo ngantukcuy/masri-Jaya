@@ -13,6 +13,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import { useSupabaseState } from '../../lib/useSupabaseState';
+import { useSupabaseTable } from '../../lib/useSupabaseTable';
 
 interface Staff {
   id: string;
@@ -27,7 +28,7 @@ interface LoginViewProps {
 
 export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   const [registeredOwner, setRegisteredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string } | null>('registeredOwner', null);
-  const [staffList, setStaffList] = useSupabaseState<Staff[]>('staffList', []);
+  const [staffList, setStaffList] = useSupabaseTable<Staff>('staff_list', [], (s) => s.id);
 
   const [isRegistered, setIsRegistered] = useState(false);
   const [storeName, setStoreName] = useState('');
@@ -61,8 +62,8 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   // Handle first-time registration
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!storeName || !ownerName || !email || ownerPin.length !== 4) {
-      alert("Harap isi semua kolom dengan benar. PIN harus 4 digit angka.");
+    if (!storeName || !ownerName || !email || ownerPin.length !== 6) {
+      alert("Harap isi semua kolom dengan benar. PIN harus 6 digit angka.");
       return;
     }
 
@@ -91,7 +92,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
   // PIN keyboard digit handler
   const handlePinDigit = (digit: string) => {
-    if (pinInput.length < 6) { // Allow up to 6 digits for staff PINs
+    if (pinInput.length < 6) {
       const nextPin = pinInput + digit;
       setPinInput(nextPin);
       setPinError(false);
@@ -185,16 +186,16 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
               </div>
 
               <div>
-                <label className="block text-[10px] text-gray-500 font-bold uppercase mb-1.5 ml-1">PIN Keamanan (4 Digit)</label>
+                <label className="block text-[10px] text-gray-500 font-bold uppercase mb-1.5 ml-1">PIN Keamanan (6 Digit)</label>
                 <div className="relative">
                   <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
                     type="password"
-                    maxLength={4}
+                    maxLength={6}
                     required
                     value={ownerPin}
-                    onChange={(e) => setOwnerPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    placeholder="Masukkan 4 angka rahasia"
+                    onChange={(e) => setOwnerPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="Masukkan 6 angka rahasia"
                     className="w-full nm-input rounded-xl pl-10 pr-4 py-3 font-mono text-center text-lg font-bold tracking-widest"
                   />
                 </div>
@@ -311,9 +312,9 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
                   {/* PIN Display Indicators */}
                   <div className="text-center space-y-2">
-                    <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Masukkan 4-Digit PIN</span>
-                    <div className="flex justify-center gap-4 py-4">
-                      {[0, 1, 2, 3].map((index) => (
+                    <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Masukkan 6-Digit PIN</span>
+                    <div className="flex justify-center gap-3 py-4">
+                      {[0, 1, 2, 3, 4, 5].map((index) => (
                         <div
                           key={index}
                           className={`w-4 h-4 rounded-full transition-all duration-150 ${

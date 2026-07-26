@@ -2,27 +2,20 @@ import { useEffect, useRef, useState } from 'react';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
-const TABLE = 'tokku_state';
+const TABLE = 'app_settings';
 
 type StateRow<T> = { key: string; value: T };
 
 /**
- * Drop-in replacement for `useState<T>(initialValue)` that persists the
- * value to a single row in the Supabase `tokku_state` table and keeps every
- * open tab/device in sync in real time (via Supabase Realtime).
- *
- * Design choice: each "table" (products, customers, sales invoices, ...) is
- * stored as ONE row with the whole list in a `value` jsonb column, instead
- * of one row per item. This keeps every "table" a single read/write call
- * (no need for every onUpdateX callback to do per-item writes), which
- * matters more for an app this size than the write-granularity you'd want
- * at bigger scale. If this app ever
- * needs many concurrent cashiers hammering the same "table" (e.g.
- * `products`), migrating hot tables to one row per item is the natural next
- * step — see backend/supabase/schema.sql for more.
+ * Drop-in replacement for `useState<T>(initialValue)` for genuinely
+ * singleton/scalar app values (not lists) — persists to a single row in the
+ * small `app_settings` table and keeps every open tab/device in sync in
+ * real time. For list-shaped data (products, customers, ...), use
+ * `useSupabaseTable` instead — each of those gets its own dedicated table
+ * (see backend/supabase/schema.sql).
  *
  * Usage is identical to useState:
- *   const [products, setProducts] = useSupabaseState('products', initialProducts);
+ *   const [registeredOwner, setRegisteredOwner] = useSupabaseState('registeredOwner', null);
  */
 export function useSupabaseState<T>(
   key: string,

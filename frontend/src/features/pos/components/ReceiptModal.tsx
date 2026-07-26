@@ -1,6 +1,13 @@
 import { Printer, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
 
+interface StoreProfileLite {
+  storeName: string;
+  address?: string;
+  phone?: string;
+  receiptNote?: string;
+}
+
 interface ReceiptModalProps {
   onClose: () => void;
   onPrint: () => void;
@@ -9,9 +16,12 @@ interface ReceiptModalProps {
   // The order summary produced right after checkout. Kept loose (any) to match
   // the shape POSView builds it in — see handleCheckout / executeFinalCheckout.
   lastOrderDetails: any;
+  cashierName?: string;
+  storeProfile?: StoreProfileLite;
 }
 
-export default function ReceiptModal({ onClose, onPrint, isPrintingAnim, activePrinterName, lastOrderDetails }: ReceiptModalProps) {
+export default function ReceiptModal({ onClose, onPrint, isPrintingAnim, activePrinterName, lastOrderDetails, cashierName, storeProfile }: ReceiptModalProps) {
+  const storeName = storeProfile?.storeName || 'Toko Saya';
   return (
     <div className="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center z-[150] p-4 overflow-y-auto">
       <motion.div
@@ -23,10 +33,9 @@ export default function ReceiptModal({ onClose, onPrint, isPrintingAnim, activeP
         {/* Printing paper feed animation wrapper */}
         <div className={`transition-all duration-500 ${isPrintingAnim ? 'animate-pulse scale-[0.99] border-t-4 border-blue-600' : ''}`}>
           <div className="text-center border-b border-dashed border-gray-300 pb-4">
-            <span className="text-lg font-black text-gray-900 tracking-tight block">TB SINAR MAJU ERP</span>
-            <span className="text-[10px] text-gray-400 font-bold block uppercase mt-0.5">Suplai Material &amp; Bahan Bangunan</span>
-            <span className="text-[10px] text-gray-400 block mt-0.5">Jakarta Selatan, Indonesia</span>
-            <span className="text-[10px] text-gray-400 block mt-1">Tel: +62 21-555-0199</span>
+            <span className="text-lg font-black text-gray-900 tracking-tight block">{storeName}</span>
+            {storeProfile?.address && <span className="text-[10px] text-gray-400 block mt-0.5">{storeProfile.address}</span>}
+            {storeProfile?.phone && <span className="text-[10px] text-gray-400 block mt-1">Tel: {storeProfile.phone}</span>}
           </div>
 
           <div className="space-y-1.5 text-[10px] py-3">
@@ -99,8 +108,8 @@ export default function ReceiptModal({ onClose, onPrint, isPrintingAnim, activeP
           </div>
 
           <div className="text-center pt-3 text-[9px] text-gray-400 border-t border-dashed border-gray-200 mt-3">
-            <p>Terima kasih telah berbelanja di TB Sinar Maju!</p>
-            <p className="mt-1">Kasir: {lastOrderDetails.customerName === 'Pelanggan Umum' ? 'Staff Aktif' : 'Budi Santoso'}</p>
+            <p>{storeProfile?.receiptNote || `Terima kasih telah berbelanja di ${storeName}!`}</p>
+            <p className="mt-1">Kasir: {cashierName || 'Staff Aktif'}</p>
           </div>
         </div>
 

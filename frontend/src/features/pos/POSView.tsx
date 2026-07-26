@@ -7,7 +7,7 @@ import {
   Coins, 
   Plus, 
   Minus, 
-  Printer, 
+  Printer as PrinterIcon, 
   UserPlus, 
   BadgePercent,
   Sparkles,
@@ -20,7 +20,7 @@ import {
   Wallet,
   Package
 } from 'lucide-react';
-import { Product, Customer, SalesInvoice } from '../../types';
+import { Product, Customer, SalesInvoice, Printer } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import ScannerModal from './components/ScannerModal';
 import QRISModal from './components/QRISModal';
@@ -28,7 +28,7 @@ import ReceiptModal from './components/ReceiptModal';
 import AddProductModal from './components/AddProductModal';
 import AddCustomerModal from './components/AddCustomerModal';
 import { recordSale } from '../../lib/cashSession';
-import { getSupabaseCache } from '../../lib/supabaseCache';
+import { getSupabaseTableCache } from '../../lib/supabaseCache';
 import { playBeep, playPrintSound } from './lib/posAudio';
 import {
   CartItem,
@@ -38,6 +38,13 @@ import {
   clearPersistedPOSState
 } from './lib/posCartStorage';
 
+interface StoreProfileLite {
+  storeName: string;
+  address?: string;
+  phone?: string;
+  receiptNote?: string;
+}
+
 interface POSViewProps {
   products: Product[];
   customers: Customer[];
@@ -46,6 +53,8 @@ interface POSViewProps {
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
   onAddSaleToKPIs: (salesAmount: number) => void;
   onRecordSale?: (invoice: SalesInvoice) => void;
+  cashierName?: string;
+  storeProfile?: StoreProfileLite;
 }
 
 export default function POSView({ 
@@ -55,7 +64,9 @@ export default function POSView({
   onUpdateCustomers, 
   onAddActivity,
   onAddSaleToKPIs,
-  onRecordSale
+  onRecordSale,
+  cashierName,
+  storeProfile,
 }: POSViewProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua Kategori');
   const [searchQuery, setSearchQuery] = useState('');
@@ -516,16 +527,16 @@ export default function POSView({
 
   // Trigger simulated receipt feed
   const handlePrintReceiptSim = () => {
-    // Check cached printer status (synced from Supabase, see lib/supabaseCache.ts)
-    const cachedPrinters = getSupabaseCache<any[]>('printers', []);
-    let hasActivePrinter = true;
-    let connectedPrinterName = "Printer Thermal Kasir Epson (Registrasi 01)";
-    const activePr = cachedPrinters.find((p: any) => p.status === 'Active');
-    hasActivePrinter = !!activePr;
-    if (activePr) connectedPrinterName = activePr.name;
+    // Printers are registered in Supabase (shared across devices); whether
+    // one is actually connected right now is local to whichever browser
+    // paired it in Pengaturan > Printer, so this only checks that at least
+    // one printer is registered — not live connection state.
+    const registeredPrinters = getSupabaseTableCache<Printer>('printers');
+    const hasRegisteredPrinter = registeredPrinters.length > 0;
+    const connectedPrinterName = registeredPrinters[0]?.name || "Printer Kasir";
 
-    if (!hasActivePrinter) {
-      alert("PENCETAKAN GAGAL:\nTidak ada printer thermal yang aktif! Silakan masuk ke tab 'Pengaturan' -> 'Printer' untuk menyambungkan printer kasir.");
+    if (!hasRegisteredPrinter) {
+      alert("PENCETAKAN GAGAL:\nBelum ada printer yang terdaftar! Silakan masuk ke tab 'Pengaturan' -> 'Printer' untuk menambahkan dan menyambungkan printer kasir.");
       return;
     }
 
@@ -1072,6 +1083,8 @@ export default function POSView({
             isPrintingAnim={isPrintingAnim}
             activePrinterName={activePrinterName}
             lastOrderDetails={lastOrderDetails}
+            cashierName={cashierName}
+            storeProfile={storeProfile}
           />
         )}
 

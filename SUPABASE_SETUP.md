@@ -109,6 +109,25 @@ dibuka. Dua akibatnya:
   bagian *Environment Variables* pengaturan project), baru trigger build di
   sana — bukan cukup ada di `.env` lokal kamu.
 
+### Deploy ke Vercel
+
+1. Buka project-nya di vercel.com → **Settings > Environment Variables**
+2. Tambahkan dua variable ini (Key lalu Value), masing-masing centang
+   ketiga environment-nya (**Production**, **Preview**, **Development**)
+   biar sama-sama jalan baik di domain utama maupun di preview URL:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`
+3. **Save**
+4. Kalau project ini `frontend/`-nya bukan root repo (misal kamu push
+   folder `build-fixed-restructured` apa adanya), set **Root Directory** ke
+   `frontend` juga di **Settings > General**, dan pastikan **Build
+   Command**-nya `npm run build`, **Output Directory**-nya `dist`.
+5. **Wajib redeploy** — nambah/ubah Environment Variable TIDAK otomatis
+   nge-build ulang deployment yang sudah ada. Buka tab **Deployments**,
+   klik menu **⋯** di deployment paling atas, pilih **Redeploy**.
+6. Setelah build-nya selesai (biasanya <1 menit), buka lagi URL-nya. Kalau
+   masih ada bekas cache Chrome, hard refresh dulu (`Ctrl+Shift+R`).
+
 ## Struktur Data
 
 Setiap "tabel" (products, customers, salesInvoices, dst) disimpan sebagai

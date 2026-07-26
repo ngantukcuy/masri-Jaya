@@ -39,11 +39,8 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity 
     'Utility': 'Utilitas & Listrik'
   };
 
-  // Pending claims in IDR equivalents
-  const [pendingClaims, setPendingClaims] = useState<PendingApproval[]>([
-    { id: "CLM-882", item: "Tinta Printer & Kertas Invoice", submittedBy: "Andi Wijaya", amount: 250000, category: "Office" },
-    { id: "CLM-883", item: "Bahan Bakar Solar Truk Isuzu", submittedBy: "Budi Santoso", amount: 450000, category: "Logistics" }
-  ]);
+  // Pending claims in IDR equivalents (local queue — not yet wired to a shared backend table)
+  const [pendingClaims, setPendingClaims] = useState<PendingApproval[]>([]);
 
   // Form states for new expense
   const [newExpDesc, setNewExpDesc] = useState('');
