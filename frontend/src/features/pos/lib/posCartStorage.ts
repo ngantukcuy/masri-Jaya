@@ -15,7 +15,7 @@ export type PersistedPOSState = {
   paymentMethod: 'Cash' | 'QRIS' | 'Split' | 'Deposit';
 };
 
-export const POS_CART_STORAGE_KEY = 'posCartState';
+export const POS_CART_STORAGE_KEY = 'pos_cart_state';
 
 const emptyState = (): PersistedPOSState => ({
   cart: [],

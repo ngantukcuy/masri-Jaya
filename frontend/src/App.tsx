@@ -53,7 +53,7 @@ function AppShell() {
   // State management
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
   const [loginAt, setLoginAt] = useState<number | null>(null);
-  const [registeredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string; address?: string; phone?: string; receiptNote?: string; taxId?: string } | null>('registeredOwner', null);
+  const [registeredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string; address?: string; phone?: string; receiptNote?: string; taxId?: string } | null>('store_owner', null);
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [products, setProducts] = useSupabaseTable<Product>('products', [], (p) => p.sku);
@@ -68,11 +68,11 @@ function AppShell() {
   const [digitalOrders, setDigitalOrders] = useSupabaseTable<DigitalOrder>('digital_orders', [], (d) => d.id);
   const [banners, setBanners] = useSupabaseTable<Banner>('banners', [], (b) => b.id);
   const [skuLocations, setSkuLocations] = useSupabaseTable<SkuLocation>('sku_locations', [], (s) => s.id);
-  const [ecommerceUsername, setEcommerceUsername] = useSupabaseState<string>('ecommerceUsername', '');
+  const [ecommerceUsername, setEcommerceUsername] = useSupabaseState<string>('ecommerce_username', '');
 
   // Dynamic metrics added from POS checkout
-  const [totalSales, setTotalSales] = useSupabaseState<number>('totalSales', 0);
-  const [totalOrdersCount, setTotalOrdersCount] = useSupabaseState<number>('totalOrdersCount', 0);
+  const [totalSales, setTotalSales] = useSupabaseState<number>('total_sales', 0);
+  const [totalOrdersCount, setTotalOrdersCount] = useSupabaseState<number>('total_orders_count', 0);
 
   // Search filter
   const [searchQuery, setSearchQuery] = useState('');

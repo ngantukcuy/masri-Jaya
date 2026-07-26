@@ -49,9 +49,9 @@
 --
 -- Data yang BUKAN daftar/list (cuma satu nilai tunggal per toko: profil
 -- owner yang lagi login, username e-commerce, counter total penjualan, sesi
--- kas yang lagi jalan, riwayat sesi kas, draft keranjang POS) tetap di satu
--- tabel kecil `app_settings` (lihat bagian paling bawah) — dipaksa jadi
--- "tabel" masing-masing malah janggal buat data yang memang cuma satu baris.
+-- kas yang lagi jalan, riwayat sesi kas, draft keranjang POS) juga punya
+-- tabelnya masing-masing (lihat bagian 2 di bawah) — satu baris tetap
+-- (id = 1) per tabel, bukan satu tabel key-value generik buat semuanya.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
@@ -136,47 +136,73 @@ end $$;
 grant usage on schema public to authenticated;
 
 -- -----------------------------------------------------------------------------
--- 2) app_settings — buat nilai tunggal (bukan daftar): registeredOwner,
---    ecommerceUsername, totalSales, totalOrdersCount, cashSessionCurrent,
---    cashSessionHistory, posCartState. Dipakai oleh
---    frontend/src/lib/useSupabaseState.ts dan frontend/src/lib/supabaseCache.ts.
+-- 2) Tabel singleton — satu tabel per nilai tunggal (bukan daftar), masing-
+--    masing dikunci ke SATU baris lewat `id smallint primary key default 1
+--    check (id = 1)`. Sebelumnya semua nilai ini numpuk di satu tabel
+--    generik `app_settings` (key/value) — sekarang tiap nilai punya
+--    tabelnya sendiri, konsisten dengan tabel per-entitas di atas.
+--    Dipakai oleh frontend/src/lib/useSupabaseState.ts (registeredOwner,
+--    ecommerceUsername, totalSales, totalOrdersCount) dan
+--    frontend/src/lib/supabaseCache.ts (cashSessionCurrent,
+--    cashSessionHistory, posCartState).
+--
+--    Peta value -> tabel:
+--      registeredOwner      -> store_owner
+--      ecommerceUsername    -> ecommerce_username
+--      totalSales           -> total_sales
+--      totalOrdersCount     -> total_orders_count
+--      cashSessionCurrent   -> cash_session_current
+--      cashSessionHistory   -> cash_session_history
+--      posCartState         -> pos_cart_state
 -- -----------------------------------------------------------------------------
-create table if not exists public.app_settings (
-  key        text primary key,
-  value      jsonb not null,
-  updated_at timestamptz not null default now()
-);
-
-drop trigger if exists trg_app_settings_updated_at on public.app_settings;
-create trigger trg_app_settings_updated_at
-before update on public.app_settings
-for each row execute function public.set_row_updated_at();
-
-alter table public.app_settings enable row level security;
-
-drop policy if exists "app_settings_select_authenticated" on public.app_settings;
-create policy "app_settings_select_authenticated" on public.app_settings for select to authenticated using (true);
-
-drop policy if exists "app_settings_insert_authenticated" on public.app_settings;
-create policy "app_settings_insert_authenticated" on public.app_settings for insert to authenticated with check (true);
-
-drop policy if exists "app_settings_update_authenticated" on public.app_settings;
-create policy "app_settings_update_authenticated" on public.app_settings for update to authenticated using (true) with check (true);
-
-drop policy if exists "app_settings_delete_authenticated" on public.app_settings;
-create policy "app_settings_delete_authenticated" on public.app_settings for delete to authenticated using (true);
-
-grant select, insert, update, delete on public.app_settings to authenticated;
-grant select, insert, update, delete on public.app_settings to service_role;
-
 do $$
+declare
+  singleton_tables text[] := array[
+    'store_owner', 'ecommerce_username', 'total_sales', 'total_orders_count',
+    'cash_session_current', 'cash_session_history', 'pos_cart_state'
+  ];
+  t text;
 begin
-  if not exists (
-    select 1 from pg_publication_tables
-    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'app_settings'
-  ) then
-    alter publication supabase_realtime add table public.app_settings;
-  end if;
+  foreach t in array singleton_tables loop
+    execute format($f$
+      create table if not exists public.%1$I (
+        id          smallint primary key default 1 check (id = 1),
+        value       jsonb not null,
+        updated_at  timestamptz not null default now()
+      );
+    $f$, t);
+
+    execute format('drop trigger if exists trg_%1$I_updated_at on public.%1$I;', t);
+    execute format($f$
+      create trigger trg_%1$I_updated_at
+      before update on public.%1$I
+      for each row execute function public.set_row_updated_at();
+    $f$, t);
+
+    execute format('alter table public.%1$I enable row level security;', t);
+
+    execute format('drop policy if exists "%1$s_select_authenticated" on public.%1$I;', t);
+    execute format($f$create policy "%1$s_select_authenticated" on public.%1$I for select to authenticated using (true);$f$, t);
+
+    execute format('drop policy if exists "%1$s_insert_authenticated" on public.%1$I;', t);
+    execute format($f$create policy "%1$s_insert_authenticated" on public.%1$I for insert to authenticated with check (true);$f$, t);
+
+    execute format('drop policy if exists "%1$s_update_authenticated" on public.%1$I;', t);
+    execute format($f$create policy "%1$s_update_authenticated" on public.%1$I for update to authenticated using (true) with check (true);$f$, t);
+
+    execute format('drop policy if exists "%1$s_delete_authenticated" on public.%1$I;', t);
+    execute format($f$create policy "%1$s_delete_authenticated" on public.%1$I for delete to authenticated using (true);$f$, t);
+
+    execute format('grant select, insert, update, delete on public.%1$I to authenticated;', t);
+    execute format('grant select, insert, update, delete on public.%1$I to service_role;', t);
+
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%1$I;', t);
+    end if;
+  end loop;
 end $$;
 
 -- -----------------------------------------------------------------------------
@@ -222,9 +248,11 @@ using (bucket_id = 'product-images');
 
 -- =============================================================================
 -- MIGRASI DARI SKEMA LAMA (kalau kamu sebelumnya sudah pernah menjalankan versi
--- 1-tabel dan sudah ada data beneran di `tokku_state`): tabel lama dibiarkan
--- apa adanya di bawah (TIDAK dihapus otomatis, biar data lama gak hilang
--- kalau tanpa sengaja run ulang) — pindahkan datanya manual per key kalau
--- dibutuhkan, baru drop:
+-- 1-tabel dan sudah ada data beneran di `tokku_state`, atau versi generik
+-- `app_settings`): tabel lama dibiarkan apa adanya di bawah (TIDAK dihapus
+-- otomatis, biar data lama gak hilang kalau tanpa sengaja run ulang) —
+-- pindahkan datanya manual per key ke tabel singleton barunya di atas
+-- (lihat peta value -> tabel di bagian 2), baru drop:
 --   drop table if exists public.tokku_state;
+--   drop table if exists public.app_settings;
 -- =============================================================================

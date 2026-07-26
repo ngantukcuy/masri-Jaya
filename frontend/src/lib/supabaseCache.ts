@@ -1,9 +1,7 @@
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
-const TABLE = 'app_settings';
-
-type StateRow<T> = { key: string; value: T };
+type SingletonRow<T> = { id: 1; value: T };
 type TableRow<T> = { key: string; data: T };
 
 /**
@@ -16,58 +14,62 @@ type TableRow<T> = { key: string; data: T };
  * row arrives, which happens shortly after app load). Writes update the
  * cache immediately and push to Supabase in the background.
  *
- * This is for the singleton `app_settings` table. For reading a real
- * per-entity table (e.g. `printers`) from non-component code, see
- * `getSupabaseTableCache` below instead.
+ * Each singleton value lives in its own dedicated Supabase table (single
+ * fixed row, id = 1) — not a shared key-value store. `table` is the actual
+ * Supabase table name (snake_case), e.g. `getSupabaseCache('cash_session_current', ...)`.
+ * See backend/supabase/schema.sql for the full table list.
+ *
+ * For reading a real per-entity table (e.g. `printers`) from non-component
+ * code, see `getSupabaseTableCache` below instead.
  */
 const caches = new Map<string, unknown>();
 const subscribed = new Set<string>();
 
-function ensureSubscribed<T>(key: string, defaultValue: T) {
-  if (subscribed.has(key)) return;
-  subscribed.add(key);
-  caches.set(key, defaultValue);
+function ensureSubscribed<T>(table: string, defaultValue: T) {
+  if (subscribed.has(table)) return;
+  subscribed.add(table);
+  caches.set(table, defaultValue);
 
   supabase
-    .channel(`app_settings_cache:${key}`)
+    .channel(`singleton_cache:${table}`)
     .on(
       'postgres_changes',
-      { event: '*', schema: 'public', table: TABLE, filter: `key=eq.${key}` },
-      (payload: RealtimePostgresChangesPayload<StateRow<T>>) => {
+      { event: '*', schema: 'public', table, filter: 'id=eq.1' },
+      (payload: RealtimePostgresChangesPayload<SingletonRow<T>>) => {
         if (payload.eventType === 'DELETE') return;
-        const row = payload.new as StateRow<T>;
-        caches.set(key, row.value);
+        const row = payload.new as SingletonRow<T>;
+        caches.set(table, row.value);
       }
     )
     .subscribe();
 
   supabase
-    .from(TABLE)
+    .from(table)
     .select('value')
-    .eq('key', key)
+    .eq('id', 1)
     .maybeSingle()
     .then(({ data, error }) => {
       if (error) {
-        console.error(`[supabase-cache] Gagal memuat "${key}":`, error);
+        console.error(`[supabase-cache] Gagal memuat tabel "${table}":`, error);
         return;
       }
-      if (data) caches.set(key, data.value);
+      if (data) caches.set(table, data.value);
     });
 }
 
-export function getSupabaseCache<T>(key: string, defaultValue: T): T {
-  ensureSubscribed(key, defaultValue);
-  return caches.has(key) ? (caches.get(key) as T) : defaultValue;
+export function getSupabaseCache<T>(table: string, defaultValue: T): T {
+  ensureSubscribed(table, defaultValue);
+  return caches.has(table) ? (caches.get(table) as T) : defaultValue;
 }
 
-export function setSupabaseCache<T>(key: string, value: T): void {
-  caches.set(key, value);
-  subscribed.add(key);
+export function setSupabaseCache<T>(table: string, value: T): void {
+  caches.set(table, value);
+  subscribed.add(table);
   supabase
-    .from(TABLE)
-    .upsert({ key, value: value as never }, { onConflict: 'key' })
+    .from(table)
+    .upsert({ id: 1, value: value as never }, { onConflict: 'id' })
     .then(({ error }) => {
-      if (error) console.error(`[supabase-cache] Gagal menyimpan "${key}":`, error);
+      if (error) console.error(`[supabase-cache] Gagal menyimpan ke tabel "${table}":`, error);
     });
 }
 

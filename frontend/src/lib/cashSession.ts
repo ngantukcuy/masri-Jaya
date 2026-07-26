@@ -1,8 +1,8 @@
 import { CashSession, CashMutation } from '../types';
 import { getSupabaseCache, setSupabaseCache } from './supabaseCache';
 
-const CURRENT_KEY = 'cashSessionCurrent';
-const HISTORY_KEY = 'cashSessionHistory';
+const CURRENT_KEY = 'cash_session_current';
+const HISTORY_KEY = 'cash_session_history';
 
 export function getCurrentSession(): CashSession | null {
   const cached = getSupabaseCache<CashSession | null>(CURRENT_KEY, null);

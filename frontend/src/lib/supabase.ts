@@ -40,7 +40,7 @@ export const supabase = createClient(
 // signed-in user though, so we sign in anonymously in the background as
 // soon as the app loads. See SUPABASE_SETUP.md for how to enable the
 // "Anonymous sign-ins" provider in the Supabase dashboard — without that
-// step every read/write to `tokku_state` will fail with a permission error.
+// step every read/write will fail with a permission error.
 if (!missingConfig.length) {
   supabase.auth.getSession().then(({ data }) => {
     if (!data.session) {

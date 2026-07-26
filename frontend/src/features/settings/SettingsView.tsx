@@ -148,7 +148,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const [newPrinterType, setNewPrinterType] = useState<'bluetooth' | 'usb'>('bluetooth');
 
   // Registered owner record (same Supabase row used by LoginView for first-time registration)
-  const [registeredOwner, setRegisteredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string; taxId?: string; address?: string; phone?: string; receiptNote?: string } | null>('registeredOwner', null);
+  const [registeredOwner, setRegisteredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string; taxId?: string; address?: string; phone?: string; receiptNote?: string } | null>('store_owner', null);
 
   // Sync derived profile fields whenever the registered-owner record changes
   useEffect(() => {

@@ -29,7 +29,7 @@ interface LoginViewProps {
 
 export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   const dialog = useDialog();
-  const [registeredOwner, setRegisteredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string } | null>('registeredOwner', null);
+  const [registeredOwner, setRegisteredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string } | null>('store_owner', null);
   const [staffList, setStaffList] = useSupabaseTable<Staff>('staff_list', [], (s) => s.id);
 
   const [isRegistered, setIsRegistered] = useState(false);
