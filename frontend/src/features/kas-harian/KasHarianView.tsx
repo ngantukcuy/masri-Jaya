@@ -22,12 +22,14 @@ import {
   addMutation,
   getMutationTotals
 } from '../../lib/cashSession';
+import { useDialog } from '../../components/shared/DialogProvider';
 
 interface KasHarianViewProps {
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
 }
 
 export default function KasHarianView({ onAddActivity }: KasHarianViewProps) {
+  const dialog = useDialog();
   const [session, setSession] = useState<CashSession | null>(null);
   const [history, setHistory] = useState<CashSession[]>([]);
   const [activeTab, setActiveTab] = useState<'kas' | 'laporan'>('kas');
@@ -55,7 +57,7 @@ export default function KasHarianView({ onAddActivity }: KasHarianViewProps) {
 
   const handleOpenSession = () => {
     if (openingInput < 0) {
-      alert('Jumlah kas awal tidak boleh negatif.');
+      dialog.alert('Jumlah kas awal tidak boleh negatif.');
       return;
     }
     const newSession = openSession(openingInput);
@@ -71,7 +73,7 @@ export default function KasHarianView({ onAddActivity }: KasHarianViewProps) {
   const handleSubmitMutation = () => {
     if (!showMutationModal) return;
     if (mutationAmount <= 0) {
-      alert('Nominal harus lebih dari 0.');
+      dialog.alert('Nominal harus lebih dari 0.');
       return;
     }
     const updated = addMutation(showMutationModal, mutationCategory, mutationAmount, mutationNote || undefined);

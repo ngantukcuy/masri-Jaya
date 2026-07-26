@@ -29,6 +29,7 @@ import {
   type PrinterConnectionHandle,
 } from '../../lib/printing/printerConnection';
 import { buildTestPrint } from '../../lib/printing/escpos';
+import { useDialog } from '../../components/shared/DialogProvider';
 
 interface SettingsViewProps {
   branches: Branch[];
@@ -74,6 +75,7 @@ const ROLE_DEFAULT_PERMISSIONS: Record<'Owner' | 'Admin' | 'Kasir' | 'Stoker', s
 };
 
 export default function SettingsView({ branches, onUpdateBranches, skuLocations, onUpdateSkuLocations, onAddActivity }: SettingsViewProps) {
+  const dialog = useDialog();
   const [activeTab, setActiveTab] = useState<'profile' | 'branches' | 'locations' | 'printers' | 'security' | 'accounts'>('profile');
   const [storeProfile, setStoreProfile] = useState<StoreProfile>({
     storeName: 'TB Sinar Maju Pusat',
@@ -185,7 +187,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const handleAddBranch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!branchForm.name.trim() || !branchForm.city.trim()) {
-      alert("Nama cabang dan kota wajib diisi!");
+      dialog.alert("Nama cabang dan kota wajib diisi!");
       return;
     }
 
@@ -243,8 +245,8 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     });
   };
 
-  const handleDeleteBranch = (branchName: string) => {
-    const confirmed = window.confirm(`Hapus cabang "${branchName}"?`);
+  const handleDeleteBranch = async (branchName: string) => {
+    const confirmed = await dialog.confirm(`Hapus cabang "${branchName}"?`);
     if (confirmed) {
       onUpdateBranches(branches.filter((b) => b.name !== branchName));
       triggerToast(`Cabang "${branchName}" telah dihapus.`);
@@ -288,11 +290,11 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const handleAddStaff = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStaffName.trim()) {
-      alert("Nama staf tidak boleh kosong!");
+      dialog.alert("Nama staf tidak boleh kosong!");
       return;
     }
     if (newStaffPin.length !== 6 || isNaN(Number(newStaffPin))) {
-      alert("PIN harus berupa 6 digit angka!");
+      dialog.alert("PIN harus berupa 6 digit angka!");
       return;
     }
 
@@ -321,10 +323,10 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     );
   };
 
-  const handleDeleteStaff = (idxToDelete: number) => {
+  const handleDeleteStaff = async (idxToDelete: number) => {
     const staffName = staffList[idxToDelete].name;
-    const confirm = window.confirm(`Apakah Anda yakin ingin menghapus akun staf "${staffName}"?`);
-    if (confirm) {
+    const confirmed = await dialog.confirm(`Apakah Anda yakin ingin menghapus akun staf "${staffName}"?`);
+    if (confirmed) {
       const updated = staffList.filter((_, idx) => idx !== idxToDelete);
       setStaffList(updated);
       triggerToast(`Akun Staf "${staffName}" telah dihapus.`);
@@ -334,7 +336,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const handleAddLocation = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newLocationName.trim() || !newLocationCity.trim()) {
-      alert("Nama lokasi dan kota wajib diisi!");
+      dialog.alert("Nama lokasi dan kota wajib diisi!");
       return;
     }
     const updated = [
@@ -354,10 +356,10 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     setNewLocationAddress('');
   };
 
-  const handleDeleteLocation = (idToDelete: string) => {
+  const handleDeleteLocation = async (idToDelete: string) => {
     const loc = skuLocations.find(l => l.id === idToDelete);
     if (!loc) return;
-    const confirmed = window.confirm(`Hapus lokasi SKU "${loc.name}"?`);
+    const confirmed = await dialog.confirm(`Hapus lokasi SKU "${loc.name}"?`);
     if (confirmed) {
       const updated = skuLocations.filter(l => l.id !== idToDelete);
       onUpdateSkuLocations(updated);
@@ -368,7 +370,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const handleAddBankAccount = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBankAccount.name.trim()) {
-      alert('Nama rekening wajib diisi.');
+      dialog.alert('Nama rekening wajib diisi.');
       return;
     }
     const account: BankAccount = {
@@ -450,7 +452,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const handleAddPrinter = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPrinterName.trim()) {
-      alert('Nama printer tidak boleh kosong!');
+      dialog.alert('Nama printer tidak boleh kosong!');
       return;
     }
     const newPrinter: Printer = { id: `printer-${Date.now()}`, name: newPrinterName.trim(), connectionType: newPrinterType };
@@ -461,16 +463,16 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     setShowAddPrinterForm(false);
   };
 
-  const handleDeletePrinter = (printer: Printer) => {
-    if (!window.confirm(`Apakah Anda yakin ingin menghapus printer ${printer.name}?`)) return;
+  const handleDeletePrinter = async (printer: Printer) => {
+    if (!(await dialog.confirm(`Apakah Anda yakin ingin menghapus printer ${printer.name}?`))) return;
     if (printerConnections.has(printer.id)) handleDisconnectPrinter(printer);
     setPrinters(printers.filter((p) => p.id !== printer.id));
     triggerToast(`Printer dihapus: ${printer.name}`);
   };
 
-  const handleLockdown = () => {
-    const confirm = window.confirm("PERINGATAN KRITIS: Aktifkan Protokol Lockdown Darurat?\nTindakan ini akan memutuskan seluruh mesin kasir POS aktif dan mengenkripsi database.");
-    if (confirm) {
+  const handleLockdown = async () => {
+    const confirmed = await dialog.confirm("PERINGATAN KRITIS: Aktifkan Protokol Lockdown Darurat?\nTindakan ini akan memutuskan seluruh mesin kasir POS aktif dan mengenkripsi database.");
+    if (confirmed) {
       setLockdownActive(true);
     }
   };
@@ -1052,7 +1054,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                   <button 
                     onClick={() => {
                       if (ownerPin.length !== 6) {
-                        alert("PIN Owner harus berisi 6 digit angka!");
+                        dialog.alert("PIN Owner harus berisi 6 digit angka!");
                         return;
                       }
                       setRegisteredOwner((prev) => prev ? { ...prev, pin: ownerPin } : prev);

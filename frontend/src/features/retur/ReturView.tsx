@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Product, SalesInvoice, PO, ReturnRecord, ReturnItem } from '../../types';
 import { addMutation } from '../../lib/cashSession';
+import { useDialog } from '../../components/shared/DialogProvider';
 
 interface ReturViewProps {
   products: Product[];
@@ -24,6 +25,7 @@ interface ReturViewProps {
 }
 
 export default function ReturView({ products, onUpdateProducts, salesInvoices, pos, returns, onUpdateReturns, onAddActivity, onNavigateToPOS }: ReturViewProps) {
+  const dialog = useDialog();
   const [activeTab, setActiveTab] = useState<'penjualan' | 'pembelian'>('penjualan');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -80,7 +82,7 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
       }));
 
     if (itemsToReturn.length === 0) {
-      alert('Masukkan minimal 1 jumlah barang yang ingin diretur.');
+      dialog.alert('Masukkan minimal 1 jumlah barang yang ingin diretur.');
       return;
     }
 
@@ -104,14 +106,14 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
       totalRefund,
       'quote'
     );
-    alert(`Pengajuan retur ${record.refNumber} berhasil dibuat dan menunggu persetujuan.`);
+    dialog.alert(`Pengajuan retur ${record.refNumber} berhasil dibuat dan menunggu persetujuan.`);
     resetForm();
   };
 
-  const handleApprove = (id: string) => {
+  const handleApprove = async (id: string) => {
     const record = returns.find(r => r.id === id);
     if (!record) return;
-    const ok = window.confirm(`Setujui retur ${record.refNumber} senilai Rp ${record.totalRefund.toLocaleString('id-ID')}?`);
+    const ok = await dialog.confirm(`Setujui retur ${record.refNumber} senilai Rp ${record.totalRefund.toLocaleString('id-ID')}?`);
     if (!ok) return;
 
     // Adjust stock
@@ -157,10 +159,10 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
     onAddActivity(`Retur ${record.type} Disetujui`, record.refNumber, record.totalRefund, 'quote');
   };
 
-  const handleReject = (id: string) => {
+  const handleReject = async (id: string) => {
     const record = returns.find(r => r.id === id);
     if (!record) return;
-    const ok = window.confirm(`Tolak pengajuan retur ${record.refNumber}?`);
+    const ok = await dialog.confirm(`Tolak pengajuan retur ${record.refNumber}?`);
     if (!ok) return;
     const updatedReturns = returns.map(r => r.id === id ? { ...r, status: 'Rejected' as const } : r);
     onUpdateReturns(updatedReturns);

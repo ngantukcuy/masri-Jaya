@@ -10,6 +10,7 @@ import {
 import { Expense } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
+import { useDialog } from '../../components/shared/DialogProvider';
 
 interface FinanceViewProps {
   expenses: Expense[];
@@ -26,6 +27,7 @@ interface PendingApproval {
 }
 
 export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity }: FinanceViewProps) {
+  const dialog = useDialog();
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('Semua');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [hoveredDayIdx, setHoveredDayIdx] = useState<number | null>(null);
@@ -86,18 +88,18 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity 
       'overdue'
     );
 
-    alert(`Klaim reimbursement ${claim.id} sebesar Rp ${claim.amount.toLocaleString('id-ID')} berhasil disetujui dan dicatat.`);
+    dialog.alert(`Klaim reimbursement ${claim.id} sebesar Rp ${claim.amount.toLocaleString('id-ID')} berhasil disetujui dan dicatat.`);
   };
 
   const handleRejectClaim = (claim: PendingApproval) => {
     setPendingClaims(pendingClaims.filter(c => c.id !== claim.id));
-    alert(`Klaim reimbursement ${claim.id} yang diajukan oleh ${claim.submittedBy} telah ditolak.`);
+    dialog.alert(`Klaim reimbursement ${claim.id} yang diajukan oleh ${claim.submittedBy} telah ditolak.`);
   };
 
   const handleSubmitExpense = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newExpDesc || !newExpUser) {
-      alert("Silakan lengkapi seluruh kolom formulir pengeluaran!");
+      dialog.alert("Silakan lengkapi seluruh kolom formulir pengeluaran!");
       return;
     }
 
@@ -131,7 +133,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity 
     setNewExpAmount(150000);
     setNewExpUser('');
     setNewExpMethod('Tunai');
-    alert("Klaim pengeluaran kas toko berhasil disimpan ke dalam log buku kas!");
+    dialog.alert("Klaim pengeluaran kas toko berhasil disimpan ke dalam log buku kas!");
   };
 
   // Filtered Expenses

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Product, DigitalOrder, Banner } from '../../types';
 import { addMutation } from '../../lib/cashSession';
+import { useDialog } from '../../components/shared/DialogProvider';
 
 interface TokoDigitalViewProps {
   storeName: string;
@@ -41,6 +42,7 @@ export default function TokoDigitalView({
   onUpdateBanners,
   onAddActivity
 }: TokoDigitalViewProps) {
+  const dialog = useDialog();
   const [usernameInput, setUsernameInput] = useState(ecommerceUsername);
   const [selectedOrder, setSelectedOrder] = useState<DigitalOrder | null>(null);
   const [newBannerTitle, setNewBannerTitle] = useState('');
@@ -52,7 +54,7 @@ export default function TokoDigitalView({
   const handleSaveUsername = () => {
     const clean = usernameInput.replace(/[^a-zA-Z]/g, '');
     if (!clean) {
-      alert('Username e-commerce hanya boleh berisi huruf, tanpa angka atau spasi.');
+      dialog.alert('Username e-commerce hanya boleh berisi huruf, tanpa angka atau spasi.');
       return;
     }
     onUpdateEcommerceUsername(clean);
@@ -67,13 +69,13 @@ export default function TokoDigitalView({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (e) {
-      alert(storeLink);
+      dialog.alert(storeLink);
     }
   };
 
   const handleAddBanner = () => {
     if (!newBannerUrl.trim()) {
-      alert('Masukkan URL gambar banner terlebih dahulu.');
+      dialog.alert('Masukkan URL gambar banner terlebih dahulu.');
       return;
     }
     const banner: Banner = {
@@ -95,7 +97,7 @@ export default function TokoDigitalView({
   const handleSimulateOrder = () => {
     const inStockProducts = products.filter(p => p.stock > 0);
     if (inStockProducts.length === 0) {
-      alert('Tidak ada produk dengan stok tersedia untuk disimulasikan.');
+      dialog.alert('Tidak ada produk dengan stok tersedia untuk disimulasikan.');
       return;
     }
     const picked = inStockProducts[Math.floor(Math.random() * inStockProducts.length)];
@@ -113,8 +115,8 @@ export default function TokoDigitalView({
     onUpdateDigitalOrders([order, ...digitalOrders]);
   };
 
-  const handleProcessOrder = (order: DigitalOrder) => {
-    const ok = window.confirm(`Proses pesanan dari ${order.buyerName} senilai Rp ${order.total.toLocaleString('id-ID')} sebagai transaksi COD tunai?`);
+  const handleProcessOrder = async (order: DigitalOrder) => {
+    const ok = await dialog.confirm(`Proses pesanan dari ${order.buyerName} senilai Rp ${order.total.toLocaleString('id-ID')} sebagai transaksi COD tunai?`);
     if (!ok) return;
 
     // Deduct stock

@@ -3,8 +3,10 @@ import {
   FileText, 
   Download, 
 } from 'lucide-react';
+import { useDialog } from '../../components/shared/DialogProvider';
 
 export default function ReportsView() {
+  const dialog = useDialog();
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
   const [selectedFolder, setSelectedFolder] = useState<string>('Sales');
   const [exporting, setExporting] = useState<boolean>(false);
@@ -45,7 +47,7 @@ export default function ReportsView() {
     setExporting(true);
     setTimeout(() => {
       setExporting(false);
-      alert(`Berhasil! Laporan analisis ekspor format ${format} telah disimpan dengan nama: LAPORAN_ANALISIS_KINERJA_SINARMAJU_${new Date().getFullYear()}.${format.toLowerCase()}`);
+      dialog.alert(`Berhasil! Laporan analisis ekspor format ${format} telah disimpan dengan nama: LAPORAN_ANALISIS_KINERJA_SINARMAJU_${new Date().getFullYear()}.${format.toLowerCase()}`);
     }, 1200);
   };
 
@@ -249,7 +251,7 @@ export default function ReportsView() {
             <p className="text-xs text-gray-400">Tingkatkan efisiensi omset dengan memesan besi beton langsung dari pabrik utama guna memotong margin distributor.</p>
           </div>
           <button 
-            onClick={() => alert("Menghubungkan ke pusat server logistik...")}
+            onClick={() => dialog.alert("Menghubungkan ke pusat server logistik...")}
             className="px-4 py-2 bg-white hover:bg-gray-100 text-black font-black text-[10px] uppercase tracking-widest transition-colors cursor-pointer shrink-0"
           >
             Hubungkan Distribusi

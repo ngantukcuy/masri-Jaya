@@ -20,6 +20,7 @@ import { Product } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import { uploadProductImage } from '../../lib/uploadProductImage';
+import { useDialog } from '../../components/shared/DialogProvider';
 
 interface ProductsViewProps {
   products: Product[];
@@ -29,6 +30,7 @@ interface ProductsViewProps {
 }
 
 export default function ProductsView({ products, onUpdateProducts, onAddActivity, currentUserName }: ProductsViewProps) {
+  const dialog = useDialog();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
@@ -121,11 +123,11 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const lowStockCount = products.filter(p => p.stockStatus === 'Low Stock' || p.stock === 0).length;
 
   const handleExportCSV = () => {
-    alert("Membuat Laporan Lembar Stok...\nBerhasil mengekspor LAPORAN_INVENTORI_SINARMAJU.csv dengan seluruh SKU terdaftar.");
+    dialog.alert("Membuat Laporan Lembar Stok...\nBerhasil mengekspor LAPORAN_INVENTORI_SINARMAJU.csv dengan seluruh SKU terdaftar.");
   };
 
   const handlePrintBarcodes = () => {
-    alert("Inisialisasi Printer Thermal Selesai!\nLembar cetak barcode dikirim ke Printer Epson TM-T88VI.");
+    dialog.alert("Inisialisasi Printer Thermal Selesai!\nLembar cetak barcode dikirim ke Printer Epson TM-T88VI.");
   };
 
   const handleExecuteAdjustment = (e: React.FormEvent) => {
@@ -171,7 +173,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
         'arrival'
       );
 
-      alert(`Berhasil menyelesaikan penyesuaian stok langsung untuk SKU ${prod.sku}. Stok baru: ${nextStock} ${prod.unit}`);
+      dialog.alert(`Berhasil menyelesaikan penyesuaian stok langsung untuk SKU ${prod.sku}. Stok baru: ${nextStock} ${prod.unit}`);
     } else {
       // Submit for Approval (Standard Staff workflow)
       const nextId = `OPN-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -199,7 +201,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
         'quote'
       );
 
-      alert(`Pengajuan Stock Opname "${prod.name}" berhasil dikirim ke manajer! Status: MENUNGGU PERSETUJUAN (ID: ${nextId})`);
+      dialog.alert(`Pengajuan Stock Opname "${prod.name}" berhasil dikirim ke manajer! Status: MENUNGGU PERSETUJUAN (ID: ${nextId})`);
     }
   };
 
@@ -209,7 +211,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
 
     const prod = products.find(p => p.sku === sub.productSku);
     if (!prod) {
-      alert("Produk tidak ditemukan atau sudah dihapus!");
+      dialog.alert("Produk tidak ditemukan atau sudah dihapus!");
       return;
     }
 
@@ -255,7 +257,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       'arrival'
     );
 
-    alert(`Pengajuan opname ${subId} disetujui! Stok material "${prod.name}" berhasil disesuaikan.`);
+    dialog.alert(`Pengajuan opname ${subId} disetujui! Stok material "${prod.name}" berhasil disesuaikan.`);
   };
 
   const handleRejectOpname = (subId: string) => {
@@ -274,7 +276,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       'overdue'
     );
 
-    alert(`Pengajuan opname ${subId} berhasil ditolak. Saldo stok aman tidak berubah.`);
+    dialog.alert(`Pengajuan opname ${subId} berhasil ditolak. Saldo stok aman tidak berubah.`);
   };
 
   const handleQuickRestock = (prod: Product) => {
@@ -297,7 +299,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       'arrival'
     );
 
-    alert(`Berhasil menambah 50 unit untuk ${prod.name}. Status stok diperbarui ke Aman.`);
+    dialog.alert(`Berhasil menambah 50 unit untuk ${prod.name}. Status stok diperbarui ke Aman.`);
   };
 
   const openCreateProductModal = () => {
@@ -328,8 +330,8 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     setShowEditModal(true);
   };
 
-  const handleDeleteProduct = (prod: Product) => {
-    const ok = window.confirm(`Apakah Anda yakin ingin menghapus produk "${prod.name}" (${prod.sku})?`);
+  const handleDeleteProduct = async (prod: Product) => {
+    const ok = await dialog.confirm(`Apakah Anda yakin ingin menghapus produk "${prod.name}" (${prod.sku})?`);
     if (!ok) return;
 
     const updated = products.filter(p => p.sku !== prod.sku);
@@ -343,19 +345,19 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       'overdue'
     );
 
-    alert(`Produk "${prod.name}" berhasil dihapus.`);
+    dialog.alert(`Produk "${prod.name}" berhasil dihapus.`);
   };
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formSku.trim()) {
-      alert("Nama dan SKU produk wajib diisi!");
+      dialog.alert("Nama dan SKU produk wajib diisi!");
       return;
     }
 
     // Check duplicate SKU
     if (products.some(p => p.sku.toLowerCase() === formSku.trim().toLowerCase())) {
-      alert(`Error: Kode SKU "${formSku}" sudah digunakan oleh produk lain!`);
+      dialog.alert(`Error: Kode SKU "${formSku}" sudah digunakan oleh produk lain!`);
       return;
     }
 
@@ -389,13 +391,13 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       'arrival'
     );
 
-    alert(`Produk baru "${newProd.name}" berhasil ditambahkan!`);
+    dialog.alert(`Produk baru "${newProd.name}" berhasil ditambahkan!`);
   };
 
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim()) {
-      alert("Nama produk wajib diisi!");
+      dialog.alert("Nama produk wajib diisi!");
       return;
     }
 
@@ -435,7 +437,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       'quote'
     );
 
-    alert(`Informasi produk "${formName}" berhasil diperbarui!`);
+    dialog.alert(`Informasi produk "${formName}" berhasil diperbarui!`);
   };
 
   return (

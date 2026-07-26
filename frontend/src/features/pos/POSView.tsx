@@ -37,6 +37,7 @@ import {
   writePersistedPOSState,
   clearPersistedPOSState
 } from './lib/posCartStorage';
+import { useDialog } from '../../components/shared/DialogProvider';
 
 interface StoreProfileLite {
   storeName: string;
@@ -68,6 +69,7 @@ export default function POSView({
   cashierName,
   storeProfile,
 }: POSViewProps) {
+  const dialog = useDialog();
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua Kategori');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer>(customers[0] || {
@@ -186,12 +188,12 @@ export default function POSView({
     const stock = Math.max(0, Number(newProductStock) || 0);
 
     if (!name || !sku) {
-      alert('Nama barang dan SKU wajib diisi.');
+      dialog.alert('Nama barang dan SKU wajib diisi.');
       return;
     }
 
     if (products.some((prod) => prod.sku.toLowerCase() === sku.toLowerCase())) {
-      alert(`SKU "${sku}" sudah ada di sistem. Gunakan SKU lain.`);
+      dialog.alert(`SKU "${sku}" sudah ada di sistem. Gunakan SKU lain.`);
       return;
     }
 
@@ -245,7 +247,7 @@ export default function POSView({
   // Add to cart
   const handleAddToCart = (prod: Product, quiet = false) => {
     if (prod.stock <= 0) {
-      alert("Stok barang habis! Silakan buat pesanan PO di tab Pembelian terlebih dahulu.");
+      dialog.alert("Stok barang habis! Silakan buat pesanan PO di tab Pembelian terlebih dahulu.");
       return;
     }
 
@@ -257,7 +259,7 @@ export default function POSView({
     if (existingIdx > -1) {
       const updated = [...cart];
       if (updated[existingIdx].quantity + 1 > prod.stock) {
-        alert("Jumlah melebihi stok fisik gudang!");
+        dialog.alert("Jumlah melebihi stok fisik gudang!");
         return;
       }
       updated[existingIdx].quantity += 1;
@@ -330,7 +332,7 @@ export default function POSView({
       setTimeout(() => setScanSuccessMessage(''), 2200);
     } else {
       setScannerStatus(`Barcode "${barcodeSku}" tidak ditemukan`);
-      alert(`Barcode SKU "${barcodeSku}" tidak ditemukan.`);
+      dialog.alert(`Barcode SKU "${barcodeSku}" tidak ditemukan.`);
     }
   }, [products, playBeep, stopCameraPreview]);
 
@@ -341,7 +343,7 @@ export default function POSView({
         const targetQty = item.quantity + delta;
         if (targetQty <= 0) return null;
         if (targetQty > item.product.stock) {
-          alert("Jumlah tidak boleh melebihi stok fisik di gudang!");
+          dialog.alert("Jumlah tidak boleh melebihi stok fisik di gudang!");
           return item;
         }
         
@@ -406,14 +408,14 @@ export default function POSView({
   // Checkout Execution
   const handleCheckout = () => {
     if (cart.length === 0) {
-      alert("Keranjang belanja kosong.");
+      dialog.alert("Keranjang belanja kosong.");
       return;
     }
 
     if (paymentMethod === 'Deposit') {
       const depositBal = selectedCustomer.depositBalance || 0;
       if (depositBal < totalAmount) {
-        alert(`Saldo deposit tidak mencukupi!\nSaldo saat ini: Rp ${depositBal.toLocaleString('id-ID')}\nTotal belanja: Rp ${totalAmount.toLocaleString('id-ID')}`);
+        dialog.alert(`Saldo deposit tidak mencukupi!\nSaldo saat ini: Rp ${depositBal.toLocaleString('id-ID')}\nTotal belanja: Rp ${totalAmount.toLocaleString('id-ID')}`);
         return;
       }
     }
@@ -536,7 +538,7 @@ export default function POSView({
     const connectedPrinterName = registeredPrinters[0]?.name || "Printer Kasir";
 
     if (!hasRegisteredPrinter) {
-      alert("PENCETAKAN GAGAL:\nBelum ada printer yang terdaftar! Silakan masuk ke tab 'Pengaturan' -> 'Printer' untuk menambahkan dan menyambungkan printer kasir.");
+      dialog.alert("PENCETAKAN GAGAL:\nBelum ada printer yang terdaftar! Silakan masuk ke tab 'Pengaturan' -> 'Printer' untuk menambahkan dan menyambungkan printer kasir.");
       return;
     }
 

@@ -25,8 +25,10 @@ import { Product, PO, Customer, Expense, Activity, Branch, Supplier, SalesInvoic
 import { useSupabaseState } from './lib/useSupabaseState';
 import { useSupabaseTable } from './lib/useSupabaseTable';
 import { useSupabaseReady } from './lib/useSupabaseReady';
+import { useDialog } from './components/shared/DialogProvider';
 
 export default function App() {
+  const dialog = useDialog();
   const supabaseReady = useSupabaseReady();
 
   // Wait for anonymous auth before mounting anything that reads/writes
@@ -47,6 +49,7 @@ export default function App() {
 }
 
 function AppShell() {
+  const dialog = useDialog();
   // State management
   const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
   const [loginAt, setLoginAt] = useState<number | null>(null);
@@ -111,7 +114,7 @@ function AppShell() {
     // Switch to Products tab and highlight Portland Cement Type I (low stock)
     setCurrentTab('products');
     setIsMobileMenuOpen(false);
-    alert("Diarahkan ke manajemen stok. Silakan klik Restock Cepat (+50 Unit) pada Semen Portland untuk memenuhi gudang.");
+    dialog.alert("Diarahkan ke manajemen stok. Silakan klik Restock Cepat (+50 Unit) pada Semen Portland untuk memenuhi gudang.");
   };
 
   const handleNewTransaction = () => {
@@ -120,7 +123,7 @@ function AppShell() {
   };
 
   const handleForceSync = () => {
-    alert("Memulai Sinkronisasi Utama...\nBerhasil menerima data real-time dari North Retail Hub & South Dock. Database ERP ter-update sepenuhnya!");
+    dialog.alert("Memulai Sinkronisasi Utama...\nBerhasil menerima data real-time dari North Retail Hub & South Dock. Database ERP ter-update sepenuhnya!");
   };
 
   // Render active view component

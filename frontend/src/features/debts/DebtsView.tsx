@@ -17,6 +17,7 @@ import { Customer, Printer } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
 import { getSupabaseTableCache } from '../../lib/supabaseCache';
+import { useDialog } from '../../components/shared/DialogProvider';
 
 interface DebtsStoreProfileLite {
   storeName: string;
@@ -38,6 +39,7 @@ export default function DebtsView({
   onAddActivity,
   storeProfile,
 }: DebtsViewProps) {
+  const dialog = useDialog();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Semua' | 'Cleared' | 'Pending' | 'Overdue'>('Semua');
   
@@ -104,12 +106,12 @@ export default function DebtsView({
 
     const payment = Number(payAmount);
     if (isNaN(payment) || payment <= 0) {
-      alert("Masukkan nominal pembayaran yang valid!");
+      dialog.alert("Masukkan nominal pembayaran yang valid!");
       return;
     }
 
     if (payment > selectedCustomerForAction.currentDebt) {
-      alert("Nominal pembayaran melebihi total sisa hutang!");
+      dialog.alert("Nominal pembayaran melebihi total sisa hutang!");
       return;
     }
 
@@ -170,7 +172,7 @@ export default function DebtsView({
 
     const amount = Number(addDebtAmount);
     if (isNaN(amount) || amount <= 0) {
-      alert("Masukkan nominal penambahan hutang yang valid!");
+      dialog.alert("Masukkan nominal penambahan hutang yang valid!");
       return;
     }
 

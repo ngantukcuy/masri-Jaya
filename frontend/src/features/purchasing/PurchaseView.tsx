@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { PO, Supplier, Product } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { useDialog } from '../../components/shared/DialogProvider';
 
 interface PurchaseViewProps {
   pos: PO[];
@@ -31,6 +32,7 @@ export default function PurchaseView({
   onAddActivity,
   onUpdateSuppliers
 }: PurchaseViewProps) {
+  const dialog = useDialog();
   const [selectedPO, setSelectedPO] = useState<PO | null>(pos[0] || null);
   const [filterSupplier, setFilterSupplier] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -105,7 +107,7 @@ export default function PurchaseView({
       'arrival'
     );
 
-    alert(`Barang untuk nomor PO ${po.poNumber} berhasil diterima! Stok fisik di gudang telah bertambah.`);
+    dialog.alert(`Barang untuk nomor PO ${po.poNumber} berhasil diterima! Stok fisik di gudang telah bertambah.`);
   };
 
   const handleApprovePO = (po: PO) => {
@@ -113,13 +115,13 @@ export default function PurchaseView({
     const updated = pos.map(p => p.poNumber === po.poNumber ? { ...p, status: 'Ordered' as const } : p);
     onUpdatePOs(updated);
     setSelectedPO(updated.find(p => p.poNumber === po.poNumber) || null);
-    alert(`Nomor PO ${po.poNumber} disetujui! Status diperbarui ke Dipesan.`);
+    dialog.alert(`Nomor PO ${po.poNumber} disetujui! Status diperbarui ke Dipesan.`);
   };
 
   const handleCreatePO = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPOItemName.trim()) {
-      alert("Silakan masukkan nama material pesanan!");
+      dialog.alert("Silakan masukkan nama material pesanan!");
       return;
     }
 
@@ -155,7 +157,7 @@ export default function PurchaseView({
     setNewPOItemQuantity(10);
     setNewPOItemPrice(100000);
     setNewPOLogistics('');
-    alert(`Draft PO ${nextPoNum} berhasil dibuat! Silakan klik tombol 'Setujui Pesanan PO' pada rincian kanan.`);
+    dialog.alert(`Draft PO ${nextPoNum} berhasil dibuat! Silakan klik tombol 'Setujui Pesanan PO' pada rincian kanan.`);
   };
 
   const handleOpenEditPOModal = (po: PO) => {
@@ -168,8 +170,8 @@ export default function PurchaseView({
     setShowEditPOModal(true);
   };
 
-  const handleDeletePO = (po: PO) => {
-    const ok = window.confirm(`Apakah Anda yakin ingin menghapus/membatalkan Pesanan Pembelian ${po.poNumber}?`);
+  const handleDeletePO = async (po: PO) => {
+    const ok = await dialog.confirm(`Apakah Anda yakin ingin menghapus/membatalkan Pesanan Pembelian ${po.poNumber}?`);
     if (!ok) return;
 
     const updated = pos.filter(p => p.poNumber !== po.poNumber);
@@ -183,14 +185,14 @@ export default function PurchaseView({
       'overdue'
     );
 
-    alert(`Pesanan Pembelian ${po.poNumber} berhasil dihapus.`);
+    dialog.alert(`Pesanan Pembelian ${po.poNumber} berhasil dihapus.`);
   };
 
   const handleEditPOSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPO) return;
     if (!editPOItemName.trim()) {
-      alert("Silakan masukkan nama material pesanan!");
+      dialog.alert("Silakan masukkan nama material pesanan!");
       return;
     }
 
@@ -225,7 +227,7 @@ export default function PurchaseView({
       'quote'
     );
 
-    alert(`Pesanan Pembelian ${selectedPO.poNumber} berhasil diperbarui!`);
+    dialog.alert(`Pesanan Pembelian ${selectedPO.poNumber} berhasil diperbarui!`);
   };
 
   // Filtered POs

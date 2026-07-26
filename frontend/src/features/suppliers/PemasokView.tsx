@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Supplier } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { useDialog } from '../../components/shared/DialogProvider';
 
 interface PemasokViewProps {
   suppliers: Supplier[];
@@ -38,6 +39,7 @@ const emptyForm = {
 };
 
 export default function PemasokView({ suppliers, onUpdateSuppliers, onAddActivity }: PemasokViewProps) {
+  const dialog = useDialog();
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingName, setEditingName] = useState<string | null>(null);
@@ -75,7 +77,7 @@ export default function PemasokView({ suppliers, onUpdateSuppliers, onAddActivit
 
   const handleAddExtraSales = () => {
     if (!extraSalesName.trim()) {
-      alert('Nama sales tambahan tidak boleh kosong.');
+      dialog.alert('Nama sales tambahan tidak boleh kosong.');
       return;
     }
     setForm({ ...form, additionalSales: [...form.additionalSales, { name: extraSalesName.trim(), phone: extraSalesPhone.trim() }] });
@@ -90,7 +92,7 @@ export default function PemasokView({ suppliers, onUpdateSuppliers, onAddActivit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) {
-      alert('Nama pemasok tidak boleh kosong.');
+      dialog.alert('Nama pemasok tidak boleh kosong.');
       return;
     }
 
@@ -130,8 +132,8 @@ export default function PemasokView({ suppliers, onUpdateSuppliers, onAddActivit
     setShowModal(false);
   };
 
-  const handleDelete = (s: Supplier) => {
-    const ok = window.confirm(`Hapus data pemasok "${s.name}"?`);
+  const handleDelete = async (s: Supplier) => {
+    const ok = await dialog.confirm(`Hapus data pemasok "${s.name}"?`);
     if (ok) {
       onUpdateSuppliers(suppliers.filter(x => x.name !== s.name));
       onAddActivity('Pemasok Dihapus', s.name, 0, 'quote');

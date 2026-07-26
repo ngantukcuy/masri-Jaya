@@ -19,6 +19,7 @@ import { Product, Bundle, BundleItem, SkuLocation } from '../../types';
 import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import { uploadProductImage } from '../../lib/uploadProductImage';
 import BarcodeScannerModal from '../../components/shared/BarcodeScannerModal';
+import { useDialog } from '../../components/shared/DialogProvider';
 
 interface CategoryEntry {
   id: string;
@@ -45,6 +46,7 @@ function useLocalList<T extends { id: string }>(table: string, defaults: T[]) {
 }
 
 export default function ProductMasterView({ products, onAddActivity, onUpdateProducts, skuLocations = [], initialTab }: ProductMasterViewProps) {
+  const dialog = useDialog();
   const [activeTab, setActiveTab] = useState<'sku-master' | 'kategori' | 'brand' | 'unit' | 'bundle'>(initialTab || 'sku-master');
 
   useEffect(() => {
@@ -161,7 +163,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
   const handleSubmitInduk = (e: React.FormEvent) => {
     e.preventDefault();
     if (!skuForm.name.trim()) {
-      alert('Nama produk tidak boleh kosong.');
+      dialog.alert('Nama produk tidak boleh kosong.');
       return;
     }
     if (!onUpdateProducts) return;
@@ -202,18 +204,18 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     onUpdateProducts([newProduct, ...products]);
     onAddActivity('Produk Induk Baru', `${newProduct.name} (${sku})`, 0, 'quote');
     setSkuForm({ ...emptySkuForm, unit: units[0]?.name || '', skuLocationId: skuLocations[0]?.id || '' });
-    alert(`Produk induk "${newProduct.name}" berhasil disimpan dengan SKU ${sku}.`);
+    dialog.alert(`Produk induk "${newProduct.name}" berhasil disimpan dengan SKU ${sku}.`);
   };
 
   const handleSubmitEceran = (e: React.FormEvent) => {
     e.preventDefault();
     const parent = products.find(p => p.sku === eceranForm.parentSku);
     if (!parent) {
-      alert('Pilih produk induk terlebih dahulu.');
+      dialog.alert('Pilih produk induk terlebih dahulu.');
       return;
     }
     if (!eceranForm.conversionValue || eceranForm.conversionValue <= 0) {
-      alert('Nilai konversi harus lebih dari 0.');
+      dialog.alert('Nilai konversi harus lebih dari 0.');
       return;
     }
     if (!onUpdateProducts) return;
@@ -253,19 +255,19 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     onUpdateProducts([newProduct, ...products]);
     onAddActivity('Produk Eceran Baru', `${newProduct.name} - konversi 1 : ${eceranForm.conversionValue} ${eceranForm.unit}`, 0, 'quote');
     setEceranForm({ ...emptyEceranForm, unit: units[0]?.name || '', skuLocationId: skuLocations[0]?.id || '' });
-    alert(`Produk eceran "${newProduct.name}" berhasil disimpan dengan SKU ${sku}.`);
+    dialog.alert(`Produk eceran "${newProduct.name}" berhasil disimpan dengan SKU ${sku}.`);
   };
 
-  const handleDeleteSkuProduct = (sku: string) => {
+  const handleDeleteSkuProduct = async (sku: string) => {
     if (!onUpdateProducts) return;
-    const ok = window.confirm('Hapus produk ini dari Sku Master?');
+    const ok = await dialog.confirm('Hapus produk ini dari Sku Master?');
     if (ok) onUpdateProducts(products.filter(p => p.sku !== sku));
   };
 
   const handleAddCategory = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategoryName.trim()) {
-      alert('Nama kategori tidak boleh kosong.');
+      dialog.alert('Nama kategori tidak boleh kosong.');
       return;
     }
     const entry: CategoryEntry = { id: `CAT-${Math.floor(100 + Math.random() * 900)}`, name: newCategoryName.trim(), level: newCategoryLevel };
@@ -277,7 +279,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
   const handleAddBrand = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBrandName.trim()) {
-      alert('Nama brand tidak boleh kosong.');
+      dialog.alert('Nama brand tidak boleh kosong.');
       return;
     }
     const entry: SimpleEntry = { id: `BRD-${Math.floor(100 + Math.random() * 900)}`, name: newBrandName.trim() };
@@ -288,7 +290,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
   const handleAddUnit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUnitName.trim()) {
-      alert('Nama satuan tidak boleh kosong.');
+      dialog.alert('Nama satuan tidak boleh kosong.');
       return;
     }
     const entry: SimpleEntry = { id: `UNT-${Math.floor(100 + Math.random() * 900)}`, name: newUnitName.trim() };
@@ -299,11 +301,11 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
   const handleAddItemToBundle = () => {
     const prod = products.find(p => p.sku === pickSku);
     if (!prod) {
-      alert('Pilih produk terlebih dahulu.');
+      dialog.alert('Pilih produk terlebih dahulu.');
       return;
     }
     if (bundleItems.find(i => i.sku === prod.sku)) {
-      alert('Produk ini sudah ada di dalam paket.');
+      dialog.alert('Produk ini sudah ada di dalam paket.');
       return;
     }
     setBundleItems([...bundleItems, { sku: prod.sku, name: prod.name, quantity: pickQty }]);
@@ -326,7 +328,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
   const handleSaveBundle = () => {
     if (!bundleName.trim() || bundleItems.length === 0) {
-      alert('Nama paket dan minimal 1 produk wajib diisi.');
+      dialog.alert('Nama paket dan minimal 1 produk wajib diisi.');
       return;
     }
     const bundle: Bundle = {
@@ -340,10 +342,10 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     resetBundleForm();
   };
 
-  const handleDeleteBundle = (id: string) => {
+  const handleDeleteBundle = async (id: string) => {
     const b = bundles.find(x => x.id === id);
     if (!b) return;
-    const ok = window.confirm(`Hapus paket "${b.name}"?`);
+    const ok = await dialog.confirm(`Hapus paket "${b.name}"?`);
     if (ok) persistBundles(bundles.filter(x => x.id !== id));
   };
 

@@ -25,6 +25,7 @@ import {
   Truck,
   UserCircle2
 } from 'lucide-react';
+import { useDialog } from '../shared/DialogProvider';
 
 interface NavChild {
   id: string;
@@ -56,6 +57,7 @@ export default function Sidebar({
   isMobile = false,
   onClose
 }: SidebarProps) {
+  const dialog = useDialog();
   // Urutan menu sesuai PRD:
   // Dashboard, Kas Harian, Pos Kasir, Riwayat Transaksi, Stok,
   // Products (Sku Master, Kategori, Brand, Unit), Relasi (Pelanggan, Pemasok),
@@ -232,15 +234,15 @@ export default function Sidebar({
           <span>Pengaturan</span>
         </button>
         <button
-          onClick={() => alert("Pusat bantuan siap melayani! Hubungi dukungan Tokku.")}
+          onClick={() => dialog.alert("Pusat bantuan siap melayani! Hubungi dukungan Tokku.")}
           className="w-full flex items-center gap-3 px-3.5 py-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
         >
           <HelpCircle className="w-4 h-4 text-slate-400" />
           <span>Bantuan</span>
         </button>
         <button
-          onClick={() => {
-            const confirmed = window.confirm("Apakah Anda yakin ingin keluar dari akun?");
+          onClick={async () => {
+            const confirmed = await dialog.confirm("Apakah Anda yakin ingin keluar dari akun?");
             if (confirmed) {
               onLogout();
             }

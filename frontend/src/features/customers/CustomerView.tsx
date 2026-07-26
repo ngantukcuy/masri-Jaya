@@ -14,6 +14,7 @@ import {
 import { Customer } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
+import { useDialog } from '../../components/shared/DialogProvider';
 
 interface CustomerViewProps {
   customers: Customer[];
@@ -22,6 +23,7 @@ interface CustomerViewProps {
 }
 
 export default function CustomerView({ customers, onUpdateCustomers, onAddActivity }: CustomerViewProps) {
+  const dialog = useDialog();
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -85,12 +87,12 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
 
   const handleSubmitDeposit = () => {
     if (!depositCustomer || depositAmount <= 0) {
-      alert('Masukkan nominal yang valid.');
+      dialog.alert('Masukkan nominal yang valid.');
       return;
     }
     const currentBalance = depositCustomer.depositBalance || 0;
     if (depositAction === 'withdraw' && depositAmount > currentBalance) {
-      alert('Nominal penarikan melebihi saldo deposit pelanggan.');
+      dialog.alert('Nominal penarikan melebihi saldo deposit pelanggan.');
       return;
     }
 
@@ -119,11 +121,12 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
     setDepositAmount(0);
   };
 
-  const handleSettleDebt = (customer: Customer) => {
+  const handleSettleDebt = async (customer: Customer) => {
     if (customer.currentDebt <= 0) return;
 
-    const payment = Number(prompt(`Selesaikan pembayaran piutang untuk ${customer.name}:`, customer.currentDebt.toString()));
-    if (payment && !isNaN(payment)) {
+    const paymentInput = await dialog.prompt(`Selesaikan pembayaran piutang untuk ${customer.name}:`, customer.currentDebt.toString());
+    const payment = Number(paymentInput);
+    if (paymentInput !== null && payment && !isNaN(payment)) {
       const remaining = Math.max(0, customer.currentDebt - payment);
       
       const updated = customers.map((c) => {
@@ -146,7 +149,7 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
         'sale'
       );
 
-      alert(`Berhasil melunasi pembayaran piutang sebesar Rp ${payment.toLocaleString('id-ID')} untuk ${customer.name}!`);
+      dialog.alert(`Berhasil melunasi pembayaran piutang sebesar Rp ${payment.toLocaleString('id-ID')} untuk ${customer.name}!`);
     }
   };
 
@@ -190,7 +193,7 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
       'quote'
     );
 
-    alert(`Pelanggan baru ${newName} berhasil terdaftar! Paket sambutan gratis +250 poin loyalitas diberikan.`);
+    dialog.alert(`Pelanggan baru ${newName} berhasil terdaftar! Paket sambutan gratis +250 poin loyalitas diberikan.`);
   };
 
   const handleOpenEditModal = (cust: Customer) => {
@@ -208,8 +211,8 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
     setShowEditModal(true);
   };
 
-  const handleDeleteCustomer = (cust: Customer) => {
-    const ok = window.confirm(`Apakah Anda yakin ingin menghapus akun pelanggan "${cust.name}"?`);
+  const handleDeleteCustomer = async (cust: Customer) => {
+    const ok = await dialog.confirm(`Apakah Anda yakin ingin menghapus akun pelanggan "${cust.name}"?`);
     if (!ok) return;
 
     const updated = customers.filter(c => c.id !== cust.id);
@@ -222,13 +225,13 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
       'overdue'
     );
 
-    alert(`Pelanggan "${cust.name}" berhasil dihapus.`);
+    dialog.alert(`Pelanggan "${cust.name}" berhasil dihapus.`);
   };
 
   const handleEditCustomerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCustomer || !editName.trim()) {
-      alert("Nama lengkap pelanggan wajib diisi!");
+      dialog.alert("Nama lengkap pelanggan wajib diisi!");
       return;
     }
 
@@ -263,7 +266,7 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
       'quote'
     );
 
-    alert(`Informasi pelanggan "${editName}" berhasil diperbarui!`);
+    dialog.alert(`Informasi pelanggan "${editName}" berhasil diperbarui!`);
   };
 
   return (

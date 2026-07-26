@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useSupabaseState } from '../../lib/useSupabaseState';
 import { useSupabaseTable } from '../../lib/useSupabaseTable';
+import { useDialog } from '../../components/shared/DialogProvider';
 
 interface Staff {
   id: string;
@@ -27,6 +28,7 @@ interface LoginViewProps {
 }
 
 export default function LoginView({ onLoginSuccess }: LoginViewProps) {
+  const dialog = useDialog();
   const [registeredOwner, setRegisteredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string } | null>('registeredOwner', null);
   const [staffList, setStaffList] = useSupabaseTable<Staff>('staff_list', [], (s) => s.id);
 
@@ -63,7 +65,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     if (!storeName || !ownerName || !email || ownerPin.length !== 6) {
-      alert("Harap isi semua kolom dengan benar. PIN harus 6 digit angka.");
+      dialog.alert("Harap isi semua kolom dengan benar. PIN harus 6 digit angka.");
       return;
     }
 
@@ -87,7 +89,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
     setStaffList(initialList);
     
     setIsRegistered(true);
-    alert("Registrasi Toko Berhasil! Silakan pilih akun dan masukkan PIN Anda.");
+    dialog.alert("Registrasi Toko Berhasil! Silakan pilih akun dan masukkan PIN Anda.");
   };
 
   // PIN keyboard digit handler
@@ -268,8 +270,8 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                   {/* Reset store data option */}
                   <div className="pt-6 border-t border-gray-200 text-center">
                     <button
-                      onClick={() => {
-                        const conf = window.confirm("Apakah Anda yakin ingin mereset data registrasi toko? Ini akan menghapus semua kredensial.");
+                      onClick={async () => {
+                        const conf = await dialog.confirm("Apakah Anda yakin ingin mereset data registrasi toko? Ini akan menghapus semua kredensial.");
                         if (conf) {
                           setRegisteredOwner(null);
                           setStaffList([]);

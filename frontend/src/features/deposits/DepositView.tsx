@@ -3,6 +3,7 @@ import { Search, Plus, Minus, X, PiggyBank } from 'lucide-react';
 import { Customer } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
+import { useDialog } from '../../components/shared/DialogProvider';
 
 interface DepositViewProps {
   customers: Customer[];
@@ -11,6 +12,7 @@ interface DepositViewProps {
 }
 
 export default function DepositView({ customers, onUpdateCustomers, onAddActivity }: DepositViewProps) {
+  const dialog = useDialog();
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [target, setTarget] = useState<Customer | null>(null);
@@ -31,12 +33,12 @@ export default function DepositView({ customers, onUpdateCustomers, onAddActivit
 
   const handleSubmit = () => {
     if (!target || amount <= 0) {
-      alert('Masukkan nominal yang valid.');
+      dialog.alert('Masukkan nominal yang valid.');
       return;
     }
     const currentBalance = target.depositBalance || 0;
     if (action === 'withdraw' && amount > currentBalance) {
-      alert('Nominal penarikan melebihi saldo deposit pelanggan.');
+      dialog.alert('Nominal penarikan melebihi saldo deposit pelanggan.');
       return;
     }
 
