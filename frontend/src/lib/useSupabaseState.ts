@@ -21,7 +21,7 @@ type SingletonRow<T> = { id: 1; value: T };
 export function useSupabaseState<T>(
   table: string,
   initialValue: T
-): [T, (value: T | ((prev: T) => T)) => void] {
+): [T, (value: T | ((prev: T) => T)) => void, boolean] {
   const [value, setValueState] = useState<T>(initialValue);
   const [ready, setReady] = useState(false);
   const initialValueRef = useRef(initialValue);
@@ -114,7 +114,5 @@ export function useSupabaseState<T>(
     });
   };
 
-  void ready; // exposed via useSupabaseState if a loading state is ever needed
-
-  return [value, setValue];
+  return [value, setValue, ready];
 }

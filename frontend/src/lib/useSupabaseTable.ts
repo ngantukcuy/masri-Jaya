@@ -23,8 +23,15 @@ export function useSupabaseTable<T>(
   table: string,
   initialValue: T[],
   getKey: (item: T) => string
-): [T[], (value: T[] | ((prev: T[]) => T[])) => void] {
+): [T[], (value: T[] | ((prev: T[]) => T[])) => void, boolean] {
   const [items, setItemsState] = useState<T[]>(initialValue);
+  // True once the initial SELECT from Supabase has resolved (successfully
+  // or not). Callers that need to distinguish "genuinely empty" from
+  // "hasn't loaded yet" (e.g. seed-if-empty logic) MUST wait for this
+  // instead of checking items.length === 0 — on every fresh mount, items
+  // starts as initialValue (usually []) purely because the network
+  // request hasn't come back yet, not because the table is empty.
+  const [ready, setReady] = useState(false);
   // Last-known server state, keyed by row key — used to diff what actually
   // needs to be written (and to apply realtime deltas) without re-sending
   // the entire list on every change.
@@ -34,6 +41,7 @@ export function useSupabaseTable<T>(
 
   useEffect(() => {
     let active = true;
+    setReady(false);
 
     const applyUpsert = (row: TableRow<T>) => {
       if (!active) return;
@@ -85,6 +93,7 @@ export function useSupabaseTable<T>(
 
       if (error) {
         console.error(`[supabase] Gagal memuat tabel "${table}":`, error);
+        setReady(true);
         return;
       }
 
@@ -109,6 +118,8 @@ export function useSupabaseTable<T>(
           knownRef.current = new Map(initialValue.map((item) => [getKeyRef.current(item), item]));
         }
       }
+
+      setReady(true);
     };
 
     load();
@@ -159,5 +170,5 @@ export function useSupabaseTable<T>(
     });
   };
 
-  return [items, setItems];
+  return [items, setItems, ready];
 }

@@ -12,6 +12,7 @@ import {
 import { Product, SalesInvoice, PO, ReturnRecord, ReturnItem } from '../../types';
 import { addMutation } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
+import { CurrentUser, hasPermission } from '../../lib/permissions';
 
 interface ReturViewProps {
   products: Product[];
@@ -22,10 +23,27 @@ interface ReturViewProps {
   onUpdateReturns: (updatedReturns: ReturnRecord[]) => void;
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
   onNavigateToPOS?: () => void;
+  currentUser?: CurrentUser | null;
 }
 
-export default function ReturView({ products, onUpdateProducts, salesInvoices, pos, returns, onUpdateReturns, onAddActivity, onNavigateToPOS }: ReturViewProps) {
+export default function ReturView({ products, onUpdateProducts, salesInvoices, pos, returns, onUpdateReturns, onAddActivity, onNavigateToPOS, currentUser }: ReturViewProps) {
   const dialog = useDialog();
+  const canApproveRetur = hasPermission(currentUser, 'manage_retur_approve');
+
+  // Qty per SKU that's already been returned (Pending OR Approved — Pending
+  // still reserves the qty so it can't be double-submitted while awaiting
+  // approval) for a given reference number, so the same invoice/PO can't be
+  // returned over and over and keep nudging stock in the same direction
+  // indefinitely.
+  const getAlreadyReturnedQty = (refNumber: string, sku: string) =>
+    returns
+      .filter(r => r.refNumber === refNumber && r.status !== 'Rejected')
+      .flatMap(r => r.items)
+      .filter(it => it.sku === sku)
+      .reduce((sum, it) => sum + it.quantity, 0);
+
+  const getRemainingQty = (refNumber: string, originalQty: number, sku: string) =>
+    Math.max(0, originalQty - getAlreadyReturnedQty(refNumber, sku));
   const [activeTab, setActiveTab] = useState<'penjualan' | 'pembelian'>('penjualan');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -39,15 +57,22 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
 
   const receivedPOs = pos.filter(p => p.status === 'Received');
 
-  const filteredInvoices = salesInvoices.filter(inv =>
-    inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    inv.customerName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const hasReturnableQty = (refNumber: string, items: { sku: string; quantity: number }[]) =>
+    items.some(it => getRemainingQty(refNumber, it.quantity, it.sku) > 0);
 
-  const filteredPOs = receivedPOs.filter(po =>
-    po.poNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    po.supplier.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredInvoices = salesInvoices
+    .filter(inv => hasReturnableQty(inv.invoiceNumber, inv.items))
+    .filter(inv =>
+      inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      inv.customerName.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+  const filteredPOs = receivedPOs
+    .filter(po => hasReturnableQty(po.poNumber, po.items))
+    .filter(po =>
+      po.poNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      po.supplier.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
   const resetForm = () => {
     setSelectedInvoice(null);
@@ -58,7 +83,13 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
     setRefundMethod('Tunai');
   };
 
-  const currentItems = selectedInvoice ? selectedInvoice.items : selectedPO ? selectedPO.items : [];
+  const activeRefNumber = selectedInvoice ? selectedInvoice.invoiceNumber : selectedPO ? selectedPO.poNumber : null;
+  const rawItems = selectedInvoice ? selectedInvoice.items : selectedPO ? selectedPO.items : [];
+  const currentItems = activeRefNumber
+    ? rawItems
+        .map(item => ({ ...item, quantity: getRemainingQty(activeRefNumber, item.quantity, item.sku) }))
+        .filter(item => item.quantity > 0)
+    : [];
 
   const computeSubtotal = () => {
     return currentItems.reduce((acc, item) => {
@@ -111,6 +142,10 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
   };
 
   const handleApprove = async (id: string) => {
+    if (!canApproveRetur) {
+      dialog.alert('Akun Anda tidak memiliki izin untuk menyetujui retur.');
+      return;
+    }
     const record = returns.find(r => r.id === id);
     if (!record) return;
     const ok = await dialog.confirm(`Setujui retur ${record.refNumber} senilai Rp ${record.totalRefund.toLocaleString('id-ID')}?`);
@@ -160,6 +195,10 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
   };
 
   const handleReject = async (id: string) => {
+    if (!canApproveRetur) {
+      dialog.alert('Akun Anda tidak memiliki izin untuk menolak retur.');
+      return;
+    }
     const record = returns.find(r => r.id === id);
     if (!record) return;
     const ok = await dialog.confirm(`Tolak pengajuan retur ${record.refNumber}?`);
@@ -292,7 +331,7 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="font-bold text-xs text-gray-800">{item.name}</p>
-                        <p className="text-[10px] text-gray-400">Dibeli: {item.quantity} · Rp {item.price.toLocaleString('id-ID')}</p>
+                        <p className="text-[10px] text-gray-400">Sisa bisa diretur: {item.quantity} · Rp {item.price.toLocaleString('id-ID')}</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -385,20 +424,24 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
                       </div>
                       <span className="font-bold text-xs text-gray-700">Rp {r.totalRefund.toLocaleString('id-ID')}</span>
                     </div>
-                    <div className="flex gap-2 mt-2.5">
-                      <button
-                        onClick={() => handleApprove(r.id)}
-                        className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-[10px] font-bold cursor-pointer"
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Approve
-                      </button>
-                      <button
-                        onClick={() => handleReject(r.id)}
-                        className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-[10px] font-bold cursor-pointer"
-                      >
-                        <XCircle className="w-3.5 h-3.5" /> Reject
-                      </button>
-                    </div>
+                    {canApproveRetur ? (
+                      <div className="flex gap-2 mt-2.5">
+                        <button
+                          onClick={() => handleApprove(r.id)}
+                          className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-[10px] font-bold cursor-pointer"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Approve
+                        </button>
+                        <button
+                          onClick={() => handleReject(r.id)}
+                          className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-[10px] font-bold cursor-pointer"
+                        >
+                          <XCircle className="w-3.5 h-3.5" /> Reject
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="mt-2.5 text-[10px] text-gray-400 italic">Menunggu persetujuan Owner/Admin.</p>
+                    )}
                   </div>
                 ))
               )}

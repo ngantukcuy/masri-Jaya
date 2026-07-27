@@ -252,6 +252,7 @@ function Dashboard({
                       onUpdateReturns={setReturns}
                       onAddActivity={handleAddActivity}
                       onNavigateToPOS={() => setCurrentTab('pos')}
+                      currentUser={currentUser}
                     />
                   );
                 case 'toko-digital':

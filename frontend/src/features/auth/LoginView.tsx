@@ -24,8 +24,8 @@ interface LoginViewProps {
 
 export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   const dialog = useDialog();
-  const [registeredOwner, setRegisteredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string } | null>('store_owner', null);
-  const [staffList, setStaffList] = useSupabaseTable<StaffMember>('staff_list', [], (s) => s.id);
+  const [registeredOwner, setRegisteredOwner, ownerReady] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string } | null>('store_owner', null);
+  const [staffList, setStaffList, staffListReady] = useSupabaseTable<StaffMember>('staff_list', [], (s) => s.id);
 
   const [isRegistered, setIsRegistered] = useState(false);
   const [storeName, setStoreName] = useState('');
@@ -45,8 +45,18 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
       setStoreName(registeredOwner.storeName);
       setOwnerName(registeredOwner.ownerName);
 
-      if (staffList.length === 0) {
-        // Registered but no staff yet (shouldn't normally happen) — seed owner as first staff
+      // IMPORTANT: only decide "no staff yet" once BOTH the owner row and
+      // the staff_list table have actually finished their initial fetch.
+      // Right after this component (re)mounts — which happens every time
+      // a user logs out and lands back here — staffList starts out as []
+      // purely because its Supabase query hasn't resolved yet, not
+      // because the store genuinely has no staff. store_owner is a
+      // single-row fetch and almost always resolves first, so checking
+      // staffList.length === 0 alone used to fire this "first-time seed"
+      // path on nearly every logout, overwriting the real staff list with
+      // just the owner. Waiting for staffListReady fixes that.
+      if (staffListReady && ownerReady && staffList.length === 0) {
+        // Genuinely registered but no staff yet — seed owner as first staff
         const initialList: StaffMember[] = [
           { id: 'owner-01', name: registeredOwner.ownerName + ' (Owner)', pin: registeredOwner.pin, role: 'Owner', permissions: ROLE_DEFAULT_PERMISSIONS.Owner }
         ];
@@ -54,7 +64,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registeredOwner]);
+  }, [registeredOwner, staffListReady, ownerReady]);
 
   // Handle first-time registration
   const handleRegister = (e: React.FormEvent) => {
