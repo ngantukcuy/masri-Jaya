@@ -21,16 +21,19 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import { uploadProductImage } from '../../lib/uploadProductImage';
 import { useDialog } from '../../components/shared/DialogProvider';
+import { CurrentUser, hasPermission } from '../../lib/permissions';
 
 interface ProductsViewProps {
   products: Product[];
   onUpdateProducts: (updatedProducts: Product[]) => void;
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
   currentUserName?: string;
+  currentUser?: CurrentUser;
 }
 
-export default function ProductsView({ products, onUpdateProducts, onAddActivity, currentUserName }: ProductsViewProps) {
+export default function ProductsView({ products, onUpdateProducts, onAddActivity, currentUserName, currentUser }: ProductsViewProps) {
   const dialog = useDialog();
+  const can = (key: string) => hasPermission(currentUser, key);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
@@ -449,6 +452,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
           <p className="text-gray-500 text-sm">Tinjau daftar bahan bangunan, nomor SKU, pemetaan barcode, dan lokasi fisik gudang.</p>
         </div>
         <div className="flex gap-2">
+          {can('manage_product_add') && (
           <button 
             onClick={openCreateProductModal}
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer active:scale-95 transition-all"
@@ -456,6 +460,8 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
             <Plus className="w-4 h-4" />
             <span>Tambah Produk Baru</span>
           </button>
+          )}
+          {can('manage_product_update') && (
           <button 
             onClick={() => setShowAdjustmentModal(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer active:scale-95 transition-all"
@@ -463,6 +469,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
             <Plus className="w-3.5 h-3.5" />
             <span>Penyesuaian Stok Manual</span>
           </button>
+          )}
         </div>
       </div>
 
@@ -723,26 +730,30 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
               <div className="pt-2 border-t border-gray-100 space-y-2">
                 <button
                   onClick={() => handleQuickRestock(selectedProduct)}
-                  className="w-full py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+                  className={`w-full py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer ${!can('manage_product_update') ? 'hidden' : ''}`}
                 >
                   <Warehouse className="w-3.5 h-3.5" />
                   <span>Restock Cepat (+50)</span>
                 </button>
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => handleOpenEditModal(selectedProduct)}
-                    className="py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span>Edit Produk</span>
-                  </button>
-                  <button
-                    onClick={() => handleDeleteProduct(selectedProduct)}
-                    className="py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Hapus</span>
-                  </button>
+                  {can('manage_product_update') && (
+                    <button
+                      onClick={() => handleOpenEditModal(selectedProduct)}
+                      className="py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit Produk</span>
+                    </button>
+                  )}
+                  {can('manage_product_delete') && (
+                    <button
+                      onClick={() => handleDeleteProduct(selectedProduct)}
+                      className="py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Hapus</span>
+                    </button>
+                  )}
                 </div>
               </div>
 

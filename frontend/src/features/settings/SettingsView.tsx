@@ -30,6 +30,7 @@ import {
 } from '../../lib/printing/printerConnection';
 import { buildTestPrint } from '../../lib/printing/escpos';
 import { useDialog } from '../../components/shared/DialogProvider';
+import { TAB_DEFS, FEATURE_PERMISSION_DEFS, ROLE_DEFAULT_PERMISSIONS, CurrentUser, hasPermission } from '../../lib/permissions';
 
 interface SettingsViewProps {
   branches: Branch[];
@@ -37,45 +38,18 @@ interface SettingsViewProps {
   skuLocations: SkuLocation[];
   onUpdateSkuLocations: (updatedLocations: SkuLocation[]) => void;
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  currentUser?: CurrentUser;
 }
 
-const PERMISSION_DEFS: { key: string; label: string }[] = [
-  { key: 'manage_rekening_list', label: 'List Rekening' },
-  { key: 'manage_rekening_add', label: 'Tambah Rekening' },
-  { key: 'manage_rekening_update', label: 'Ubah Rekening' },
-  { key: 'manage_rekening_delete', label: 'Hapus Rekening' },
-  { key: 'manage_gudang_list', label: 'List Gudang' },
-  { key: 'manage_gudang_add', label: 'Tambah Gudang' },
-  { key: 'manage_gudang_update', label: 'Ubah Gudang' },
-  { key: 'manage_gudang_delete', label: 'Hapus Gudang' },
-  { key: 'manage_customer_list', label: 'List Pelanggan' },
-  { key: 'manage_customer_add', label: 'Tambah Pelanggan' },
-  { key: 'manage_customer_update', label: 'Ubah Pelanggan' },
-  { key: 'manage_customer_delete', label: 'Hapus Pelanggan' },
-  { key: 'manage_supplier_list', label: 'List Supplier' },
-  { key: 'manage_supplier_add', label: 'Tambah Supplier' },
-  { key: 'manage_supplier_update', label: 'Ubah Supplier' },
-  { key: 'manage_supplier_delete', label: 'Hapus Supplier' },
-  { key: 'manage_product_list', label: 'List Produk' },
-  { key: 'manage_product_add', label: 'Tambah Produk' },
-  { key: 'manage_product_update', label: 'Ubah Produk' },
-  { key: 'manage_product_delete', label: 'Hapus Produk' },
-  { key: 'view_cost_price', label: 'Lihat Harga Modal' },
-  { key: 'manage_user_list', label: 'List User' },
-  { key: 'manage_user_add', label: 'Tambah User' },
-  { key: 'manage_user_update', label: 'Ubah User' },
-  { key: 'manage_user_delete', label: 'Hapus User' },
-];
+// Checkbox catalog used by the "Tambah Staff" form — "Akses Menu" gates
+// whole tabs/pages, "Akses Fitur" gates specific add/edit/delete actions
+// inside a page. Both live in src/lib/permissions.ts so Sidebar and every
+// feature view read the exact same keys that get checked here.
+const PERMISSION_DEFS = FEATURE_PERMISSION_DEFS;
 
-const ROLE_DEFAULT_PERMISSIONS: Record<'Owner' | 'Admin' | 'Kasir' | 'Stoker', string[]> = {
-  Owner: PERMISSION_DEFS.map((perm) => perm.key),
-  Admin: ['manage_rekening_list','manage_rekening_add','manage_rekening_update','manage_rekening_delete','manage_gudang_list','manage_gudang_add','manage_gudang_update','manage_gudang_delete','manage_customer_list','manage_customer_add','manage_customer_update','manage_customer_delete','manage_supplier_list','manage_supplier_add','manage_supplier_update','manage_supplier_delete','manage_product_list','manage_product_add','manage_product_update','manage_product_delete','view_cost_price','manage_user_list'],
-  Kasir: ['manage_customer_list','manage_customer_add','manage_product_list'],
-  Stoker: ['manage_gudang_list','manage_gudang_update','manage_product_list','manage_product_update'],
-};
-
-export default function SettingsView({ branches, onUpdateBranches, skuLocations, onUpdateSkuLocations, onAddActivity }: SettingsViewProps) {
+export default function SettingsView({ branches, onUpdateBranches, skuLocations, onUpdateSkuLocations, onAddActivity, currentUser }: SettingsViewProps) {
   const dialog = useDialog();
+  const can = (key: string) => hasPermission(currentUser, key);
   const [activeTab, setActiveTab] = useState<'profile' | 'branches' | 'locations' | 'printers' | 'security' | 'accounts'>('profile');
   const [storeProfile, setStoreProfile] = useState<StoreProfile>({
     storeName: 'TB Sinar Maju Pusat',
@@ -505,6 +479,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
           <MapPin className="w-4 h-4" />
           <span>Cabang</span>
         </button>
+        {can('manage_gudang_list') && (
         <button 
           onClick={() => setActiveTab('locations')}
           className={`pb-3 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 ${
@@ -514,6 +489,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
           <Warehouse className="w-4 h-4" />
           <span>Lokasi SKU</span>
         </button>
+        )}
         <button 
           onClick={() => setActiveTab('printers')}
           className={`pb-3 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 ${
@@ -523,6 +499,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
           <PrinterIcon className="w-4 h-4" />
           <span>Printer Thermal</span>
         </button>
+        {can('manage_user_list') && (
         <button 
           onClick={() => setActiveTab('security')}
           className={`pb-3 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 ${
@@ -532,6 +509,8 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
           <ShieldCheck className="w-4 h-4" />
           <span>Staff</span>
         </button>
+        )}
+        {can('manage_rekening_list') && (
         <button 
           onClick={() => setActiveTab('accounts')}
           className={`pb-3 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 ${
@@ -541,6 +520,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
           <CreditCard className="w-4 h-4" />
           <span>Daftar Rekening</span>
         </button>
+        )}
       </div>
 
       {/* Tabs Contents Wrapper */}
@@ -764,29 +744,30 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
               <h4 className="font-extrabold text-sm text-gray-800 border-b border-gray-100 pb-2 mb-3">Lokasi Penyimpanan Barang (Lokasi SKU)</h4>
               <p className="text-[10px] text-gray-400 leading-relaxed mb-3">Tambahkan lokasi sesuai gudang, rak, atau area penyimpanan barang di bisnis Anda. Hanya nama lokasi dan kota yang wajib diisi.</p>
 
-              <form onSubmit={handleAddLocation} className="p-4 border border-blue-100 rounded-xl bg-blue-50/20 space-y-3.5">
-                <span className="font-black text-[10px] uppercase text-blue-600 tracking-wider">Tambah Lokasi Baru</span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Nama Lokasi <span className="text-red-500">*</span></label>
-                    <input
-                      type="text"
-                      placeholder="Contoh: Gudang Belakang, Rak Cat..."
-                      value={newLocationName}
-                      onChange={(e) => setNewLocationName(e.target.value)}
-                      className="w-full bg-white border border-gray-200 rounded-lg p-2 font-bold text-gray-800 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Kota <span className="text-red-500">*</span></label>
-                    <input
-                      type="text"
-                      placeholder="Contoh: Pekanbaru"
-                      value={newLocationCity}
-                      onChange={(e) => setNewLocationCity(e.target.value)}
-                      className="w-full bg-white border border-gray-200 rounded-lg p-2 font-bold text-gray-800 outline-none"
-                    />
-                  </div>
+              {can('manage_gudang_add') && (
+                <form onSubmit={handleAddLocation} className="p-4 border border-blue-100 rounded-xl bg-blue-50/20 space-y-3.5">
+                  <span className="font-black text-[10px] uppercase text-blue-600 tracking-wider">Tambah Lokasi Baru</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Nama Lokasi <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        placeholder="Contoh: Gudang Belakang, Rak Cat..."
+                        value={newLocationName}
+                        onChange={(e) => setNewLocationName(e.target.value)}
+                        className="w-full bg-white border border-gray-200 rounded-lg p-2 font-bold text-gray-800 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Kota <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        placeholder="Contoh: Pekanbaru"
+                        value={newLocationCity}
+                        onChange={(e) => setNewLocationCity(e.target.value)}
+                        className="w-full bg-white border border-gray-200 rounded-lg p-2 font-bold text-gray-800 outline-none"
+                      />
+                    </div>
                 </div>
                 <div>
                   <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Alamat (opsional)</label>
@@ -808,6 +789,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                   </button>
                 </div>
               </form>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -827,13 +809,15 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                           <p className="text-[10px] text-gray-400 mt-0.5">{loc.city}{loc.address ? ` • ${loc.address}` : ''}</p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleDeleteLocation(loc.id)}
-                        className="p-1.5 text-red-400 hover:text-red-600 transition-colors cursor-pointer"
-                        title="Hapus Lokasi"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {can('manage_gudang_delete') && (
+                        <button
+                          onClick={() => handleDeleteLocation(loc.id)}
+                          className="p-1.5 text-red-400 hover:text-red-600 transition-colors cursor-pointer"
+                          title="Hapus Lokasi"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   ))
                 )}
@@ -975,6 +959,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
 
         {activeTab === 'accounts' && (
           <div className="space-y-6 text-xs">
+            {can('manage_rekening_add') && (
             <form onSubmit={handleAddBankAccount} className="space-y-4 rounded-2xl border border-blue-100 bg-blue-50/20 p-4">
               <h4 className="font-extrabold text-sm text-gray-800">Data Rekening Toko</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1008,6 +993,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                 <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-black uppercase text-white">Tambah Rekening</button>
               </div>
             </form>
+            )}
 
             <div className="space-y-2">
               <h4 className="font-extrabold text-sm text-gray-800">Daftar Rekening Tersimpan</h4>
@@ -1020,7 +1006,9 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                       <p className="font-bold text-gray-800">{account.name}</p>
                       <p className="text-[10px] text-gray-400">{account.type} • {account.accountNumber || 'Tidak ada nomor'} • {account.holderName || 'Tanpa pemilik'}</p>
                     </div>
-                    <button onClick={() => handleDeleteBankAccount(account.id)} className="rounded-lg p-2 text-red-500 hover:bg-red-50"> <Trash2 className="w-4 h-4" /> </button>
+                    {can('manage_rekening_delete') && (
+                      <button onClick={() => handleDeleteBankAccount(account.id)} className="rounded-lg p-2 text-red-500 hover:bg-red-50"> <Trash2 className="w-4 h-4" /> </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1072,6 +1060,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
             <div>
               <h4 className="font-extrabold text-sm text-gray-800 border-b border-gray-100 pb-2 mb-3">Daftarkan &amp; Kelola Akun Staf Kasir</h4>
               
+              {can('manage_user_add') && (
               <form onSubmit={handleAddStaff} className="p-4 border border-blue-100 rounded-xl bg-blue-50/20 space-y-3.5">
                 <span className="font-black text-[10px] uppercase text-blue-600 tracking-wider">Formulir Tambah Staf Baru</span>
                 
@@ -1120,6 +1109,23 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                 </div>
 
                 <div>
+                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1.5">Akses Menu (Tab yang Bisa Dibuka)</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 bg-white border border-gray-200 rounded-lg p-2.5">
+                    {TAB_DEFS.map((tab) => (
+                      <label key={tab.key} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newStaffPermissions.includes(tab.key)}
+                          onChange={() => handleTogglePermission(tab.key)}
+                          className="w-3.5 h-3.5 accent-blue-600 cursor-pointer"
+                        />
+                        <span className="text-gray-700 font-medium">{tab.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
                   <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1.5">Akses Fitur (Custom Permission)</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 bg-white border border-gray-200 rounded-lg p-2.5">
                     {PERMISSION_DEFS.map((perm) => (
@@ -1146,6 +1152,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                   </button>
                 </div>
               </form>
+              )}
             </div>
 
             {/* Existing Registered Staff List */}
@@ -1168,13 +1175,15 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                         </div>
                       </div>
 
-                      <button
-                        onClick={() => handleDeleteStaff(idx)}
-                        className="p-1.5 text-red-400 hover:text-red-600 transition-colors cursor-pointer"
-                        title="Hapus Akun Staf"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {can('manage_user_delete') && (
+                        <button
+                          onClick={() => handleDeleteStaff(idx)}
+                          className="p-1.5 text-red-400 hover:text-red-600 transition-colors cursor-pointer"
+                          title="Hapus Akun Staf"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   ))
                 )}

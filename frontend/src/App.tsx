@@ -10,6 +10,7 @@ import { useSupabaseState } from './lib/useSupabaseState';
 import { useSupabaseTable } from './lib/useSupabaseTable';
 import { useSupabaseReady } from './lib/useSupabaseReady';
 import { useDialog } from './components/shared/DialogProvider';
+import { CurrentUser, canAccessTab, firstAccessibleTab } from './lib/permissions';
 
 // Feature views are only needed once a user is authenticated, and only one
 // is ever visible at a time — code-split each into its own chunk so the
@@ -72,7 +73,7 @@ export default function App() {
  * (store_owner, staff_list) on its own.
  */
 function AuthGate() {
-  const [currentUser, setCurrentUser] = useState<{ name: string; role: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [loginAt, setLoginAt] = useState<number | null>(null);
 
   if (!currentUser) {
@@ -100,13 +101,20 @@ function Dashboard({
   loginAt,
   onLogout,
 }: {
-  currentUser: { name: string; role: string };
+  currentUser: CurrentUser;
   loginAt: number | null;
   onLogout: () => void;
 }) {
   const dialog = useDialog();
   // State management
-  const [currentTab, setCurrentTab] = useState<string>('dashboard');
+  const [currentTab, setCurrentTabState] = useState<string>(() => firstAccessibleTab(currentUser));
+  const setCurrentTab = (tab: string) => {
+    // Defense in depth: Sidebar already hides tabs the user can't open, but
+    // guard direct state changes too (e.g. the mobile bottom nav, or a
+    // future deep link) so a staff account can never land on a tab their
+    // permissions don't cover.
+    setCurrentTabState(canAccessTab(currentUser, tab) ? tab : firstAccessibleTab(currentUser));
+  };
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [registeredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string; address?: string; phone?: string; receiptNote?: string; taxId?: string } | null>('store_owner', null);
   const [products, setProducts] = useSupabaseTable<Product>('products', [], (p) => p.sku);
@@ -269,6 +277,7 @@ function Dashboard({
                       onUpdateProducts={setProducts}
                       skuLocations={skuLocations}
                       initialTab={(currentTab.split(':')[1] as any) || 'sku-master'}
+                      currentUser={currentUser}
                     />
                   );
                 case 'pemasok':
@@ -277,6 +286,7 @@ function Dashboard({
                       suppliers={suppliers}
                       onUpdateSuppliers={setSuppliers}
                       onAddActivity={handleAddActivity}
+                      currentUser={currentUser}
                     />
                   );
                 case 'deposit':
@@ -300,6 +310,7 @@ function Dashboard({
                       onUpdateProducts={setProducts}
                       onAddActivity={handleAddActivity}
                       currentUserName={currentUser?.name}
+                      currentUser={currentUser}
                     />
                   );
                 case 'purchase':
@@ -320,6 +331,7 @@ function Dashboard({
                       customers={customers}
                       onUpdateCustomers={setCustomers}
                       onAddActivity={handleAddActivity}
+                      currentUser={currentUser}
                     />
                   );
                 case 'debts':
@@ -354,6 +366,7 @@ function Dashboard({
                       skuLocations={skuLocations}
                       onUpdateSkuLocations={setSkuLocations}
                       onAddActivity={handleAddActivity}
+                      currentUser={currentUser}
                     />
                   );
                 default:
@@ -449,6 +462,7 @@ function Dashboard({
           onTabChange={handleTabChange}
           onNewTransaction={handleNewTransaction}
           onLogout={onLogout}
+          currentUser={currentUser}
         />
       </div>
 
@@ -477,6 +491,7 @@ function Dashboard({
                 onTabChange={handleTabChange}
                 onNewTransaction={handleNewTransaction}
                 onLogout={onLogout}
+                currentUser={currentUser}
                 isMobile={true}
                 onClose={() => setIsMobileMenuOpen(false)}
               />
@@ -515,45 +530,53 @@ function Dashboard({
 
       {/* Mobile Glassmorphic Bottom Navigation Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden p-3 bg-white/80 backdrop-blur-lg border-t border-slate-200/60 flex justify-around items-center shadow-lg shadow-slate-900/10 h-16">
-        <button
-          onClick={() => handleTabChange('dashboard')}
-          className={`flex flex-col items-center gap-1 py-1 px-3 transition-all ${
-            currentTab === 'dashboard' ? 'text-blue-600 font-extrabold scale-105' : 'text-slate-400 font-bold'
-          }`}
-        >
-          <LayoutDashboard className="w-5 h-5" />
-          <span className="text-[9px] uppercase tracking-wider">Dasbor</span>
-        </button>
+        {canAccessTab(currentUser, 'dashboard') && (
+          <button
+            onClick={() => handleTabChange('dashboard')}
+            className={`flex flex-col items-center gap-1 py-1 px-3 transition-all ${
+              currentTab === 'dashboard' ? 'text-blue-600 font-extrabold scale-105' : 'text-slate-400 font-bold'
+            }`}
+          >
+            <LayoutDashboard className="w-5 h-5" />
+            <span className="text-[9px] uppercase tracking-wider">Dasbor</span>
+          </button>
+        )}
 
-        <button
-          onClick={() => handleTabChange('products')}
-          className={`flex flex-col items-center gap-1 py-1 px-3 transition-all ${
-            currentTab === 'products' ? 'text-blue-600 font-extrabold scale-105' : 'text-slate-400 font-bold'
-          }`}
-        >
-          <Boxes className="w-5 h-5" />
-          <span className="text-[9px] uppercase tracking-wider">Stok</span>
-        </button>
+        {canAccessTab(currentUser, 'products') && (
+          <button
+            onClick={() => handleTabChange('products')}
+            className={`flex flex-col items-center gap-1 py-1 px-3 transition-all ${
+              currentTab === 'products' ? 'text-blue-600 font-extrabold scale-105' : 'text-slate-400 font-bold'
+            }`}
+          >
+            <Boxes className="w-5 h-5" />
+            <span className="text-[9px] uppercase tracking-wider">Stok</span>
+          </button>
+        )}
 
         {/* Center elevated POS button */}
-        <button
-          onClick={() => handleTabChange('pos')}
-          className={`relative -top-4 w-12 h-12 rounded-full flex flex-col items-center justify-center transition-all shadow-lg cursor-pointer ${
-            currentTab === 'pos'
-              ? 'bg-blue-600 text-white scale-110 border-2 border-white shadow-blue-500/40 font-black'
-              : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-2 border-white'
-          }`}
-        >
-          <CornerDownRight className="w-5 h-5" />
-          <span className="text-[7px] uppercase tracking-tighter mt-0.5">Kasir</span>
-        </button>
+        {canAccessTab(currentUser, 'pos') && (
+          <button
+            onClick={() => handleTabChange('pos')}
+            className={`relative -top-4 w-12 h-12 rounded-full flex flex-col items-center justify-center transition-all shadow-lg cursor-pointer ${
+              currentTab === 'pos'
+                ? 'bg-blue-600 text-white scale-110 border-2 border-white shadow-blue-500/40 font-black'
+                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-2 border-white'
+            }`}
+          >
+            <CornerDownRight className="w-5 h-5" />
+            <span className="text-[7px] uppercase tracking-tighter mt-0.5">Kasir</span>
+          </button>
+        )}
 
-        <button
-          onClick={() => handleTabChange('debts')}
-          className={`flex flex-col items-center gap-1 py-1 px-3 transition-all ${currentTab === 'debts' ? 'text-blue-600 font-extrabold scale-105' : 'text-slate-400 font-bold'}`}>
-          <Receipt className="w-5 h-5" />
-          <span className="text-[9px] uppercase tracking-wider">Hutang</span>
-        </button>
+        {canAccessTab(currentUser, 'debts') && (
+          <button
+            onClick={() => handleTabChange('debts')}
+            className={`flex flex-col items-center gap-1 py-1 px-3 transition-all ${currentTab === 'debts' ? 'text-blue-600 font-extrabold scale-105' : 'text-slate-400 font-bold'}`}>
+            <Receipt className="w-5 h-5" />
+            <span className="text-[9px] uppercase tracking-wider">Hutang</span>
+          </button>
+        )}
 
         <button
           onClick={() => setIsMobileMenuOpen(true)}

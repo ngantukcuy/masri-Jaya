@@ -15,15 +15,18 @@ import { Customer } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
+import { CurrentUser, hasPermission } from '../../lib/permissions';
 
 interface CustomerViewProps {
   customers: Customer[];
   onUpdateCustomers: (updatedCustomers: Customer[]) => void;
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  currentUser?: CurrentUser;
 }
 
-export default function CustomerView({ customers, onUpdateCustomers, onAddActivity }: CustomerViewProps) {
+export default function CustomerView({ customers, onUpdateCustomers, onAddActivity, currentUser }: CustomerViewProps) {
   const dialog = useDialog();
+  const can = (key: string) => hasPermission(currentUser, key);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -278,6 +281,7 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
           <h2 className="text-2xl font-black text-gray-900 tracking-tight">Pelanggan &amp; Piutang Usaha</h2>
           <p className="text-gray-500 text-sm">Pantau saldo piutang pembeli, tingkat loyalitas pelanggan, dan riwayat cicilan kredit kontraktor.</p>
         </div>
+        {can('manage_customer_add') && (
         <button 
           onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer transition-all"
@@ -285,6 +289,7 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
           <Plus className="w-4 h-4" />
           <span>Tambah Pelanggan Baru</span>
         </button>
+        )}
       </div>
 
       {/* Debt and Loyalty KPIs */}
@@ -379,20 +384,24 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
                     {tierTranslationMap[cust.loyaltyTier] || cust.loyaltyTier}
                   </span>
                   <div className="flex gap-1.5">
-                    <button
-                      onClick={() => handleOpenEditModal(cust)}
-                      className="p-1 text-amber-600 hover:bg-amber-50 rounded transition-colors cursor-pointer"
-                      title="Edit Pelanggan"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteCustomer(cust)}
-                      className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
-                      title="Hapus Pelanggan"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {can('manage_customer_update') && (
+                      <button
+                        onClick={() => handleOpenEditModal(cust)}
+                        className="p-1 text-amber-600 hover:bg-amber-50 rounded transition-colors cursor-pointer"
+                        title="Edit Pelanggan"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {can('manage_customer_delete') && (
+                      <button
+                        onClick={() => handleDeleteCustomer(cust)}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                        title="Hapus Pelanggan"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

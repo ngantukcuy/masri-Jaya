@@ -26,6 +26,7 @@ import {
   UserCircle2
 } from 'lucide-react';
 import { useDialog } from '../shared/DialogProvider';
+import { CurrentUser, canAccessTab } from '../../lib/permissions';
 
 interface NavChild {
   id: string;
@@ -45,6 +46,7 @@ interface SidebarProps {
   onTabChange: (tab: string) => void;
   onNewTransaction: () => void;
   onLogout: () => void;
+  currentUser?: CurrentUser;
   isMobile?: boolean;
   onClose?: () => void;
 }
@@ -54,6 +56,7 @@ export default function Sidebar({
   onTabChange,
   onNewTransaction,
   onLogout,
+  currentUser,
   isMobile = false,
   onClose
 }: SidebarProps) {
@@ -101,11 +104,30 @@ export default function Sidebar({
     { id: 'reports', label: 'LAPORAN', icon: FileBarChart2 },
   ];
 
+  // Only show tabs/groups the logged-in staff account actually has access
+  // to (see src/lib/permissions.ts). A group (e.g. "Relasi") is shown only
+  // if at least one of its children is accessible; the group's own child
+  // list is filtered down to just the accessible ones.
+  const visibleNavItems = navItems
+    .map((item) => {
+      if (item.children) {
+        const children = item.children.filter((c) => canAccessTab(currentUser, c.id));
+        if (children.length === 0 && !canAccessTab(currentUser, item.id)) return null;
+        return { ...item, children };
+      }
+      return canAccessTab(currentUser, item.id) ? item : null;
+    })
+    .filter((item): item is NavItem => item !== null);
+
+  const visibleExtraItems = extraItems.filter((item) => canAccessTab(currentUser, item.id));
+  const canOpenSettings = canAccessTab(currentUser, 'settings');
+  const canStartNewTransaction = canAccessTab(currentUser, 'pos');
+
   const baseTab = currentTab.split(':')[0];
 
   const [openGroups, setOpenGroups] = useState<string[]>(() => {
     const initiallyOpen: string[] = [];
-    [...navItems].forEach((item) => {
+    [...visibleNavItems].forEach((item) => {
       if (item.children && (item.id === baseTab || item.children.some(c => c.id === currentTab || c.id.split(':')[0] === baseTab))) {
         initiallyOpen.push(item.id);
       }
@@ -170,18 +192,20 @@ export default function Sidebar({
       </div>
 
       {/* New Transaction CTA Button (Tasteful Neumorphic Button in Moderation) */}
-      <button
-        onClick={onNewTransaction}
-        className="mb-6 w-full flex items-center justify-center gap-2 neu-btn text-blue-600 py-3 px-4 font-extrabold uppercase tracking-widest text-xs rounded-xl cursor-pointer"
-      >
-        <PlusCircle className="w-4 h-4" />
-        <span>Transaksi Baru</span>
-      </button>
+      {canStartNewTransaction && (
+        <button
+          onClick={onNewTransaction}
+          className="mb-6 w-full flex items-center justify-center gap-2 neu-btn text-blue-600 py-3 px-4 font-extrabold uppercase tracking-widest text-xs rounded-xl cursor-pointer"
+        >
+          <PlusCircle className="w-4 h-4" />
+          <span>Transaksi Baru</span>
+        </button>
+      )}
 
       {/* Nav Menu */}
       <nav className="flex-1 space-y-1.5 overflow-y-auto pr-1">
         <span className="block text-[10px] font-bold text-slate-400 mb-3 px-3 uppercase tracking-[0.2em]">MENU UTAMA</span>
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           if (!item.children) {
             const isActive = currentTab === item.id;
             return renderNavButton(item, isActive);
@@ -217,22 +241,24 @@ export default function Sidebar({
         })}
 
         <span className="block text-[10px] font-bold text-slate-400 mb-1.5 mt-4 px-3 uppercase tracking-[0.2em]">LAINNYA</span>
-        {extraItems.map((item) => renderNavButton(item, currentTab === item.id))}
+        {visibleExtraItems.map((item) => renderNavButton(item, currentTab === item.id))}
       </nav>
 
       {/* Bottom Actions */}
       <div className="mt-auto pt-5 border-t border-slate-100 space-y-1.5">
-        <button
-          onClick={() => onTabChange('settings')}
-          className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
-            currentTab === 'settings'
-              ? 'neu-pill-active text-blue-600 border border-slate-200/60'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
-          }`}
-        >
-          <Settings className={`w-4 h-4 ${currentTab === 'settings' ? 'text-blue-600' : 'text-slate-400'}`} />
-          <span>Pengaturan</span>
-        </button>
+        {canOpenSettings && (
+          <button
+            onClick={() => onTabChange('settings')}
+            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+              currentTab === 'settings'
+                ? 'neu-pill-active text-blue-600 border border-slate-200/60'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
+            }`}
+          >
+            <Settings className={`w-4 h-4 ${currentTab === 'settings' ? 'text-blue-600' : 'text-slate-400'}`} />
+            <span>Pengaturan</span>
+          </button>
+        )}
         <button
           onClick={() => dialog.alert("Pusat bantuan siap melayani! Hubungi dukungan Tokku.")}
           className="w-full flex items-center gap-3 px-3.5 py-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"

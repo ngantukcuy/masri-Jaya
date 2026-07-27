@@ -15,22 +15,17 @@ import {
 import { useSupabaseState } from '../../lib/useSupabaseState';
 import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import { useDialog } from '../../components/shared/DialogProvider';
-
-interface Staff {
-  id: string;
-  name: string;
-  pin: string;
-  role: 'owner' | 'staff';
-}
+import { StaffMember } from '../../types';
+import { ROLE_DEFAULT_PERMISSIONS, CurrentUser } from '../../lib/permissions';
 
 interface LoginViewProps {
-  onLoginSuccess: (user: { name: string; role: string }) => void;
+  onLoginSuccess: (user: CurrentUser) => void;
 }
 
 export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   const dialog = useDialog();
   const [registeredOwner, setRegisteredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string } | null>('store_owner', null);
-  const [staffList, setStaffList] = useSupabaseTable<Staff>('staff_list', [], (s) => s.id);
+  const [staffList, setStaffList] = useSupabaseTable<StaffMember>('staff_list', [], (s) => s.id);
 
   const [isRegistered, setIsRegistered] = useState(false);
   const [storeName, setStoreName] = useState('');
@@ -39,7 +34,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   const [ownerPin, setOwnerPin] = useState('');
   
   // Login states
-  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
+  const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
 
@@ -52,8 +47,8 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
       if (staffList.length === 0) {
         // Registered but no staff yet (shouldn't normally happen) — seed owner as first staff
-        const initialList: Staff[] = [
-          { id: 'owner-01', name: registeredOwner.ownerName + ' (Owner)', pin: registeredOwner.pin, role: 'owner' }
+        const initialList: StaffMember[] = [
+          { id: 'owner-01', name: registeredOwner.ownerName + ' (Owner)', pin: registeredOwner.pin, role: 'Owner', permissions: ROLE_DEFAULT_PERMISSIONS.Owner }
         ];
         setStaffList(initialList);
       }
@@ -76,12 +71,13 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
       pin: ownerPin
     };
 
-    const initialList: Staff[] = [
+    const initialList: StaffMember[] = [
       {
         id: 'owner-01',
         name: ownerName + ' (Owner)',
         pin: ownerPin,
-        role: 'owner'
+        role: 'Owner',
+        permissions: ROLE_DEFAULT_PERMISSIONS.Owner,
       }
     ];
 
@@ -101,8 +97,15 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
       if (nextPin.length === 6 && selectedStaff) {
         if (nextPin === selectedStaff.pin) {
-          // Success login
-          onLoginSuccess({ name: selectedStaff.name, role: selectedStaff.role });
+          // Success login — carry the staff's saved permissions (or the
+          // role's default set, for older records saved before per-staff
+          // permissions existed) so the rest of the app can gate menus
+          // and actions accordingly.
+          const role = selectedStaff.role;
+          const permissions = selectedStaff.permissions && selectedStaff.permissions.length > 0
+            ? selectedStaff.permissions
+            : (ROLE_DEFAULT_PERMISSIONS[role] || []);
+          onLoginSuccess({ name: selectedStaff.name, role, permissions });
         } else {
           // Wrong PIN
           setPinError(true);
@@ -255,11 +258,11 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full nm-inset flex items-center justify-center text-gray-600">
-                            {staff.role === 'owner' ? <Store className="w-5 h-5 text-blue-600" /> : <Users className="w-5 h-5 text-gray-600" />}
+                            {staff.role === 'Owner' ? <Store className="w-5 h-5 text-blue-600" /> : <Users className="w-5 h-5 text-gray-600" />}
                           </div>
                           <div>
                             <p className="font-extrabold text-sm text-gray-800 group-hover:text-blue-600 transition-colors">{staff.name}</p>
-                            <p className="text-[10px] text-gray-600 uppercase tracking-wider mt-0.5">{staff.role === 'owner' ? 'Pemilik Toko' : 'Kasir / Staf Toko'}</p>
+                            <p className="text-[10px] text-gray-600 uppercase tracking-wider mt-0.5">{staff.role === 'Owner' ? 'Pemilik Toko' : 'Kasir / Staf Toko'}</p>
                           </div>
                         </div>
                         <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-blue-600 transition-transform group-hover:translate-x-1" />
@@ -300,7 +303,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                   <div className="flex justify-between items-center bg-gray-100/40 p-2.5 rounded-xl border border-gray-200/50">
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-600">
-                        {selectedStaff.role === 'owner' ? 'O' : 'S'}
+                        {selectedStaff.role === 'Owner' ? 'O' : 'S'}
                       </div>
                       <span className="font-bold text-xs text-gray-800 uppercase tracking-wide">{selectedStaff.name}</span>
                     </div>

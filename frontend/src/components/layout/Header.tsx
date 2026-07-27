@@ -114,9 +114,15 @@ export default function Header({
   const [uptimeMs, setUptimeMs] = useState(0);
   const [kasLaci, setKasLaci] = useState<number | null>(null);
 
+  const roleLabels: Record<string, string> = {
+    Owner: 'Pemilik Toko',
+    Admin: 'Admin',
+    Kasir: 'Staf Kasir',
+    Stoker: 'Staf Gudang',
+  };
   const profile = {
     name: currentUser?.name ?? 'Pengguna',
-    role: currentUser?.role === 'owner' ? 'Pemilik Toko' : currentUser?.role === 'kasir' ? 'Staf Kasir' : (currentUser?.role || '—'),
+    role: (currentUser?.role && roleLabels[currentUser.role]) || currentUser?.role || '—',
   };
 
   // Live-ticking session uptime, only while it's actually visible.

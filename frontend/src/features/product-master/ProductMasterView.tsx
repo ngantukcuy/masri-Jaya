@@ -20,6 +20,7 @@ import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import { uploadProductImage } from '../../lib/uploadProductImage';
 import BarcodeScannerModal from '../../components/shared/BarcodeScannerModal';
 import { useDialog } from '../../components/shared/DialogProvider';
+import { CurrentUser, hasPermission } from '../../lib/permissions';
 
 interface CategoryEntry {
   id: string;
@@ -38,6 +39,7 @@ interface ProductMasterViewProps {
   onUpdateProducts?: (updatedProducts: Product[]) => void;
   skuLocations?: SkuLocation[];
   initialTab?: 'sku-master' | 'kategori' | 'brand' | 'unit' | 'bundle';
+  currentUser?: CurrentUser;
 }
 
 function useLocalList<T extends { id: string }>(table: string, defaults: T[]) {
@@ -45,8 +47,9 @@ function useLocalList<T extends { id: string }>(table: string, defaults: T[]) {
   return { list, persist: setList };
 }
 
-export default function ProductMasterView({ products, onAddActivity, onUpdateProducts, skuLocations = [], initialTab }: ProductMasterViewProps) {
+export default function ProductMasterView({ products, onAddActivity, onUpdateProducts, skuLocations = [], initialTab, currentUser }: ProductMasterViewProps) {
   const dialog = useDialog();
+  const can = (key: string) => hasPermission(currentUser, key);
   const [activeTab, setActiveTab] = useState<'sku-master' | 'kategori' | 'brand' | 'unit' | 'bundle'>(initialTab || 'sku-master');
 
   useEffect(() => {
@@ -403,7 +406,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
             </button>
           </div>
 
-          {skuMode === 'induk' && (
+          {skuMode === 'induk' && can('manage_product_add') && (
             <form onSubmit={handleSubmitInduk} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4 max-w-2xl text-xs">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -509,10 +512,12 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               </div>
 
               <div className="grid grid-cols-3 gap-3">
+                {can('view_cost_price') && (
                 <div>
                   <label className={labelCls}>Harga Modal</label>
                   <input type="number" min={0} value={skuForm.costPrice} onChange={(e) => setSkuForm({ ...skuForm, costPrice: Number(e.target.value) })} className={inputCls} />
                 </div>
+                )}
                 <div>
                   <label className={labelCls}>Harga Jual Minimum</label>
                   <input type="number" min={0} value={skuForm.minSellPrice} onChange={(e) => setSkuForm({ ...skuForm, minSellPrice: Number(e.target.value) })} className={inputCls} />
@@ -537,7 +542,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
             </form>
           )}
 
-          {skuMode === 'eceran' && (
+          {skuMode === 'eceran' && can('manage_product_add') && (
             <form onSubmit={handleSubmitEceran} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4 max-w-2xl text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div className="border border-gray-200 rounded-xl p-3 space-y-2">
@@ -612,10 +617,12 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               </div>
 
               <div className="grid grid-cols-3 gap-3">
+                {can('view_cost_price') && (
                 <div>
                   <label className={labelCls}>Harga Modal</label>
                   <input type="number" min={0} value={eceranForm.costPrice} onChange={(e) => setEceranForm({ ...eceranForm, costPrice: Number(e.target.value) })} className={inputCls} />
                 </div>
+                )}
                 <div>
                   <label className={labelCls}>Harga Minimum</label>
                   <input type="number" min={0} value={eceranForm.minSellPrice} onChange={(e) => setEceranForm({ ...eceranForm, minSellPrice: Number(e.target.value) })} className={inputCls} />
@@ -655,9 +662,11 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                         {p.productType === 'Induk' ? 'Produk Induk' : `Produk Eceran • 1 : ${p.conversionValue} ${p.unit}`} • {p.sku}
                       </p>
                     </div>
-                    <button onClick={() => handleDeleteSkuProduct(p.sku)} className="p-1.5 text-red-400 hover:text-red-600 cursor-pointer">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {can('manage_product_delete') && (
+                      <button onClick={() => handleDeleteSkuProduct(p.sku)} className="p-1.5 text-red-400 hover:text-red-600 cursor-pointer">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 ))
               )}
@@ -669,6 +678,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
       {/* KATEGORI */}
       {activeTab === 'kategori' && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4 max-w-xl">
+          {can('manage_product_add') && (
           <form onSubmit={handleAddCategory} className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
@@ -690,6 +700,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               <Plus className="w-3.5 h-3.5" /> Tambah
             </button>
           </form>
+          )}
 
           <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
             {categories.length === 0 ? (
@@ -701,9 +712,11 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                     <p className="font-bold text-gray-800">{c.name}</p>
                     <p className="text-[10px] text-gray-400">{levelLabel[c.level]}</p>
                   </div>
-                  <button onClick={() => persistCategories(categories.filter(x => x.id !== c.id))} className="p-1.5 text-red-400 hover:text-red-600 cursor-pointer">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {can('manage_product_delete') && (
+                    <button onClick={() => persistCategories(categories.filter(x => x.id !== c.id))} className="p-1.5 text-red-400 hover:text-red-600 cursor-pointer">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               ))
             )}
@@ -714,6 +727,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
       {/* BRAND */}
       {activeTab === 'brand' && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4 max-w-xl">
+          {can('manage_product_add') && (
           <form onSubmit={handleAddBrand} className="flex gap-2">
             <input
               type="text"
@@ -726,6 +740,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               <Plus className="w-3.5 h-3.5" /> Tambah
             </button>
           </form>
+          )}
           <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
             {brands.length === 0 ? (
               <p className="p-4 text-center text-xs text-gray-400">Belum ada brand.</p>
@@ -733,9 +748,11 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               brands.map((b) => (
                 <div key={b.id} className="flex justify-between items-center p-3 text-xs">
                   <p className="font-bold text-gray-800">{b.name}</p>
-                  <button onClick={() => persistBrands(brands.filter(x => x.id !== b.id))} className="p-1.5 text-red-400 hover:text-red-600 cursor-pointer">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {can('manage_product_delete') && (
+                    <button onClick={() => persistBrands(brands.filter(x => x.id !== b.id))} className="p-1.5 text-red-400 hover:text-red-600 cursor-pointer">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               ))
             )}
@@ -746,6 +763,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
       {/* UNIT */}
       {activeTab === 'unit' && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4 max-w-xl">
+          {can('manage_product_add') && (
           <form onSubmit={handleAddUnit} className="flex gap-2">
             <input
               type="text"
@@ -758,6 +776,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               <Plus className="w-3.5 h-3.5" /> Tambah
             </button>
           </form>
+          )}
           <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
             {units.length === 0 ? (
               <p className="p-4 text-center text-xs text-gray-400">Belum ada satuan.</p>
@@ -765,9 +784,11 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               units.map((u) => (
                 <div key={u.id} className="flex justify-between items-center p-3 text-xs">
                   <p className="font-bold text-gray-800">{u.name}</p>
-                  <button onClick={() => persistUnits(units.filter(x => x.id !== u.id))} className="p-1.5 text-red-400 hover:text-red-600 cursor-pointer">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {can('manage_product_delete') && (
+                    <button onClick={() => persistUnits(units.filter(x => x.id !== u.id))} className="p-1.5 text-red-400 hover:text-red-600 cursor-pointer">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               ))
             )}
@@ -778,12 +799,14 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
       {/* BUNDLE */}
       {activeTab === 'bundle' && (
         <div className="space-y-4">
+          {can('manage_product_add') && (
           <button
             onClick={() => setShowBundleModal(true)}
             className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Buat Paket Baru
           </button>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {bundles.length === 0 ? (
@@ -798,9 +821,11 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                       </div>
                       <p className="font-extrabold text-xs text-gray-800">{b.name}</p>
                     </div>
-                    <button onClick={() => handleDeleteBundle(b.id)} className="text-red-400 hover:text-red-600 cursor-pointer">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {can('manage_product_delete') && (
+                      <button onClick={() => handleDeleteBundle(b.id)} className="text-red-400 hover:text-red-600 cursor-pointer">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                   <div className="text-[10px] text-gray-500 space-y-0.5">
                     {b.items.map((i) => (

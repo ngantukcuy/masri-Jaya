@@ -15,11 +15,13 @@ import {
 import { Supplier } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDialog } from '../../components/shared/DialogProvider';
+import { CurrentUser, hasPermission } from '../../lib/permissions';
 
 interface PemasokViewProps {
   suppliers: Supplier[];
   onUpdateSuppliers: (updatedSuppliers: Supplier[]) => void;
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  currentUser?: CurrentUser;
 }
 
 interface SalesEntry {
@@ -38,8 +40,9 @@ const emptyForm = {
   topDays: 30,
 };
 
-export default function PemasokView({ suppliers, onUpdateSuppliers, onAddActivity }: PemasokViewProps) {
+export default function PemasokView({ suppliers, onUpdateSuppliers, onAddActivity, currentUser }: PemasokViewProps) {
   const dialog = useDialog();
+  const can = (key: string) => hasPermission(currentUser, key);
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingName, setEditingName] = useState<string | null>(null);
@@ -150,12 +153,14 @@ export default function PemasokView({ suppliers, onUpdateSuppliers, onAddActivit
           </h2>
           <p className="text-xs text-gray-500 font-medium mt-0.5">Kelola data pemasok / supplier, sales, dan syarat pembayaran.</p>
         </div>
+        {can('manage_supplier_add') && (
         <button
           onClick={openCreate}
           className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer"
         >
           <Plus className="w-4 h-4" /> Tambah Pemasok
         </button>
+        )}
       </div>
 
       <div className="relative max-w-sm">
@@ -186,12 +191,16 @@ export default function PemasokView({ suppliers, onUpdateSuppliers, onAddActivit
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => openEdit(s)} className="p-1.5 text-amber-500 hover:text-amber-700 cursor-pointer">
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                  <button onClick={() => handleDelete(s)} className="p-1.5 text-red-400 hover:text-red-600 cursor-pointer">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {can('manage_supplier_update') && (
+                    <button onClick={() => openEdit(s)} className="p-1.5 text-amber-500 hover:text-amber-700 cursor-pointer">
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {can('manage_supplier_delete') && (
+                    <button onClick={() => handleDelete(s)} className="p-1.5 text-red-400 hover:text-red-600 cursor-pointer">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
 
