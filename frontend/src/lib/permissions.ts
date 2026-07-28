@@ -65,6 +65,8 @@ export const FEATURE_PERMISSION_DEFS: { key: string; label: string }[] = [
   { key: 'manage_user_update', label: 'Ubah User' },
   { key: 'manage_user_delete', label: 'Hapus User' },
   { key: 'manage_retur_approve', label: 'Setujui/Tolak Retur' },
+  { key: 'manage_finance_approve', label: 'Setujui/Tolak Klaim Reimbursement' },
+  { key: 'manage_opname_approve', label: 'Setujui/Tolak Stock Opname' },
 ];
 
 export const ALL_PERMISSION_DEFS = [...TAB_DEFS, ...FEATURE_PERMISSION_DEFS];
@@ -88,6 +90,8 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<StaffRole, string[]> = {
     'view_cost_price',
     'manage_user_list',
     'manage_retur_approve',
+    'manage_finance_approve',
+    'manage_opname_approve',
   ],
 
   // Kasir: front-of-house/register tabs only, plus basic customer lookup.

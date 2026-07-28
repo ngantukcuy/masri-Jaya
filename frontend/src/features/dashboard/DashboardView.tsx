@@ -369,7 +369,7 @@ export default function DashboardView({
         <div className="lg:col-span-4 flex flex-col gap-6">
           
           {/* AI Insights Card (Glossy Futuristic Dark Card) */}
-          <div className="bg-white-900/95 text-white border border-white-800/80 p-5 relative overflow-hidden rounded-2xl shadow-xl flex flex-col justify-between h-full min-h-[300px]">
+          <div className="bg-zinc-900/95 text-white border border-zinc-800/80 p-5 relative overflow-hidden rounded-2xl shadow-xl flex flex-col justify-between h-full min-h-[300px]">
             {/* Design Watermark */}
             <div className="absolute top-4 right-4 text-[20px] font-black italic uppercase text-white/5 select-none pointer-events-none">AETHER/01</div>
             

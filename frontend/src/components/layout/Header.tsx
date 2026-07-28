@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, MapPin, RotateCw, Bell, Menu, LogOut, Clock, Coins, Shield, X, AlertTriangle, PackageX, ShoppingBag, Wallet } from 'lucide-react';
+import { Search, MapPin, RotateCw, Bell, Menu, LogOut, Clock, Coins, Shield, X, AlertTriangle, PackageX, ShoppingBag, Wallet, Sun, Moon } from 'lucide-react';
 import { getCurrentSession, getMutationTotals } from '../../lib/cashSession';
+import { useTheme } from '../../lib/ThemeContext';
 
 interface SearchResultItem {
   id: string;
@@ -107,6 +108,7 @@ export default function Header({
   customers = [],
   activities = [],
 }: HeaderProps) {
+  const { theme, toggleTheme } = useTheme();
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -300,6 +302,16 @@ export default function Header({
             <span className="text-xs font-extrabold text-blue-600 mt-0.5">{storeName}</span>
           </div>
         )}
+
+        {/* Dark / Light Theme Toggle */}
+        <button
+          onClick={toggleTheme}
+          className="p-2 hover:bg-slate-100 rounded-xl transition-all cursor-pointer border border-slate-200/40 text-slate-600 bg-white"
+          title={theme === 'dark' ? 'Ganti ke Mode Terang' : 'Ganti ke Mode Gelap'}
+          aria-label="Ganti Tema"
+        >
+          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
 
         {/* Sync Button (Moderate Neumorphic Feel) */}
         <button 

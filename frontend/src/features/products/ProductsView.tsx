@@ -209,6 +209,10 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   };
 
   const handleApproveOpname = (subId: string) => {
+    if (!can('manage_opname_approve')) {
+      dialog.alert("Anda tidak memiliki izin untuk menyetujui Stock Opname. Hubungi Owner/Admin.");
+      return;
+    }
     const sub = opnameSubmissions.find(s => s.id === subId);
     if (!sub) return;
 
@@ -264,6 +268,10 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   };
 
   const handleRejectOpname = (subId: string) => {
+    if (!can('manage_opname_approve')) {
+      dialog.alert("Anda tidak memiliki izin untuk menolak Stock Opname. Hubungi Owner/Admin.");
+      return;
+    }
     const updatedSubs = opnameSubmissions.map((s) => {
       if (s.id === subId) {
         return { ...s, status: 'Rejected' as const };
@@ -530,20 +538,24 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                   </p>
                   {sub.notes && <p className="text-gray-400 mt-0.5 italic">"{sub.notes}"</p>}
                 </div>
-                <div className="flex gap-2 shrink-0">
-                  <button
-                    onClick={() => handleRejectOpname(sub.id)}
-                    className="flex-1 sm:flex-none px-3 py-2 border border-gray-200 rounded-lg text-[10px] font-bold uppercase text-gray-600 hover:bg-gray-50 cursor-pointer"
-                  >
-                    Tolak
-                  </button>
-                  <button
-                    onClick={() => handleApproveOpname(sub.id)}
-                    className="flex-1 sm:flex-none px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer"
-                  >
-                    Setujui
-                  </button>
-                </div>
+                {can('manage_opname_approve') ? (
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => handleRejectOpname(sub.id)}
+                      className="flex-1 sm:flex-none px-3 py-2 border border-gray-200 rounded-lg text-[10px] font-bold uppercase text-gray-600 hover:bg-gray-50 cursor-pointer"
+                    >
+                      Tolak
+                    </button>
+                    <button
+                      onClick={() => handleApproveOpname(sub.id)}
+                      className="flex-1 sm:flex-none px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer"
+                    >
+                      Setujui
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-gray-400 italic shrink-0">Menunggu persetujuan Owner/Admin.</span>
+                )}
               </div>
             ))}
           </div>

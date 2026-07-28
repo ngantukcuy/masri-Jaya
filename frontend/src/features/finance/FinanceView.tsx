@@ -11,11 +11,13 @@ import { Expense } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
+import { CurrentUser, hasPermission } from '../../lib/permissions';
 
 interface FinanceViewProps {
   expenses: Expense[];
   onUpdateExpenses: (updatedExpenses: Expense[]) => void;
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  currentUser?: CurrentUser | null;
 }
 
 interface PendingApproval {
@@ -26,8 +28,11 @@ interface PendingApproval {
   category: 'Office' | 'Travel' | 'Logistics' | 'Supplies' | 'Utility';
 }
 
-export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity }: FinanceViewProps) {
+export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity, currentUser }: FinanceViewProps) {
   const dialog = useDialog();
+  // Same gap as the retur bug: without this, anyone who can open the Finance
+  // tab could approve/reject reimbursement claims regardless of role.
+  const canApproveFinance = hasPermission(currentUser, 'manage_finance_approve');
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('Semua');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [hoveredDayIdx, setHoveredDayIdx] = useState<number | null>(null);
@@ -63,6 +68,10 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity 
   ];
 
   const handleApproveClaim = (claim: PendingApproval) => {
+    if (!canApproveFinance) {
+      dialog.alert("Anda tidak memiliki izin untuk menyetujui klaim reimbursement. Hubungi Owner/Admin.");
+      return;
+    }
     // 1. Move to Expense ledger
     const nextExpense: Expense = {
       id: `EXP-APR-${Math.floor(100 + Math.random() * 900)}`,
@@ -92,6 +101,10 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity 
   };
 
   const handleRejectClaim = (claim: PendingApproval) => {
+    if (!canApproveFinance) {
+      dialog.alert("Anda tidak memiliki izin untuk menolak klaim reimbursement. Hubungi Owner/Admin.");
+      return;
+    }
     setPendingClaims(pendingClaims.filter(c => c.id !== claim.id));
     dialog.alert(`Klaim reimbursement ${claim.id} yang diajukan oleh ${claim.submittedBy} telah ditolak.`);
   };
@@ -314,22 +327,26 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity 
 
                   <div className="flex justify-between items-center pt-2 border-t border-gray-150">
                     <span className="font-black text-xs text-gray-950">Rp {claim.amount.toLocaleString('id-ID')}</span>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleRejectClaim(claim)}
-                        className="w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
-                        title="Tolak Klaim"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleApproveClaim(claim)}
-                        className="w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
-                        title="Setujui Klaim"
-                      >
-                        <Check className="w-4 h-4" />
-                      </button>
-                    </div>
+                    {canApproveFinance ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleRejectClaim(claim)}
+                          className="w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
+                          title="Tolak Klaim"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleApproveClaim(claim)}
+                          className="w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
+                          title="Setujui Klaim"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-gray-400 italic">Menunggu persetujuan Owner/Admin.</span>
+                    )}
                   </div>
                 </div>
               ))

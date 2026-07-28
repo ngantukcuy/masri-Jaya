@@ -22,11 +22,59 @@
   --color-gray-900: #0f172a;
 }
 
+/* ==========================================================================
+   Dark theme
+   --------------------------------------------------------------------------
+   Almost every component in this app is built with the gray/slate/white
+   scale above (bg-white, text-gray-900, border-gray-200, ...) rather than
+   one-off hex values. Tailwind v4 compiles those utilities to reference the
+   --color-* variables directly, so re-pointing the variables under a single
+   `.dark` class (added to <html> by ThemeContext) re-themes the whole app
+   without editing every component. It's a mirror of the light scale: white
+   becomes the darkest surface, gray-900 becomes the lightest (for primary
+   text), and so on — so elevation/contrast relationships stay the same,
+   just inverted. Accent colors (blue/emerald/red/amber badges etc.) are
+   intentionally left as-is; they already read fine on a dark surface.
+   ========================================================================== */
+.dark {
+  --color-white: #0f172a;
+  --color-gray-50: #1e293b;
+  --color-gray-100: #334155;
+  --color-gray-200: #475569;
+  --color-gray-300: #64748b;
+  --color-gray-400: #94a3b8;
+  --color-gray-500: #cbd5e1;
+  --color-gray-600: #e2e8f0;
+  --color-gray-700: #f1f5f9;
+  --color-gray-800: #f8fafc;
+  --color-gray-900: #ffffff;
+
+  /* This app's "gray" is Tailwind's stock slate scale under a different
+     name, and `slate-*` utilities (Header, Sidebar, mobile nav) are used
+     throughout too — mirror the same values so both scales invert together. */
+  --color-slate-50: #1e293b;
+  --color-slate-100: #334155;
+  --color-slate-200: #475569;
+  --color-slate-300: #64748b;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #cbd5e1;
+  --color-slate-600: #e2e8f0;
+  --color-slate-700: #f1f5f9;
+  --color-slate-800: #f8fafc;
+  --color-slate-900: #ffffff;
+}
+
 /* Base Body settings: modern luxury background gradient */
 body {
   background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 50%, #f1f5f9 100%) !important;
   color: #0f172a !important;
   min-height: 100vh;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.dark body {
+  background: linear-gradient(135deg, #0a0f1a 0%, #0f1b30 50%, #0d1420 100%) !important;
+  color: #f1f5f9 !important;
 }
 
 /* Custom scrollbars */
@@ -43,6 +91,12 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
 }
 
 /* Glassmorphism Classes */
@@ -64,6 +118,17 @@ body {
   border-color: rgba(255, 255, 255, 0.7) !important;
 }
 
+.dark .glass-card {
+  background: rgba(15, 23, 42, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+}
+.dark .glass-card-hover:hover {
+  background: rgba(30, 41, 59, 0.85) !important;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
 .glass-input {
   background: rgba(255, 255, 255, 0.6) !important;
   backdrop-filter: blur(8px) !important;
@@ -76,6 +141,16 @@ body {
   background: rgba(255, 255, 255, 0.95) !important;
   border-color: #3b82f6 !important;
   box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1) !important;
+}
+.dark .glass-input {
+  background: rgba(30, 41, 59, 0.6) !important;
+  border: 1px solid rgba(71, 85, 105, 0.6) !important;
+  color: #f1f5f9;
+}
+.dark .glass-input:focus {
+  background: rgba(30, 41, 59, 0.9) !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18) !important;
 }
 
 /* Tasteful, Moderate Neumorphism (mainly on interactive control items and special buttons) */
@@ -105,6 +180,29 @@ body {
   background: #ffffff !important;
   box-shadow: inset 1px 1px 3px rgba(163, 177, 198, 0.1), 2px 2px 8px rgba(163, 177, 198, 0.12) !important;
   border: 1px solid rgba(255, 255, 255, 0.9) !important;
+}
+
+.dark .neu-btn {
+  background: #1e293b !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.35), -3px -3px 10px rgba(255, 255, 255, 0.03) !important;
+}
+.dark .neu-btn:hover {
+  background: #243244 !important;
+  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.3), -2px -2px 6px rgba(255, 255, 255, 0.03) !important;
+}
+.dark .neu-btn:active {
+  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.4), inset -2px -2px 5px rgba(255, 255, 255, 0.02) !important;
+}
+.dark .neu-inset {
+  background: #0f172a !important;
+  box-shadow: inset 2px 2px 6px rgba(0, 0, 0, 0.3), inset -2px -2px 6px rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+.dark .neu-pill-active {
+  background: #334155 !important;
+  box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.2), 2px 2px 8px rgba(0, 0, 0, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 /* Ensure modern, beautiful standard styles */

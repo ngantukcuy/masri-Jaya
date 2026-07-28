@@ -828,7 +828,7 @@ export default function POSView({
       </div>
 
       {/* Right Panel: POS Shopping Cart */}
-      <div className={`lg:col-span-4 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col justify-between overflow-hidden min-h-0 h-full ${mobileActiveSubTab === 'cart' ? 'flex' : 'hidden lg:flex'}`}>
+      <div className={`lg:col-span-4 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col justify-between overflow-hidden min-h-0 self-start max-h-[calc(100vh-140px)] ${mobileActiveSubTab === 'cart' ? 'flex' : 'hidden lg:flex'}`}>
         
         {/* Customer select box */}
         <div className="p-4 border-b border-gray-100 bg-gray-50 space-y-2">

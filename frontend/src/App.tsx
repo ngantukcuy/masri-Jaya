@@ -355,6 +355,7 @@ function Dashboard({
                       expenses={expenses}
                       onUpdateExpenses={setExpenses}
                       onAddActivity={handleAddActivity}
+                      currentUser={currentUser}
                     />
                   );
                 case 'reports':
