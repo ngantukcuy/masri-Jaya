@@ -387,7 +387,7 @@ export default function Header({
           />
           <div className="bg-white rounded-2xl max-w-sm w-full border border-slate-200 p-6 shadow-2xl max-h-[85vh] overflow-y-auto relative z-10 space-y-4 font-sans text-xs">
             <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-              <div className="flex items-center gap-1.5 text-blue-600">
+              <div className="flex items-top gap-1.5 text-blue-600">
                 <Shield className="w-5 h-5 animate-pulse" />
                 <h3 className="font-extrabold text-sm uppercase tracking-wider text-gray-800">Sesi &amp; Informasi Akun</h3>
               </div>
