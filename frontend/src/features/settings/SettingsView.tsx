@@ -31,6 +31,7 @@ import {
 import { buildTestPrint } from '../../lib/printing/escpos';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { TAB_DEFS, FEATURE_PERMISSION_DEFS, ROLE_DEFAULT_PERMISSIONS, CurrentUser, hasPermission } from '../../lib/permissions';
+import { resetAllBusinessData } from '../../lib/resetAllData';
 
 interface SettingsViewProps {
   branches: Branch[];
@@ -448,6 +449,39 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     const confirmed = await dialog.confirm("PERINGATAN KRITIS: Aktifkan Protokol Lockdown Darurat?\nTindakan ini akan memutuskan seluruh mesin kasir POS aktif dan mengenkripsi database.");
     if (confirmed) {
       setLockdownActive(true);
+    }
+  };
+
+  const [resettingData, setResettingData] = useState(false);
+  const handleResetAllData = async () => {
+    // Hard-coded to Owner only (not routed through the customizable
+    // permission system) — this is irreversible and shouldn't be something
+    // that can end up granted to a lesser role via a Settings checkbox.
+    if (currentUser?.role !== 'Owner') {
+      dialog.alert("Hanya Owner yang bisa menghapus seluruh data.");
+      return;
+    }
+    const CONFIRM_PHRASE = 'HAPUS SEMUA DATA';
+    const typed = await dialog.prompt(
+      `Tindakan ini akan MENGHAPUS PERMANEN seluruh data produk, transaksi, pelanggan, pemasok, keuangan, retur, opname, dan sesi kas — TIDAK BISA dibatalkan.\n\nAkun login (Owner & staf) tidak akan terhapus.\n\nKetik "${CONFIRM_PHRASE}" untuk melanjutkan:`,
+      '',
+      { title: 'Hapus Seluruh Data', confirmLabel: 'Hapus Permanen' }
+    );
+    if (typed === null) return; // cancelled
+    if (typed.trim().toUpperCase() !== CONFIRM_PHRASE) {
+      dialog.alert('Teks konfirmasi tidak cocok. Penghapusan dibatalkan.');
+      return;
+    }
+
+    setResettingData(true);
+    const result = await resetAllBusinessData();
+    setResettingData(false);
+
+    if (result.ok) {
+      dialog.alert('Seluruh data berhasil dihapus. Halaman akan dimuat ulang.');
+      window.location.reload();
+    } else {
+      dialog.alert(`Sebagian data gagal dihapus:\n${result.errors.join('\n')}`);
     }
   };
 
@@ -1210,6 +1244,37 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                 </button>
               </div>
             </div>
+
+            {/* Danger Zone: reset all business data (Owner only) */}
+            {currentUser?.role === 'Owner' && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl space-y-2">
+                <div className="flex items-start gap-2.5 text-red-900">
+                  <AlertOctagon className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h5 className="font-bold">Hapus Seluruh Data (Reset Pabrik)</h5>
+                    <p className="text-[10px] text-red-700 leading-relaxed mt-0.5">
+                      Menghapus PERMANEN seluruh produk, transaksi penjualan, PO, pelanggan, pemasok, keuangan, retur, opname, dan sesi kas. Cocok dipakai untuk membersihkan data uji coba sebelum pakai serius. Akun login Owner &amp; staf TIDAK ikut terhapus — tidak akan ada yang ter-lockout.
+                    </p>
+                  </div>
+                </div>
+                <div className="pt-2">
+                  <button
+                    onClick={handleResetAllData}
+                    disabled={resettingData}
+                    className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold shadow-md cursor-pointer text-center disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    {resettingData ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Menghapus Data...</span>
+                      </>
+                    ) : (
+                      <span>Hapus Seluruh Data</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

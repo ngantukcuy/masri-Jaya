@@ -359,7 +359,7 @@ function Dashboard({
                     />
                   );
                 case 'reports':
-                  return <ReportsView />;
+                  return <ReportsView salesInvoices={salesInvoices} products={products} />;
                 case 'settings':
                   return (
                     <SettingsView

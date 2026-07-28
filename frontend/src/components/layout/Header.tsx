@@ -380,7 +380,7 @@ export default function Header({
 
       {/* USER PROFILE MODAL */}
       {showProfileModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pt-16">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pt-30 ">w
           <div 
             onClick={() => setShowProfileModal(false)}
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs"
