@@ -824,7 +824,7 @@ export default function POSView({
         </div>
 
         {/* Products Grid Canvas */}
-        <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 pr-1">
+        <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 auto-rows-max gap-4 pr-1 content-start">
           {filteredProducts.map((prod) => (
             <motion.div 
               whileTap={{ scale: 0.98 }}
