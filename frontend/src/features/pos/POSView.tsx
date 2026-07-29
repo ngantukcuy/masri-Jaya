@@ -128,17 +128,10 @@ export default function POSView({
   const [newProductProjectPrice, setNewProductProjectPrice] = useState('');
   const [newProductStock, setNewProductStock] = useState('');
 
-  // Filter Categories
-  const categories = [
-    'Semua Kategori', 
-    'Cement & Mortar', 
-    'Paint & Coatings', 
-    'Steel & Reinforcement', 
-    'Electrical', 
-    'Metals', 
-    'Concrete', 
-    'Glazing'
-  ];
+  // Filter Categories — derived from the products actually in stock, same
+  // approach as the Stok (ProductsView) page, so a store never sees filter
+  // pills for categories it doesn't carry.
+  const categories = ['Semua Kategori', ...Array.from(new Set(products.map((p) => p.category)))];
 
   // Map category displays to Indonesian (for visual look)
   const categoryTranslationMap: Record<string, string> = {
