@@ -22,7 +22,8 @@ import {
   Play,
   X,
   Wallet,
-  Package
+  Package,
+  SlidersHorizontal
 } from 'lucide-react';
 import { Product, Customer, SalesInvoice, Printer } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -61,6 +62,7 @@ interface POSViewProps {
   onRecordSale?: (invoice: SalesInvoice) => void;
   cashierName?: string;
   storeProfile?: StoreProfileLite;
+  onExitFullScreen?: () => void;
 }
 
 export default function POSView({ 
@@ -73,9 +75,11 @@ export default function POSView({
   onRecordSale,
   cashierName,
   storeProfile,
+  onExitFullScreen,
 }: POSViewProps) {
   const dialog = useDialog();
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua Kategori');
+  const [showCategoryFilter, setShowCategoryFilter] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer>(customers[0] || {
     id: 'CUST-01',
@@ -679,7 +683,24 @@ export default function POSView({
   }, [cart, discountMode, discountValue, isCartPersistenceEnabled, paymentMethod, fulfillmentMethod, deliveryAddress, selectedCustomer.id]);
 
   return (
-    <div className="flex flex-col gap-4 h-[calc(100vh-140px)] relative">
+    <div className="flex flex-col gap-4 h-screen p-4 md:p-6 relative">
+      {/* Slim top bar replacing the app header/sidebar while in full-screen POS mode */}
+      {onExitFullScreen && (
+        <div className="flex items-center justify-between shrink-0">
+          <button
+            onClick={onExitFullScreen}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-50 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+            <span>Kembali</span>
+          </button>
+          <div className="flex items-center gap-3 text-xs font-bold text-gray-500">
+            {storeProfile?.storeName && <span className="text-gray-800">{storeProfile.storeName}</span>}
+            {cashierName && <span className="text-gray-400">Kasir: {cashierName}</span>}
+          </div>
+        </div>
+      )}
+
       {/* Mobile Tab Swapper (Header) */}
       <div className="flex md:hidden bg-slate-100 p-1 rounded-xl border border-slate-200/50 w-full shrink-0">
         <button
@@ -756,6 +777,19 @@ export default function POSView({
           {/* Sound enable switch & Customer Selection Quick View */}
           <div className="flex items-center gap-2 flex-wrap">
             <button
+              onClick={() => setShowCategoryFilter(!showCategoryFilter)}
+              className={`px-3 py-2 border rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5 transition-all whitespace-nowrap ${
+                showCategoryFilter ? 'bg-blue-50 border-blue-600 text-blue-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Filter</span>
+              {selectedCategory !== 'Semua Kategori' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+              )}
+            </button>
+
+            <button
               onClick={handleToggleCartPersistence}
               className={`px-3 py-2 rounded-lg border text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
                 isCartPersistenceEnabled
@@ -799,22 +833,28 @@ export default function POSView({
           )}
         </AnimatePresence>
 
-        {/* Category Pills Slider */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all duration-200 cursor-pointer ${
-                selectedCategory === cat 
-                  ? 'bg-blue-100 text-blue-800 font-semibold border-l-4 border-blue-600' 
-                  : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
-              }`}
+        {/* Filter Drawer — Pilih Kategori only (no status filter on POS) */}
+        <AnimatePresence>
+          {showCategoryFilter && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="bg-white border border-gray-200 rounded-xl p-4 overflow-hidden text-xs"
             >
-              {categoryTranslationMap[cat] || cat}
-            </button>
-          ))}
-        </div>
+              <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Pilih Kategori</label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full sm:max-w-xs bg-gray-50 border border-gray-200 rounded-lg p-2 font-semibold text-gray-700 outline-none"
+              >
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>{categoryTranslationMap[cat] || cat}</option>
+                ))}
+              </select>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Products Grid Canvas */}
         <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 auto-rows-max gap-4 pr-1 content-start">

@@ -24,6 +24,18 @@ window.addEventListener('vite:preloadError', () => {
 // allowed to auto-reload once, ever, per browser.
 sessionStorage.removeItem(RELOAD_FLAG);
 
+// Register the service worker so the browser recognizes this app as an
+// installable PWA (Add to Home Screen / Install app). Registered after
+// load so it never competes with the initial page render for bandwidth.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Non-fatal: the app works fine without an active service worker,
+      // it just won't be installable/offline-capable in that case.
+    });
+  });
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>

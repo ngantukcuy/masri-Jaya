@@ -125,12 +125,112 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const totalStockValue = products.reduce((acc, p) => acc + (p.stock * p.retailPrice), 0);
   const lowStockCount = products.filter(p => p.stockStatus === 'Low Stock' || p.stock === 0).length;
 
-  const handleExportCSV = () => {
-    dialog.alert("Membuat Laporan Lembar Stok...\nBerhasil mengekspor LAPORAN_INVENTORI_SINARMAJU.csv dengan seluruh SKU terdaftar.");
+  // Export the currently filtered stock list to a real .xlsx file the
+  // browser downloads directly — no server round-trip needed.
+  const handleExportExcel = async () => {
+    const XLSX = await import('xlsx');
+
+    const statusLabel = (s: Product['stockStatus']) =>
+      s === 'Healthy' ? 'Stok Aman' : s === 'Low Stock' ? 'Stok Rendah' : 'Stok Habis';
+
+    const rows = filteredProducts.map((p) => ({
+      'Nama Material': p.name,
+      'Kode SKU': p.sku,
+      'Kategori': categoryTranslationMap[p.category] || p.category,
+      'Unit': p.unit,
+      'Harga Eceran': p.retailPrice,
+      'Harga Grosir': p.wholesalePrice,
+      'Harga Proyek': p.projectPrice,
+      'Stok Fisik': p.stock,
+      'Status': statusLabel(p.stockStatus),
+      'Lokasi': (p as any).location || '-',
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet['!cols'] = [
+      { wch: 28 }, { wch: 14 }, { wch: 18 }, { wch: 8 },
+      { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 18 },
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Stok');
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `Laporan_Stok_${dateStr}.xlsx`);
   };
 
-  const handlePrintBarcodes = () => {
-    dialog.alert("Inisialisasi Printer Thermal Selesai!\nLembar cetak barcode dikirim ke Printer Epson TM-T88VI.");
+  // Open a clean, print-only view of the current stock list in a new tab
+  // and trigger the browser's native print dialog.
+  const handlePrintStock = () => {
+    const statusLabel = (s: Product['stockStatus']) =>
+      s === 'Healthy' ? 'Stok Aman' : s === 'Low Stock' ? 'Stok Rendah' : 'Stok Habis';
+
+    const rowsHtml = filteredProducts.map((p) => `
+      <tr>
+        <td>${p.name}</td>
+        <td>${p.sku}</td>
+        <td>${categoryTranslationMap[p.category] || p.category}</td>
+        <td style="text-align:right">Rp ${p.retailPrice.toLocaleString('id-ID')}</td>
+        <td style="text-align:center">${p.stock} ${p.unit}</td>
+        <td style="text-align:center">${statusLabel(p.stockStatus)}</td>
+      </tr>
+    `).join('');
+
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) {
+      dialog.alert('Popup diblokir oleh browser. Izinkan popup untuk mencetak laporan stok.');
+      return;
+    }
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html lang="id">
+        <head>
+          <meta charset="utf-8" />
+          <title>Laporan Stok - ${new Date().toLocaleDateString('id-ID')}</title>
+          <style>
+            * { box-sizing: border-box; }
+            body { font-family: Arial, Helvetica, sans-serif; padding: 24px; color: #111827; }
+            h1 { font-size: 18px; margin-bottom: 2px; }
+            p.meta { font-size: 11px; color: #6b7280; margin-top: 0; margin-bottom: 16px; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; }
+            th, td { border: 1px solid #d1d5db; padding: 6px 8px; }
+            th { background: #f3f4f6; text-align: left; text-transform: uppercase; font-size: 10px; }
+            @media print {
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Laporan Stok Barang</h1>
+          <p class="meta">Dicetak pada ${new Date().toLocaleString('id-ID')} &middot; ${filteredProducts.length} item</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Nama Material</th>
+                <th>Kode SKU</th>
+                <th>Kategori</th>
+                <th style="text-align:right">Harga</th>
+                <th style="text-align:center">Stok</th>
+                <th style="text-align:center">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml || '<tr><td colspan="6" style="text-align:center">Tidak ada data</td></tr>'}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.onload = () => {
+      printWindow.print();
+    };
+    // Fallback in case onload doesn't fire (already-loaded blank doc in some browsers)
+    setTimeout(() => {
+      try { printWindow.print(); } catch { /* ignore */ }
+    }, 400);
   };
 
   const handleExecuteAdjustment = (e: React.FormEvent) => {
@@ -591,17 +691,17 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
               </button>
 
               <button 
-                onClick={handleExportCSV}
+                onClick={handleExportExcel}
                 className="p-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 cursor-pointer"
-                title="Ekspor CSV"
+                title="Ekspor ke Excel (.xlsx)"
               >
                 <Download className="w-4 h-4" />
               </button>
 
               <button 
-                onClick={handlePrintBarcodes}
+                onClick={handlePrintStock}
                 className="p-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 cursor-pointer"
-                title="Cetak Barcode"
+                title="Cetak Laporan Stok"
               >
                 <Printer className="w-4 h-4" />
               </button>

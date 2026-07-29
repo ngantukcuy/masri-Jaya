@@ -233,6 +233,7 @@ function Dashboard({
                         phone: registeredOwner.phone,
                         receiptNote: registeredOwner.receiptNote,
                       } : undefined}
+                      onExitFullScreen={() => setCurrentTab('dashboard')}
                     />
                   );
                 case 'kas-harian':
@@ -462,6 +463,19 @@ function Dashboard({
         return "Cari pesanan, stok barang, atau pemasok...";
     }
   };
+
+  // The POS/cashier screen gets the full viewport to itself — no header,
+  // sidebar, or bottom nav — so cashiers have as much room as possible to
+  // work with the product grid and cart during checkout.
+  const isPOSFullScreen = currentTab.split(':')[0] === 'pos';
+
+  if (isPOSFullScreen) {
+    return (
+      <div className="min-h-screen font-sans antialiased text-gray-900 select-none">
+        {renderActiveView()}
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen font-sans antialiased text-gray-900 select-none">
