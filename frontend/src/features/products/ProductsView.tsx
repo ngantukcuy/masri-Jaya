@@ -656,7 +656,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                   <tr className="bg-gray-50 text-[10px] text-gray-400 font-bold uppercase border-b border-gray-100">
                     <th className="py-3 px-4">Nama Material</th>
                     <th className="py-3 px-4">Kode SKU</th>
-                    <th className="py-3 px-4 text-right">Harga Eceran</th>
+                    <th className="py-3 px-4 text-right">Harga Modal</th>
                     <th className="py-3 px-4 text-center">Stok Fisik</th>
                     <th className="py-3 px-4 text-center">Status</th>
                     <th className="py-3 px-4"></th>
@@ -774,15 +774,15 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 <span className="font-bold text-[10px] text-gray-400 uppercase tracking-widest block">Skema Daftar Harga Bertingkat</span>
                 <div className="divide-y divide-gray-100 border border-gray-150 rounded-xl bg-gray-50/40 p-1">
                   <div className="flex justify-between p-2">
-                    <span className="text-gray-500 font-medium">Harga Eceran (Retail)</span>
+                    <span className="text-gray-500 font-medium">Harga Modal</span>
                     <span className="font-extrabold text-gray-900">Rp {selectedProduct.retailPrice.toLocaleString('id-ID')} / {selectedProduct.unit}</span>
                   </div>
                   <div className="flex justify-between p-2">
-                    <span className="text-gray-500 font-medium flex items-center gap-1">Harga Grosir <Info className="w-3.5 h-3.5 text-blue-500" title="Auto-aktif jika pembelian >= 10 unit" /></span>
+                    <span className="text-gray-500 font-medium flex items-center gap-1">Harga Standard <Info className="w-3.5 h-3.5 text-blue-500" title="Auto-aktif jika pembelian >= 10 unit" /></span>
                     <span className="font-extrabold text-gray-900">Rp {selectedProduct.wholesalePrice.toLocaleString('id-ID')} / {selectedProduct.unit}</span>
                   </div>
                   <div className="flex justify-between p-2">
-                    <span className="text-gray-500 font-medium">Harga Khusus Proyek</span>
+                    <span className="text-gray-500 font-medium">Harga Minimum</span>
                     <span className="font-extrabold text-gray-900">Rp {selectedProduct.projectPrice.toLocaleString('id-ID')} / {selectedProduct.unit}</span>
                   </div>
                 </div>
@@ -1002,7 +1002,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Retail (Eceran)</label>
+                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Modal</label>
                     <input 
                       type="number"
                       required
@@ -1013,7 +1013,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Grosir</label>
+                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Standard</label>
                     <input 
                       type="number"
                       required
@@ -1024,7 +1024,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Proyek</label>
+                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Minimum</label>
                     <input 
                       type="number"
                       required
@@ -1185,7 +1185,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Retail (Eceran)</label>
+                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Modal</label>
                     <input 
                       type="number"
                       required
@@ -1196,7 +1196,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Grosir</label>
+                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Standard</label>
                     <input 
                       type="number"
                       required
@@ -1207,7 +1207,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Proyek</label>
+                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Minimum</label>
                     <input 
                       type="number"
                       required

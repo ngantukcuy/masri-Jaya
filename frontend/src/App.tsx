@@ -302,6 +302,14 @@ function Dashboard({
                   return (
                     <TransactionHistoryView
                       salesInvoices={salesInvoices}
+                      cashierName={currentUser?.name}
+                      storeProfile={registeredOwner ? {
+                        storeName: registeredOwner.storeName,
+                        address: registeredOwner.address,
+                        phone: registeredOwner.phone,
+                        receiptNote: registeredOwner.receiptNote,
+                        taxId: registeredOwner.taxId,
+                      } : undefined}
                     />
                   );
                 case 'products':

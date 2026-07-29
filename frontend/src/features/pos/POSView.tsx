@@ -949,7 +949,7 @@ export default function POSView({
                       <span className="text-gray-400">/ {item.product.unit}</span>
                       {item.selectedPriceType === 'wholesale' && (
                         <span className="text-[8px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1 rounded font-black uppercase">
-                          Grosir Otomatis
+                          Standard Otomatis
                         </span>
                       )}
                     </div>
@@ -983,9 +983,9 @@ export default function POSView({
                       }}
                       className="bg-white border border-gray-200 rounded-lg p-1.5 text-[10px] font-bold text-gray-600 outline-none"
                     >
-                      <option value="retail">Harga Eceran</option>
-                      <option value="wholesale">Harga Grosir</option>
-                      <option value="project">Harga Proyek</option>
+                      <option value="retail">Harga Modal</option>
+                      <option value="wholesale">Harga Standard</option>
+                      <option value="project">Harga Minimum</option>
                     </select>
                   </div>
                 </div>

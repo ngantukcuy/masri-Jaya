@@ -109,7 +109,7 @@ export default function AddProductModal({
               />
             </div>
             <div>
-              <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Harga Eceran</label>
+              <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Harga Modal</label>
               <input
                 type="number"
                 min="0"
@@ -119,7 +119,7 @@ export default function AddProductModal({
               />
             </div>
             <div>
-              <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Harga Grosir</label>
+              <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Harga Standard</label>
               <input
                 type="number"
                 min="0"
@@ -129,7 +129,7 @@ export default function AddProductModal({
               />
             </div>
             <div>
-              <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Harga Proyek</label>
+              <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Harga Minimum</label>
               <input
                 type="number"
                 min="0"

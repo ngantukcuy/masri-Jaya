@@ -1,15 +1,31 @@
 import React, { useState } from 'react';
-import { History, Search, Receipt, X } from 'lucide-react';
+import { History, Search, Receipt, X, Printer, Truck } from 'lucide-react';
 import { SalesInvoice } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
+import InvoicePrintModal from './components/InvoicePrintModal';
+
+interface StoreProfileLite {
+  storeName: string;
+  address?: string;
+  phone?: string;
+  receiptNote?: string;
+  taxId?: string;
+}
 
 interface TransactionHistoryViewProps {
   salesInvoices: SalesInvoice[];
+  storeProfile?: StoreProfileLite;
+  cashierName?: string;
 }
 
-export default function TransactionHistoryView({ salesInvoices }: TransactionHistoryViewProps) {
+export default function TransactionHistoryView({ salesInvoices, storeProfile, cashierName }: TransactionHistoryViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selected, setSelected] = useState<SalesInvoice | null>(null);
+  // Which invoice + document type is currently being (re-)printed. Lets a
+  // cashier who forgot to print in POS catch up straight from history,
+  // for either the struk pembelian (purchase receipt) or struk surat jalan
+  // (delivery note).
+  const [printTarget, setPrintTarget] = useState<{ invoice: SalesInvoice; docType: 'invoice' | 'delivery' } | null>(null);
 
   const filtered = salesInvoices.filter(inv =>
     inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -59,19 +75,38 @@ export default function TransactionHistoryView({ salesInvoices }: TransactionHis
               <th className="text-left p-3">Pelanggan</th>
               <th className="text-left p-3">Metode</th>
               <th className="text-right p-3">Total</th>
+              <th className="text-center p-3">Cetak</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filtered.length === 0 ? (
-              <tr><td colSpan={5} className="p-6 text-center text-gray-400">Belum ada transaksi tercatat.</td></tr>
+              <tr><td colSpan={6} className="p-6 text-center text-gray-400">Belum ada transaksi tercatat.</td></tr>
             ) : (
               filtered.map((inv) => (
-                <tr key={inv.invoiceNumber} onClick={() => setSelected(inv)} className="hover:bg-gray-50 cursor-pointer">
-                  <td className="p-3 font-bold text-gray-800">{inv.invoiceNumber}</td>
-                  <td className="p-3 text-gray-500">{inv.date}</td>
-                  <td className="p-3 text-gray-700">{inv.customerName}</td>
-                  <td className="p-3 text-gray-500">{inv.paymentMethod}</td>
-                  <td className="p-3 text-right font-bold text-gray-900">Rp {inv.total.toLocaleString('id-ID')}</td>
+                <tr key={inv.invoiceNumber} className="hover:bg-gray-50">
+                  <td className="p-3 font-bold text-gray-800 cursor-pointer" onClick={() => setSelected(inv)}>{inv.invoiceNumber}</td>
+                  <td className="p-3 text-gray-500 cursor-pointer" onClick={() => setSelected(inv)}>{inv.date}</td>
+                  <td className="p-3 text-gray-700 cursor-pointer" onClick={() => setSelected(inv)}>{inv.customerName}</td>
+                  <td className="p-3 text-gray-500 cursor-pointer" onClick={() => setSelected(inv)}>{inv.paymentMethod}</td>
+                  <td className="p-3 text-right font-bold text-gray-900 cursor-pointer" onClick={() => setSelected(inv)}>Rp {inv.total.toLocaleString('id-ID')}</td>
+                  <td className="p-3">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setPrintTarget({ invoice: inv, docType: 'invoice' }); }}
+                        title="Cetak Struk Pembelian"
+                        className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 cursor-pointer"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setPrintTarget({ invoice: inv, docType: 'delivery' }); }}
+                        title="Cetak Struk Surat Jalan"
+                        className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 cursor-pointer"
+                      >
+                        <Truck className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))
             )}
@@ -116,10 +151,37 @@ export default function TransactionHistoryView({ salesInvoices }: TransactionHis
                 <span>Grand Total</span>
                 <span className="text-blue-600">Rp {selected.total.toLocaleString('id-ID')}</span>
               </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  onClick={() => setPrintTarget({ invoice: selected, docType: 'invoice' })}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-bold cursor-pointer"
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  Struk Pembelian
+                </button>
+                <button
+                  onClick={() => setPrintTarget({ invoice: selected, docType: 'delivery' })}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg text-xs font-bold cursor-pointer"
+                >
+                  <Truck className="w-3.5 h-3.5" />
+                  Surat Jalan
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {printTarget && (
+        <InvoicePrintModal
+          invoice={printTarget.invoice}
+          docType={printTarget.docType}
+          onClose={() => setPrintTarget(null)}
+          storeProfile={storeProfile}
+          cashierName={cashierName}
+        />
+      )}
     </div>
   );
 }
