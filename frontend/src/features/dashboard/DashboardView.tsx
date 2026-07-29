@@ -106,6 +106,26 @@ export default function DashboardView({
     .sort((a, b) => a.stock - b.stock);
   const mostCriticalProduct = criticalStockProducts[0];
 
+  // Kontribusi penjualan per kategori: item invoice sungguhan di-join ke
+  // kategori produknya (bukan tiga baris persentase tetap 65/22/13%).
+  const categoryBySku = new Map(products.map((p) => [p.sku, p.category]));
+  const categoryRevenue = new Map<string, number>();
+  salesInvoices.forEach((inv) => {
+    inv.items.forEach((item) => {
+      const cat = categoryBySku.get(item.sku) || 'Lainnya';
+      categoryRevenue.set(cat, (categoryRevenue.get(cat) || 0) + item.price * item.quantity);
+    });
+  });
+  const totalCategoryRevenue = Array.from(categoryRevenue.values()).reduce((s, v) => s + v, 0);
+  const topCategories = Array.from(categoryRevenue.entries())
+    .map(([name, revenue]) => ({
+      name,
+      percent: totalCategoryRevenue > 0 ? Math.round((revenue / totalCategoryRevenue) * 100) : 0,
+    }))
+    .sort((a, b) => b.percent - a.percent)
+    .slice(0, 3);
+  const categoryBarColors = ['bg-blue-600', 'bg-sky-400', 'bg-slate-400'];
+
   // Render bento KPI card helper with glassmorphic style
   const renderKpiCard = (
     title: string, 
@@ -442,35 +462,23 @@ export default function DashboardView({
           {/* Revenue by Category (Small Card) - Bento Piece */}
           <div className="glass-card p-5 rounded-2xl flex-1 flex flex-col justify-between">
             <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Penjualan Kategori</h4>
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs font-bold text-slate-800">
-                  <span>Bahan Pondasi &amp; Semen</span>
-                  <span>65%</span>
-                </div>
-                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-600 rounded-full" style={{ width: '65%' }}></div>
-                </div>
+            {topCategories.length === 0 ? (
+              <p className="text-[11px] text-slate-400 italic">Belum ada data penjualan untuk dihitung.</p>
+            ) : (
+              <div className="space-y-3">
+                {topCategories.map((cat, idx) => (
+                  <div key={cat.name} className="space-y-1">
+                    <div className="flex justify-between text-xs font-bold text-slate-800">
+                      <span className="truncate pr-2">{cat.name}</span>
+                      <span className="shrink-0">{cat.percent}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className={`h-full ${categoryBarColors[idx]} rounded-full`} style={{ width: `${cat.percent}%` }}></div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs font-bold text-slate-800">
-                  <span>Cat &amp; Finishing Dinding</span>
-                  <span>22%</span>
-                </div>
-                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-sky-400 rounded-full" style={{ width: '22%' }}></div>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs font-bold text-slate-800">
-                  <span>Kelistrikan &amp; Alat Kerja</span>
-                  <span>13%</span>
-                </div>
-                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-slate-400 rounded-full" style={{ width: '13%' }}></div>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

@@ -78,7 +78,7 @@ export function buildTestPrint(printerName: string, storeName?: string): Uint8Ar
     .init()
     .align('center')
     .bold(true)
-    .line(storeName || 'TOKKU POS')
+    .line(storeName || 'Masri Jaya')
     .bold(false)
     .line('TEST PRINT')
     .divider()

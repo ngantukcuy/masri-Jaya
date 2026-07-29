@@ -191,7 +191,7 @@ export default function TokoDigitalView({
                 </button>
               </div>
               {copied && <p className="text-[9px] text-emerald-600 font-bold text-center">Link disalin!</p>}
-              <p className="text-[10px] text-gray-400 leading-relaxed">Bagikan link atau barcode ini ke calon pelanggan. Stok dan harga otomatis mengikuti data Tokku.</p>
+              <p className="text-[10px] text-gray-400 leading-relaxed">Bagikan link atau barcode ini ke calon pelanggan. Stok dan harga otomatis mengikuti data Toko.</p>
             </div>
           )}
         </div>

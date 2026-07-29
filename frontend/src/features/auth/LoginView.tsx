@@ -150,8 +150,8 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
               <div className="w-16 h-16 mx-auto rounded-full nm-inset flex items-center justify-center text-blue-600 mb-3">
                 <Store className="w-8 h-8" />
               </div>
-              <h1 className="text-xl font-black text-gray-900 tracking-tight uppercase">REGISTRASI TOKO BARU</h1>
-              <p className="text-xs text-gray-600 mt-1 uppercase tracking-wider">Langkah awal setup Tokku Build Material ERP</p>
+              <h1 className="text-xl font-black text-gray-900 tracking-tight uppercase">REGISTRASI AKUN OWNER </h1>
+              <p className="text-xs text-gray-600 mt-1 uppercase tracking-wider">Langkah awal setup kasir pos</p>
             </div>
 
             <form onSubmit={handleRegister} className="space-y-4 text-xs">
@@ -397,7 +397,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
       </AnimatePresence>
 
       <p className="text-[10px] text-gray-600 mt-8 font-mono text-center uppercase tracking-[0.2em]">
-        TOKKU BUILD MATERIAL ERP • SECURE ACCESS CONTROL
+        MASRI JAYA • SECURE ACCESS CONTROL
       </p>
     </main>
   );
