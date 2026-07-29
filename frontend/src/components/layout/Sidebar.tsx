@@ -176,8 +176,8 @@ export default function Sidebar({
       <div className="flex items-center justify-between mb-8 px-2 border-b border-slate-100 pb-5">
         <div className="flex flex-col">
           <div className="text-2xl font-black tracking-tighter italic uppercase text-slate-900 flex items-center gap-1.5">
-            <span>TOKKU</span>
-            <span className="text-blue-600">/ BUILD</span>
+            <span>Masri</span>
+            <span className="text-blue-600">/ jaya</span>
           </div>
           <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.3em] mt-1.5">SISTEM ERP MATERIAL / v1.0</p>
         </div>
@@ -260,7 +260,7 @@ export default function Sidebar({
           </button>
         )}
         <button
-          onClick={() => dialog.alert("Pusat bantuan siap melayani! Hubungi dukungan Tokku.")}
+          onClick={() => dialog.alert("Pusat bantuan siap melayani! Hubungi dukungan Masri Jaya.")}
           className="w-full flex items-center gap-3 px-3.5 py-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
         >
           <HelpCircle className="w-4 h-4 text-slate-400" />
