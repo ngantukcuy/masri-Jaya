@@ -17,6 +17,16 @@ export interface SalesInvoice {
   items: SalesInvoiceItem[];
   total: number;
   paymentMethod: string;
+  /** Line-item total before discount. Optional for backward compatibility with older records. */
+  subtotal?: number;
+  /** Rupiah amount actually deducted (already resolved from percent or fixed mode). */
+  discountAmount?: number;
+  discountType?: 'percent' | 'fixed';
+  /** Raw value the cashier entered — a percent (0-100) or a flat Rupiah amount, depending on discountType. */
+  discountValue?: number;
+  fulfillmentMethod?: 'Pickup' | 'Delivery';
+  /** Only meaningful when fulfillmentMethod is 'Delivery'. */
+  deliveryAddress?: string;
 }
 
 // ---- Retur (Sales & Purchase Returns) ----

@@ -1,4 +1,4 @@
-import { Printer, Sparkles } from 'lucide-react';
+import { Printer, FileDown, Sparkles, Truck, Store } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface StoreProfileLite {
@@ -11,7 +11,9 @@ interface StoreProfileLite {
 interface ReceiptModalProps {
   onClose: () => void;
   onPrint: () => void;
+  onPrintPDF: () => void;
   isPrintingAnim: boolean;
+  isGeneratingPDF?: boolean;
   activePrinterName: string;
   // The order summary produced right after checkout. Kept loose (any) to match
   // the shape POSView builds it in — see handleCheckout / executeFinalCheckout.
@@ -20,7 +22,7 @@ interface ReceiptModalProps {
   storeProfile?: StoreProfileLite;
 }
 
-export default function ReceiptModal({ onClose, onPrint, isPrintingAnim, activePrinterName, lastOrderDetails, cashierName, storeProfile }: ReceiptModalProps) {
+export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingAnim, isGeneratingPDF, activePrinterName, lastOrderDetails, cashierName, storeProfile }: ReceiptModalProps) {
   const storeName = storeProfile?.storeName || 'Toko Saya';
   return (
     <div className="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center z-[150] p-4 overflow-y-auto">
@@ -55,6 +57,21 @@ export default function ReceiptModal({ onClose, onPrint, isPrintingAnim, activeP
               <span>METODE:</span>
               <span className="font-bold uppercase text-blue-600">{lastOrderDetails.paymentMethod === 'Cash' ? 'TUNAI' : lastOrderDetails.paymentMethod}</span>
             </div>
+            {lastOrderDetails.fulfillmentMethod && (
+              <div className="flex justify-between">
+                <span>PENGAMBILAN:</span>
+                <span className="font-bold uppercase flex items-center gap-1">
+                  {lastOrderDetails.fulfillmentMethod === 'Delivery' ? <Truck className="w-3 h-3" /> : <Store className="w-3 h-3" />}
+                  {lastOrderDetails.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI'}
+                </span>
+              </div>
+            )}
+            {lastOrderDetails.fulfillmentMethod === 'Delivery' && lastOrderDetails.deliveryAddress && (
+              <div className="flex justify-between gap-2">
+                <span className="shrink-0">ALAMAT:</span>
+                <span className="text-right">{lastOrderDetails.deliveryAddress}</span>
+              </div>
+            )}
           </div>
 
           {/* Items breaking list */}
@@ -83,13 +100,9 @@ export default function ReceiptModal({ onClose, onPrint, isPrintingAnim, activeP
               <span>SUBTOTAL:</span>
               <span>Rp {lastOrderDetails.subtotal.toLocaleString('id-ID')}</span>
             </div>
-            <div className="flex justify-between">
-              <span>PAJAK (PPN 11%):</span>
-              <span>Rp {lastOrderDetails.ppn.toLocaleString('id-ID')}</span>
-            </div>
             {lastOrderDetails.discount > 0 && (
               <div className="flex justify-between text-red-600 font-bold">
-                <span>DISKON PROMO:</span>
+                <span>DISKON {lastOrderDetails.discountType === 'fixed' ? '(Rp)' : `(${lastOrderDetails.discountValue || 0}%)`}:</span>
                 <span>-Rp {lastOrderDetails.discount.toLocaleString('id-ID')}</span>
               </div>
             )}
@@ -118,22 +131,30 @@ export default function ReceiptModal({ onClose, onPrint, isPrintingAnim, activeP
           {isPrintingAnim && activePrinterName && (
             <p className="text-center text-[9px] text-gray-400">Mengirim ke {activePrinterName}...</p>
           )}
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <button
               onClick={onPrint}
               disabled={isPrintingAnim}
               className="w-full flex items-center justify-center gap-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50"
             >
               <Printer className="w-4 h-4" />
-              <span>{isPrintingAnim ? "Mencetak..." : "Cetak Struk"}</span>
+              <span>{isPrintingAnim ? "Mencetak..." : "Cetak Thermal"}</span>
             </button>
             <button
-              onClick={onClose}
-              className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold cursor-pointer shadow-md"
+              onClick={onPrintPDF}
+              disabled={isGeneratingPDF}
+              className="w-full flex items-center justify-center gap-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50"
             >
-              Selesai
+              <FileDown className="w-4 h-4" />
+              <span>{isGeneratingPDF ? "Membuat..." : "Cetak PDF"}</span>
             </button>
           </div>
+          <button
+            onClick={onClose}
+            className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold cursor-pointer shadow-md"
+          >
+            Selesai
+          </button>
         </div>
       </motion.div>
     </div>

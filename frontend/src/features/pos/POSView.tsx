@@ -10,6 +10,10 @@ import {
   Printer as PrinterIcon, 
   UserPlus, 
   BadgePercent,
+  Banknote,
+  Store,
+  Truck,
+  FileDown,
   Sparkles,
   Barcode,
   Volume2,
@@ -30,6 +34,7 @@ import AddCustomerModal from './components/AddCustomerModal';
 import { recordSale } from '../../lib/cashSession';
 import { getSupabaseTableCache } from '../../lib/supabaseCache';
 import { playBeep, playPrintSound } from './lib/posAudio';
+import { generateReceiptPDF } from './lib/receiptPdf';
 import {
   CartItem,
   PersistedPOSState,
@@ -84,7 +89,10 @@ export default function POSView({
     lastTransactions: []
   });
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [discountMode, setDiscountMode] = useState<'percent' | 'fixed'>('percent');
+  const [discountValue, setDiscountValue] = useState<number>(0);
+  const [fulfillmentMethod, setFulfillmentMethod] = useState<'Pickup' | 'Delivery'>('Pickup');
+  const [deliveryAddress, setDeliveryAddress] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'QRIS' | 'Split' | 'Deposit'>('Cash');
   const [isCartPersistenceEnabled, setIsCartPersistenceEnabled] = useState(false);
   const [showCheckoutReceipt, setShowCheckoutReceipt] = useState(false);
@@ -99,6 +107,7 @@ export default function POSView({
   const [scanSuccessMessage, setScanSuccessMessage] = useState('');
   const [isPrintingAnim, setIsPrintingAnim] = useState(false);
   const [activePrinterName, setActivePrinterName] = useState('');
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [scannerStatus, setScannerStatus] = useState('Siap memindai barcode');
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
@@ -372,7 +381,7 @@ export default function POSView({
 
     if (nextState) {
       const persistedState = readPersistedPOSState();
-      if (persistedState.cart.length > 0 || persistedState.selectedCustomerId || persistedState.discountPercent > 0 || persistedState.paymentMethod !== 'Cash') {
+      if (persistedState.cart.length > 0 || persistedState.selectedCustomerId || persistedState.discountValue > 0 || persistedState.paymentMethod !== 'Cash') {
         setCart(persistedState.cart);
         const restoredCustomer = persistedState.selectedCustomerId
           ? customers.find((customer) => customer.id === persistedState.selectedCustomerId)
@@ -380,8 +389,11 @@ export default function POSView({
         if (restoredCustomer) {
           setSelectedCustomer(restoredCustomer);
         }
-        setDiscountPercent(persistedState.discountPercent);
+        setDiscountMode(persistedState.discountMode);
+        setDiscountValue(persistedState.discountValue);
         setPaymentMethod(persistedState.paymentMethod);
+        setFulfillmentMethod(persistedState.fulfillmentMethod);
+        setDeliveryAddress(persistedState.deliveryAddress);
       }
     } else {
       clearPersistedPOSState();
@@ -401,9 +413,13 @@ export default function POSView({
   };
 
   const subtotal = getCartSubtotal();
-  const ppn = subtotal * 0.11; // 11% Value Added Tax
-  const discountAmount = subtotal * (discountPercent / 100);
-  const totalAmount = subtotal + ppn - discountAmount;
+  // PPN 11% dinonaktifkan sementara atas permintaan toko — tinggal aktifkan
+  // lagi dengan menambahkan baris `subtotal * 0.11` ke totalAmount kalau
+  // suatu saat dibutuhkan lagi.
+  const discountAmount = discountMode === 'fixed'
+    ? Math.min(discountValue, subtotal)
+    : subtotal * (Math.min(100, Math.max(0, discountValue)) / 100);
+  const totalAmount = subtotal - discountAmount;
 
   // Checkout Execution
   const handleCheckout = () => {
@@ -490,7 +506,13 @@ export default function POSView({
           unit: item.product.unit
         })),
         total: totalAmount,
-        paymentMethod
+        paymentMethod,
+        subtotal,
+        discountAmount,
+        discountType: discountMode,
+        discountValue,
+        fulfillmentMethod,
+        deliveryAddress: fulfillmentMethod === 'Delivery' ? deliveryAddress : undefined
       });
     }
 
@@ -500,8 +522,11 @@ export default function POSView({
       customerName: selectedCustomer.name,
       items: [...cart],
       subtotal,
-      ppn,
       discount: discountAmount,
+      discountType: discountMode,
+      discountValue,
+      fulfillmentMethod,
+      deliveryAddress,
       total: totalAmount,
       pointsEarned,
       paymentMethod,
@@ -522,7 +547,10 @@ export default function POSView({
 
     // Clear cart
     setCart([]);
-    setDiscountPercent(0);
+    setDiscountMode('percent');
+    setDiscountValue(0);
+    setFulfillmentMethod('Pickup');
+    setDeliveryAddress('');
     setShowQRISModal(false);
     setMobileActiveSubTab('products');
   };
@@ -551,6 +579,21 @@ export default function POSView({
       // Trigger native print dialog for compliant design
       window.print();
     }, 1800);
+  };
+
+  // Generates and downloads an actual PDF file of the receipt — separate
+  // from handlePrintReceiptSim, which opens the browser print dialog aimed
+  // at a physical thermal printer.
+  const handlePrintPDF = () => {
+    if (!lastOrderDetails) return;
+    setIsGeneratingPDF(true);
+    try {
+      generateReceiptPDF(lastOrderDetails, storeProfile, cashierName);
+    } catch (err) {
+      dialog.alert('Gagal membuat PDF struk. Silakan coba lagi.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   };
 
   // Keyboard listeners for POS shortcuts
@@ -632,12 +675,15 @@ export default function POSView({
     const payload: PersistedPOSState = {
       cart,
       selectedCustomerId: selectedCustomer.id,
-      discountPercent,
-      paymentMethod
+      discountMode,
+      discountValue,
+      paymentMethod,
+      fulfillmentMethod,
+      deliveryAddress
     };
 
     writePersistedPOSState(payload);
-  }, [cart, discountPercent, isCartPersistenceEnabled, paymentMethod, selectedCustomer.id]);
+  }, [cart, discountMode, discountValue, isCartPersistenceEnabled, paymentMethod, fulfillmentMethod, deliveryAddress, selectedCustomer.id]);
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-140px)] relative">
@@ -778,7 +824,7 @@ export default function POSView({
         </div>
 
         {/* Products Grid Canvas */}
-        <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 auto-rows-max gap-4 pr-1 content-start">
+        <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 pr-1">
           {filteredProducts.map((prod) => (
             <motion.div 
               whileTap={{ scale: 0.98 }}
@@ -957,26 +1003,81 @@ export default function POSView({
               <span>Subtotal</span>
               <span className="font-bold">Rp {subtotal.toLocaleString('id-ID')}</span>
             </div>
-            <div className="flex justify-between text-gray-500">
-              <span>Pajak (PPN 11%)</span>
-              <span className="font-bold">Rp {ppn.toLocaleString('id-ID')}</span>
-            </div>
             <div className="flex justify-between items-center text-gray-500">
-              <span className="flex items-center gap-1"><BadgePercent className="w-4 h-4 text-blue-600" /> Terapkan Diskon Promo</span>
+              <span className="flex items-center gap-1">
+                {discountMode === 'percent' ? <BadgePercent className="w-4 h-4 text-blue-600" /> : <Banknote className="w-4 h-4 text-blue-600" />}
+                Diskon Promo
+              </span>
               <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setDiscountMode('percent')}
+                  title="Diskon persen (%)"
+                  className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black border cursor-pointer transition-colors ${
+                    discountMode === 'percent' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50'
+                  }`}
+                >
+                  %
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDiscountMode('fixed')}
+                  title="Potongan harga langsung (Rp)"
+                  className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black border cursor-pointer transition-colors ${
+                    discountMode === 'fixed' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50'
+                  }`}
+                >
+                  Rp
+                </button>
                 <input 
                   type="number" 
-                  value={discountPercent}
-                  onChange={(e) => setDiscountPercent(Math.min(100, Math.max(0, Number(e.target.value))))}
-                  className="w-12 bg-white border border-gray-200 rounded p-1 text-right font-bold text-xs"
+                  value={discountValue}
+                  onChange={(e) => {
+                    const raw = Number(e.target.value);
+                    setDiscountValue(discountMode === 'percent' ? Math.min(100, Math.max(0, raw)) : Math.max(0, raw));
+                  }}
+                  className="w-16 bg-white border border-gray-200 rounded p-1 text-right font-bold text-xs"
                 />
-                <span>%</span>
               </div>
             </div>
             <div className="flex justify-between text-blue-600 font-black text-sm pt-2.5 border-t border-gray-200">
               <span>Total Akhir</span>
               <span>Rp {totalAmount.toLocaleString('id-ID')}</span>
             </div>
+          </div>
+
+          {/* Fulfillment Method: pickup vs delivery, chosen before checkout */}
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Pengambilan Barang</span>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                onClick={() => setFulfillmentMethod('Pickup')}
+                className={`py-2 px-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 ${
+                  fulfillmentMethod === 'Pickup' ? 'bg-blue-50 border-blue-600 text-blue-600 font-black' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                <Store className="w-3.5 h-3.5" />
+                <span>Ambil Sendiri</span>
+              </button>
+              <button
+                onClick={() => setFulfillmentMethod('Delivery')}
+                className={`py-2 px-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 ${
+                  fulfillmentMethod === 'Delivery' ? 'bg-blue-50 border-blue-600 text-blue-600 font-black' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                }`}
+              >
+                <Truck className="w-3.5 h-3.5" />
+                <span>Diantar</span>
+              </button>
+            </div>
+            {fulfillmentMethod === 'Delivery' && (
+              <input
+                type="text"
+                value={deliveryAddress}
+                onChange={(e) => setDeliveryAddress(e.target.value)}
+                placeholder="Alamat pengiriman (opsional)"
+                className="w-full bg-white border border-gray-200 rounded-lg p-2 text-[11px]"
+              />
+            )}
           </div>
 
           {/* Payment Toggle methods */}
@@ -1082,7 +1183,9 @@ export default function POSView({
           <ReceiptModal
             onClose={() => setShowCheckoutReceipt(false)}
             onPrint={handlePrintReceiptSim}
+            onPrintPDF={handlePrintPDF}
             isPrintingAnim={isPrintingAnim}
+            isGeneratingPDF={isGeneratingPDF}
             activePrinterName={activePrinterName}
             lastOrderDetails={lastOrderDetails}
             cashierName={cashierName}

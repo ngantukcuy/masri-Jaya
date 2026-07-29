@@ -11,8 +11,11 @@ export interface CartItem {
 export type PersistedPOSState = {
   cart: CartItem[];
   selectedCustomerId: string | null;
-  discountPercent: number;
+  discountMode: 'percent' | 'fixed';
+  discountValue: number;
   paymentMethod: 'Cash' | 'QRIS' | 'Split' | 'Deposit';
+  fulfillmentMethod: 'Pickup' | 'Delivery';
+  deliveryAddress: string;
 };
 
 export const POS_CART_STORAGE_KEY = 'pos_cart_state';
@@ -20,8 +23,11 @@ export const POS_CART_STORAGE_KEY = 'pos_cart_state';
 const emptyState = (): PersistedPOSState => ({
   cart: [],
   selectedCustomerId: null,
-  discountPercent: 0,
-  paymentMethod: 'Cash'
+  discountMode: 'percent',
+  discountValue: 0,
+  paymentMethod: 'Cash',
+  fulfillmentMethod: 'Pickup',
+  deliveryAddress: ''
 });
 
 export const readPersistedPOSState = (): PersistedPOSState => {
@@ -29,10 +35,13 @@ export const readPersistedPOSState = (): PersistedPOSState => {
   return {
     cart: Array.isArray(parsed.cart) ? parsed.cart : [],
     selectedCustomerId: typeof parsed.selectedCustomerId === 'string' ? parsed.selectedCustomerId : null,
-    discountPercent: typeof parsed.discountPercent === 'number' ? parsed.discountPercent : 0,
+    discountMode: parsed.discountMode === 'fixed' ? 'fixed' : 'percent',
+    discountValue: typeof parsed.discountValue === 'number' ? parsed.discountValue : 0,
     paymentMethod: parsed.paymentMethod === 'QRIS' || parsed.paymentMethod === 'Split' || parsed.paymentMethod === 'Deposit'
       ? parsed.paymentMethod
-      : 'Cash'
+      : 'Cash',
+    fulfillmentMethod: parsed.fulfillmentMethod === 'Delivery' ? 'Delivery' : 'Pickup',
+    deliveryAddress: typeof parsed.deliveryAddress === 'string' ? parsed.deliveryAddress : ''
   };
 };
 
