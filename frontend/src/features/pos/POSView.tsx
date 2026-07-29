@@ -983,6 +983,7 @@ export default function POSView({
                       }}
                       className="bg-white border border-gray-200 rounded-lg p-1.5 text-[10px] font-bold text-gray-600 outline-none"
                     >
+                      <option value="retail">Harga Modal</option>
                       <option value="wholesale">Harga Standard</option>
                       <option value="project">Harga Minimum</option>
                     </select>

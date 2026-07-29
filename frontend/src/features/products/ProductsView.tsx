@@ -656,7 +656,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                   <tr className="bg-gray-50 text-[10px] text-gray-400 font-bold uppercase border-b border-gray-100">
                     <th className="py-3 px-4">Nama Material</th>
                     <th className="py-3 px-4">Kode SKU</th>
-                    <th className="py-3 px-4 text-right">Harga Modal</th>
+                    <th className="py-3 px-4 text-right">Harga Standard</th>
                     <th className="py-3 px-4 text-center">Stok Fisik</th>
                     <th className="py-3 px-4 text-center">Status</th>
                     <th className="py-3 px-4"></th>
@@ -691,7 +691,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                           </div>
                         </td>
                         <td className="py-3.5 px-4 font-mono font-medium text-gray-500">{prod.sku}</td>
-                        <td className="py-3.5 px-4 text-right font-bold text-gray-950">Rp {prod.retailPrice.toLocaleString('id-ID')}</td>
+                        <td className="py-3.5 px-4 text-right font-bold text-gray-950">Rp {prod.wholesalePrice.toLocaleString('id-ID')}</td>
                         <td className="py-3.5 px-4 text-center font-black text-gray-800">
                           {prod.stock} <span className="text-[10px] font-bold text-gray-400">{prod.unit}</span>
                         </td>
