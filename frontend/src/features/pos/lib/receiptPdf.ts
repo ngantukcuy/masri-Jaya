@@ -109,9 +109,9 @@ export function generateReceiptPDF(orderDetails: any, storeProfile: StoreProfile
   row('TOTAL AKHIR:', rupiah(orderDetails.total), true, 9);
   y += 2;
 
-  if (orderDetails.pointsEarned) {
-    center(`+${orderDetails.pointsEarned} Poin Loyalitas`, 7.5, true);
-  }
+  // if (orderDetails.pointsEarned) {
+  //   center(`+${orderDetails.pointsEarned} Poin Loyalitas`, 7.5, true);
+  // }
 
   y += 1;
   dashedLine();
