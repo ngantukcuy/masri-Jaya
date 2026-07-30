@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, Activity, SalesInvoice, Customer } from '../../types';
+import { timeAgo } from '../../lib/timeAgo';
 
 interface DashboardViewProps {
   products: Product[];
@@ -526,7 +527,7 @@ export default function DashboardView({
                         {act.type === 'overdue' ? '-' : '+'}Rp {act.amount.toLocaleString('id-ID')}
                       </p>
                     )}
-                    <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 tracking-wider">{act.time}</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 tracking-wider">{timeAgo(act.createdAt, act.time)}</p>
                   </div>
                 </div>
               ))

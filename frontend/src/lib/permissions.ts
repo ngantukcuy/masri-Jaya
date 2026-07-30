@@ -67,6 +67,7 @@ export const FEATURE_PERMISSION_DEFS: { key: string; label: string }[] = [
   { key: 'manage_retur_approve', label: 'Setujui/Tolak Retur' },
   { key: 'manage_finance_approve', label: 'Setujui/Tolak Klaim Reimbursement' },
   { key: 'manage_opname_approve', label: 'Setujui/Tolak Stock Opname' },
+  { key: 'manage_purchase_approve', label: 'Setujui Pesanan Pembelian (PO)' },
 ];
 
 export const ALL_PERMISSION_DEFS = [...TAB_DEFS, ...FEATURE_PERMISSION_DEFS];
@@ -92,6 +93,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<StaffRole, string[]> = {
     'manage_retur_approve',
     'manage_finance_approve',
     'manage_opname_approve',
+    'manage_purchase_approve',
   ],
 
   // Kasir: front-of-house/register tabs only, plus basic customer lookup.
@@ -123,8 +125,14 @@ export function canAccessTab(user: CurrentUser | null | undefined, tabId: string
   return hasPermission(user, `tab_${baseTab}`);
 }
 
-/** First tab (in TAB_DEFS order) the user is allowed to open — used as a safe fallback/redirect target. */
+/**
+ * First tab (in TAB_DEFS order) the user is allowed to open — used as a
+ * safe fallback/redirect target. Returns the 'no-access' sentinel (never
+ * 'dashboard') when the account has no tab permissions at all, so a staff
+ * account created with every checkbox unticked genuinely sees nothing
+ * instead of silently landing on the Dashboard.
+ */
 export function firstAccessibleTab(user: CurrentUser | null | undefined): string {
   const found = TAB_DEFS.find((t) => hasPermission(user, t.key));
-  return found ? found.key.replace(/^tab_/, '') : 'dashboard';
+  return found ? found.key.replace(/^tab_/, '') : 'no-access';
 }

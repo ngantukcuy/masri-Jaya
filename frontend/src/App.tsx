@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import LoginView from './features/auth/LoginView';
-import { LayoutDashboard, CornerDownRight, Boxes, Menu, Receipt } from 'lucide-react';
+import { LayoutDashboard, CornerDownRight, Boxes, Menu, Receipt, ShieldOff } from 'lucide-react';
 
 import { Product, PO, Customer, Expense, Activity, Branch, Supplier, SalesInvoice, ReturnRecord, DigitalOrder, Banner, SkuLocation } from './types';
 import { useSupabaseState } from './lib/useSupabaseState';
@@ -151,6 +151,7 @@ function Dashboard({
       subtitle,
       amount,
       time: "Baru saja",
+      createdAt: new Date().toISOString(),
       type
     };
     setActivities([nextAct, ...activities]);
@@ -203,6 +204,18 @@ function Dashboard({
             {(() => {
               const baseTab = currentTab.split(':')[0];
               switch (baseTab) {
+                case 'no-access':
+                  return (
+                    <div className="w-full flex flex-col items-center justify-center text-center py-24 gap-3">
+                      <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center">
+                        <ShieldOff className="w-7 h-7 text-red-500" />
+                      </div>
+                      <h3 className="font-black text-gray-900 text-sm">Belum Ada Akses Halaman</h3>
+                      <p className="text-xs text-gray-400 max-w-xs">
+                        Akun Anda belum diberi izin untuk membuka halaman manapun. Hubungi Owner untuk mengaktifkan akses fitur di menu Pengaturan &gt; Staf.
+                      </p>
+                    </div>
+                  );
                 case 'dashboard':
                   return (
                     <DashboardView
@@ -304,6 +317,7 @@ function Dashboard({
                   return (
                     <TransactionHistoryView
                       salesInvoices={salesInvoices}
+                      returns={returns}
                       cashierName={currentUser?.name}
                       storeProfile={registeredOwner ? {
                         storeName: registeredOwner.storeName,
@@ -334,6 +348,7 @@ function Dashboard({
                       onUpdateProducts={setProducts}
                       onAddActivity={handleAddActivity}
                       onUpdateSuppliers={setSuppliers}
+                      currentUser={currentUser}
                     />
                   );
                 case 'customer':
@@ -369,7 +384,7 @@ function Dashboard({
                     />
                   );
                 case 'reports':
-                  return <ReportsView salesInvoices={salesInvoices} products={products} />;
+                  return <ReportsView salesInvoices={salesInvoices} products={products} pos={pos} expenses={expenses} />;
                 case 'settings':
                   return (
                     <SettingsView
@@ -383,16 +398,13 @@ function Dashboard({
                   );
                 default:
                   return (
-                    <DashboardView
-                      products={products}
-                      activities={activities}
-                      salesInvoices={salesInvoices}
-                      customers={customers}
-                      totalSales={totalSales}
-                      totalOrdersCount={totalOrdersCount}
-                      onTabChange={setCurrentTab}
-                      onQuickRestock={handleQuickRestock}
-                    />
+                    <div className="w-full flex flex-col items-center justify-center text-center py-24 gap-3">
+                      <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center">
+                        <ShieldOff className="w-7 h-7 text-red-500" />
+                      </div>
+                      <h3 className="font-black text-gray-900 text-sm">Halaman Tidak Ditemukan</h3>
+                      <p className="text-xs text-gray-400 max-w-xs">Tab ini tidak dikenali atau akun Anda tidak memiliki akses ke sana.</p>
+                    </div>
                   );
               }
             })()}

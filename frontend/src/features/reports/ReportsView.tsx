@@ -2,14 +2,21 @@ import React, { useMemo, useState } from 'react';
 import {
   FileText,
   Download,
+  Printer,
+  PackageX,
+  PackageMinus,
+  Boxes,
 } from 'lucide-react';
-import { useDialog } from '../../components/shared/DialogProvider';
-import { SalesInvoice, Product } from '../../types';
+import { SalesInvoice, Product, PO, Expense } from '../../types';
 
 interface ReportsViewProps {
   salesInvoices: SalesInvoice[];
   products: Product[];
+  pos?: PO[];
+  expenses?: Expense[];
 }
+
+type ReportCategory = 'Sales' | 'Inventory' | 'Purchase' | 'Finance';
 
 const WEEKS_TO_SHOW = 6;
 
@@ -23,25 +30,43 @@ function parseInvoiceDate(inv: SalesInvoice): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
-export default function ReportsView({ salesInvoices, products }: ReportsViewProps) {
-  const dialog = useDialog();
+/** Builds a CSV Blob from header + rows and triggers a real browser download. Escapes commas/quotes so no library is needed for a simple tabular export. */
+function downloadCSV(filename: string, header: string[], rows: (string | number)[][]) {
+  const escape = (v: string | number) => {
+    const s = String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [header, ...rows].map((row) => row.map(escape).join(','));
+  // Prepend a BOM so Excel opens UTF-8 (Rupiah, Indonesian text) correctly.
+  const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export default function ReportsView({ salesInvoices, products, pos = [], expenses = [] }: ReportsViewProps) {
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
-  const [selectedFolder, setSelectedFolder] = useState<string>('Sales');
-  const [exporting, setExporting] = useState<boolean>(false);
+  const [selectedFolder, setSelectedFolder] = useState<ReportCategory>('Sales');
 
   // Map category displays to Indonesian
-  const folderTranslationMap: Record<string, string> = {
+  const folderTranslationMap: Record<ReportCategory, string> = {
     'Sales': 'Penjualan',
     'Inventory': 'Inventori & Stok',
     'Purchase': 'Pembelian PO',
     'Finance': 'Keuangan & Jurnal'
   };
 
-  const reportFolders = [
-    { name: 'Sales', count: 12 },
-    { name: 'Inventory', count: 8 },
-    { name: 'Purchase', count: 15 },
-    { name: 'Finance', count: 6 },
+  // Real record counts per category (was: hardcoded fake counts like "12 templat tersedia").
+  const reportFolders: { name: ReportCategory; count: number }[] = [
+    { name: 'Sales', count: salesInvoices.length },
+    { name: 'Inventory', count: products.length },
+    { name: 'Purchase', count: pos.length },
+    { name: 'Finance', count: expenses.length },
   ];
 
   // Real weekly revenue for the last WEEKS_TO_SHOW weeks, computed from
@@ -94,10 +119,39 @@ export default function ReportsView({ salesInvoices, products }: ReportsViewProp
   }, [salesInvoices]);
 
   // Low-stock products feed the insight panel below (real, from Products data)
-  const lowStockCount = useMemo(
-    () => products.filter((p) => p.stockStatus === 'Low Stock' || p.stockStatus === 'Out of Stock').length,
+  const lowStockProducts = useMemo(
+    () => products.filter((p) => p.stockStatus === 'Low Stock'),
     [products]
   );
+  const outOfStockProducts = useMemo(
+    () => products.filter((p) => p.stockStatus === 'Out of Stock'),
+    [products]
+  );
+  const inventoryValue = useMemo(
+    () => products.reduce((sum, p) => sum + (p.costPrice ?? p.retailPrice ?? 0) * p.stock, 0),
+    [products]
+  );
+
+  // Purchase (PO) summary — real, from the pos prop.
+  const poSummary = useMemo(() => {
+    const totalSpend = pos.reduce((sum, p) => sum + p.total, 0);
+    const byStatus = pos.reduce<Record<string, number>>((acc, p) => {
+      acc[p.status] = (acc[p.status] || 0) + 1;
+      return acc;
+    }, {});
+    return { totalSpend, byStatus };
+  }, [pos]);
+
+  // Finance (expense) summary — real, from the expenses prop.
+  const financeSummary = useMemo(() => {
+    const totalApproved = expenses.filter((e) => e.status === 'Approved').reduce((sum, e) => sum + e.amount, 0);
+    const totalPending = expenses.filter((e) => e.status === 'Pending').reduce((sum, e) => sum + e.amount, 0);
+    const byCategory = expenses.reduce<Record<string, number>>((acc, e) => {
+      acc[e.category] = (acc[e.category] || 0) + e.amount;
+      return acc;
+    }, {});
+    return { totalApproved, totalPending, byCategory };
+  }, [expenses]);
 
   // A short, honestly-computed observation from real numbers (was: a
   // hardcoded fake "AI suggestion" unrelated to any real data, plus a
@@ -124,18 +178,50 @@ export default function ReportsView({ salesInvoices, products }: ReportsViewProp
     if (topProducts[0]) {
       parts.push(`Produk terlaris: ${topProducts[0].name}.`);
     }
-    if (lowStockCount > 0) {
-      parts.push(`${lowStockCount} produk perlu restock.`);
+    if (lowStockProducts.length + outOfStockProducts.length > 0) {
+      parts.push(`${lowStockProducts.length + outOfStockProducts.length} produk perlu restock.`);
     }
     return parts.join(' ');
-  }, [weeklyRevenueTrend, topProducts, lowStockCount]);
+  }, [weeklyRevenueTrend, topProducts, lowStockProducts, outOfStockProducts]);
 
-  const triggerExport = (format: string) => {
-    setExporting(true);
-    setTimeout(() => {
-      setExporting(false);
-      dialog.alert(`Berhasil! Laporan analisis ekspor format ${format} telah disimpan dengan nama: LAPORAN_ANALISIS_KINERJA_SINARMAJU_${new Date().getFullYear()}.${format.toLowerCase()}`);
-    }, 1200);
+  // Real export: writes an actual CSV of whichever category is currently
+  // selected (was: a setTimeout + fake "export succeeded" alert that never
+  // touched a real file). XLSX opens CSV natively, so one honest format
+  // covers the "Excel" button without pulling in a spreadsheet library.
+  const exportCSV = () => {
+    if (selectedFolder === 'Sales') {
+      downloadCSV(
+        `laporan-penjualan-${Date.now()}.csv`,
+        ['No. Invoice', 'Tanggal', 'Pelanggan', 'Metode Bayar', 'Total'],
+        salesInvoices.map((inv) => [inv.invoiceNumber, inv.date, inv.customerName, inv.paymentMethod, inv.total])
+      );
+    } else if (selectedFolder === 'Inventory') {
+      downloadCSV(
+        `laporan-inventori-${Date.now()}.csv`,
+        ['SKU', 'Nama', 'Kategori', 'Stok', 'Status', 'Harga Modal', 'Harga Jual'],
+        products.map((p) => [p.sku, p.name, p.category, p.stock, p.stockStatus, p.costPrice ?? 0, p.retailPrice])
+      );
+    } else if (selectedFolder === 'Purchase') {
+      downloadCSV(
+        `laporan-pembelian-${Date.now()}.csv`,
+        ['No. PO', 'Supplier', 'Status', 'Tanggal', 'Total'],
+        pos.map((p) => [p.poNumber, p.supplier, p.status, p.createdDate, p.total])
+      );
+    } else {
+      downloadCSV(
+        `laporan-keuangan-${Date.now()}.csv`,
+        ['Tanggal', 'Kategori', 'Deskripsi', 'Diajukan Oleh', 'Status', 'Jumlah'],
+        expenses.map((e) => [e.date, e.category, e.description, e.submittedBy, e.status, e.amount])
+      );
+    }
+  };
+
+  // Real print: hands off to the browser's native print dialog on the
+  // current report view, which can be saved as PDF from there — an honest
+  // substitute for a fake "PDF exported" message with no client-side PDF
+  // library in play.
+  const printReport = () => {
+    window.print();
   };
 
   // Build an SVG path from real weekly totals for the line-chart view
@@ -171,24 +257,23 @@ export default function ReportsView({ salesInvoices, products }: ReportsViewProp
         </div>
         <div className="flex gap-2">
           <button 
-            onClick={() => triggerExport('PDF')}
-            disabled={exporting}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-semibold hover:bg-gray-50 cursor-pointer disabled:opacity-50"
+            onClick={printReport}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-semibold hover:bg-gray-50 cursor-pointer"
           >
-            <Download className="w-4 h-4 text-gray-500" />
-            <span>{exporting ? 'Memproses...' : 'Ekspor PDF'}</span>
+            <Printer className="w-4 h-4 text-gray-500" />
+            <span>Cetak / Simpan PDF</span>
           </button>
           <button 
-            onClick={() => triggerExport('XLSX')}
-            disabled={exporting}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 cursor-pointer disabled:opacity-50 shadow-md shadow-blue-500/10"
+            onClick={exportCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 cursor-pointer shadow-md shadow-blue-500/10"
           >
-            <span>{exporting ? 'Mengunduh...' : 'Ekspor Excel (XLSX)'}</span>
+            <Download className="w-4 h-4" />
+            <span>Ekspor CSV / Excel</span>
           </button>
         </div>
       </div>
 
-      {/* Folders and Categories Grid */}
+      {/* Folders and Categories Grid — clicking actually switches the real content shown below */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {reportFolders.map((f) => (
           <div 
@@ -203,7 +288,7 @@ export default function ReportsView({ salesInvoices, products }: ReportsViewProp
             <div>
               <span className="text-[10px] text-gray-400 font-bold uppercase block">Kategori Log</span>
               <h4 className="text-sm font-black text-gray-800 mt-1">Laporan {folderTranslationMap[f.name]}</h4>
-              <span className="text-[10px] text-gray-400 mt-0.5 block">{f.count} templat tersedia</span>
+              <span className="text-[10px] text-gray-400 mt-0.5 block">{f.count} data tercatat</span>
             </div>
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
               selectedFolder === f.name ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'
@@ -214,143 +299,316 @@ export default function ReportsView({ salesInvoices, products }: ReportsViewProp
         ))}
       </div>
 
-      {/* Analytics Visualizer Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* Weekly Revenue Trend Chart (real data) */}
-        <div className="lg:col-span-8 bg-white border border-gray-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
-          <div className="flex justify-between items-center pb-4 border-b border-gray-100">
-            <div>
-              <h4 className="text-sm font-black text-gray-800 tracking-tight">Tren Pendapatan Mingguan</h4>
-              <p className="text-[11px] text-gray-400 mt-0.5">Total penjualan riil per minggu, {WEEKS_TO_SHOW} minggu terakhir</p>
-            </div>
+      {selectedFolder === 'Sales' && (
+        <>
+          {/* Analytics Visualizer Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
-            {/* Chart type toggle */}
-            <div className="flex bg-gray-100 p-1 rounded-lg">
-              <button
-                onClick={() => setChartType('bar')}
-                className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                  chartType === 'bar' ? 'bg-white text-blue-600 shadow-xs' : 'text-gray-500 hover:text-gray-800'
-                }`}
-              >
-                Grafik Batang
-              </button>
-              <button
-                onClick={() => setChartType('line')}
-                className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                  chartType === 'line' ? 'bg-white text-blue-600 shadow-xs' : 'text-gray-500 hover:text-gray-800'
-                }`}
-              >
-                Kurva Garis
-              </button>
-            </div>
-          </div>
-
-          {!hasRecentSales ? (
-            <div className="h-56 mt-6 flex flex-col items-center justify-center text-center text-gray-400 gap-1">
-              <FileText className="w-8 h-8 text-gray-200 mb-1" />
-              <p className="text-xs font-bold">Belum ada data penjualan {WEEKS_TO_SHOW} minggu terakhir</p>
-              <p className="text-[11px]">Grafik akan terisi otomatis begitu ada transaksi di POS Kasir.</p>
-            </div>
-          ) : chartType === 'bar' ? (
-            <div className="h-56 mt-6 flex items-end justify-between px-4 relative">
-              {weeklyRevenueTrend.map((d) => {
-                const barHeight = (d.total / maxWeeklyValue) * 140;
-                return (
-                  <div key={d.label} className="flex flex-col items-center flex-1 group">
-                    <div className="flex items-end gap-1.5 h-36">
-                      <div 
-                        style={{ height: `${Math.max(barHeight, d.total > 0 ? 4 : 0)}px` }} 
-                        className="w-5 bg-blue-600 rounded-t transition-all group-hover:brightness-110" 
-                        title={`${d.label}: Rp ${d.total.toLocaleString('id-ID')} (${d.count} transaksi)`}
-                      />
-                    </div>
-                    <span className="text-[10px] font-bold text-gray-400 mt-2">{d.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="h-56 mt-6 relative">
-              <svg className="w-full h-full overflow-visible" viewBox="0 0 600 160">
-                <path 
-                  d={linePath}
-                  fill="none" 
-                  stroke="#2563EB" 
-                  strokeWidth="3"
-                />
-                {weeklyRevenueTrend.map((d, i) => {
-                  const width = 600, padX = 50;
-                  const stepX = (width - padX * 2) / Math.max(weeklyRevenueTrend.length - 1, 1);
-                  const x = padX + i * stepX;
-                  const y = 160 - 20 - (d.total / maxWeeklyValue) * (160 - 40);
-                  return <circle key={d.label} cx={x} cy={y} r="4" fill="#2563EB" stroke="white" strokeWidth="2" />;
-                })}
-              </svg>
-              <div className="flex justify-between text-[10px] text-gray-400 font-bold px-4">
-                {weeklyRevenueTrend.map((d) => (
-                  <span key={d.label}>{d.label}</span>
-                ))}
+            {/* Weekly Revenue Trend Chart (real data) */}
+            <div className="lg:col-span-8 bg-white border border-gray-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
+              <div className="flex justify-between items-center pb-4 border-b border-gray-100">
+                <div>
+                  <h4 className="text-sm font-black text-gray-800 tracking-tight">Tren Pendapatan Mingguan</h4>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Total penjualan riil per minggu, {WEEKS_TO_SHOW} minggu terakhir</p>
+                </div>
+                
+                {/* Chart type toggle */}
+                <div className="flex bg-gray-100 p-1 rounded-lg">
+                  <button
+                    onClick={() => setChartType('bar')}
+                    className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                      chartType === 'bar' ? 'bg-white text-blue-600 shadow-xs' : 'text-gray-500 hover:text-gray-800'
+                    }`}
+                  >
+                    Grafik Batang
+                  </button>
+                  <button
+                    onClick={() => setChartType('line')}
+                    className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                      chartType === 'line' ? 'bg-white text-blue-600 shadow-xs' : 'text-gray-500 hover:text-gray-800'
+                    }`}
+                  >
+                    Kurva Garis
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
 
-          <div className="flex justify-center gap-6 mt-4 pt-3 border-t border-gray-100 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 bg-blue-600 rounded-full" />
-              <span>Realisasi Penjualan (Riil)</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Top Selling Products (real data, replaces the old fake brand list) */}
-        <div className="lg:col-span-4 bg-white border border-gray-200 rounded-2xl p-5 shadow-xs space-y-4">
-          <div>
-            <h4 className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">Produk Terlaris</h4>
-            <p className="text-[11px] text-gray-400 mt-0.5">Berdasarkan total pendapatan dari seluruh transaksi tercatat.</p>
-          </div>
-
-          {topProducts.length === 0 ? (
-            <div className="py-6 text-center text-gray-400">
-              <p className="text-xs font-bold">Belum ada transaksi tercatat</p>
-            </div>
-          ) : (
-            <div className="space-y-4 pt-2">
-              {topProducts.map((prod) => (
-                <div key={prod.sku || prod.name} className="space-y-1.5">
-                  <div className="flex justify-between text-xs font-bold text-gray-800">
-                    <span className="truncate">{prod.name}</span>
-                    <span className="text-blue-600">{prod.percent}%</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-blue-600 rounded-full" 
-                      style={{ width: `${prod.percent}%` }}
+              {!hasRecentSales ? (
+                <div className="h-56 mt-6 flex flex-col items-center justify-center text-center text-gray-400 gap-1">
+                  <FileText className="w-8 h-8 text-gray-200 mb-1" />
+                  <p className="text-xs font-bold">Belum ada data penjualan {WEEKS_TO_SHOW} minggu terakhir</p>
+                  <p className="text-[11px]">Grafik akan terisi otomatis begitu ada transaksi di POS Kasir.</p>
+                </div>
+              ) : chartType === 'bar' ? (
+                <div className="h-56 mt-6 flex items-end justify-between px-4 relative">
+                  {weeklyRevenueTrend.map((d) => {
+                    const barHeight = (d.total / maxWeeklyValue) * 140;
+                    return (
+                      <div key={d.label} className="flex flex-col items-center flex-1 group">
+                        <div className="flex items-end gap-1.5 h-36">
+                          <div 
+                            style={{ height: `${Math.max(barHeight, d.total > 0 ? 4 : 0)}px` }} 
+                            className="w-5 bg-blue-600 rounded-t transition-all group-hover:brightness-110" 
+                            title={`${d.label}: Rp ${d.total.toLocaleString('id-ID')} (${d.count} transaksi)`}
+                          />
+                        </div>
+                        <span className="text-[10px] font-bold text-gray-400 mt-2">{d.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="h-56 mt-6 relative">
+                  <svg className="w-full h-full overflow-visible" viewBox="0 0 600 160">
+                    <path 
+                      d={linePath}
+                      fill="none" 
+                      stroke="#2563EB" 
+                      strokeWidth="3"
                     />
-                  </div>
-                  <div className="flex justify-between text-[10px] font-bold text-gray-400">
-                    <span>Rp {prod.revenue.toLocaleString('id-ID')}</span>
-                    <span>{prod.qty} terjual</span>
+                    {weeklyRevenueTrend.map((d, i) => {
+                      const width = 600, padX = 50;
+                      const stepX = (width - padX * 2) / Math.max(weeklyRevenueTrend.length - 1, 1);
+                      const x = padX + i * stepX;
+                      const y = 160 - 20 - (d.total / maxWeeklyValue) * (160 - 40);
+                      return <circle key={d.label} cx={x} cy={y} r="4" fill="#2563EB" stroke="white" strokeWidth="2" />;
+                    })}
+                  </svg>
+                  <div className="flex justify-between text-[10px] text-gray-400 font-bold px-4">
+                    {weeklyRevenueTrend.map((d) => (
+                      <span key={d.label}>{d.label}</span>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+              )}
 
-      {/* Insight Summary block (computed from real numbers, not a hardcoded message) */}
-      <div className="bg-zinc-900 text-white border-2 border-zinc-800 p-5 relative overflow-hidden rounded-2xl">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 z-10 relative">
-          <div className="space-y-1">
-            <span className="text-[9px] bg-emerald-600/20 text-emerald-400 font-bold px-2 py-0.5 rounded uppercase font-mono tracking-widest">Ringkasan Kinerja</span>
-            <h4 className="text-sm font-black uppercase tracking-wider text-white">
-              {hasAnySales ? 'Ringkasan Minggu Ini' : 'Menunggu Data Penjualan'}
-            </h4>
-            <p className="text-xs text-gray-400">{insightText}</p>
+              <div className="flex justify-center gap-6 mt-4 pt-3 border-t border-gray-100 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 bg-blue-600 rounded-full" />
+                  <span>Realisasi Penjualan (Riil)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Top Selling Products (real data, replaces the old fake brand list) */}
+            <div className="lg:col-span-4 bg-white border border-gray-200 rounded-2xl p-5 shadow-xs space-y-4">
+              <div>
+                <h4 className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">Produk Terlaris</h4>
+                <p className="text-[11px] text-gray-400 mt-0.5">Berdasarkan total pendapatan dari seluruh transaksi tercatat.</p>
+              </div>
+
+              {topProducts.length === 0 ? (
+                <div className="py-6 text-center text-gray-400">
+                  <p className="text-xs font-bold">Belum ada transaksi tercatat</p>
+                </div>
+              ) : (
+                <div className="space-y-4 pt-2">
+                  {topProducts.map((prod) => (
+                    <div key={prod.sku || prod.name} className="space-y-1.5">
+                      <div className="flex justify-between text-xs font-bold text-gray-800">
+                        <span className="truncate">{prod.name}</span>
+                        <span className="text-blue-600">{prod.percent}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-blue-600 rounded-full" 
+                          style={{ width: `${prod.percent}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[10px] font-bold text-gray-400">
+                        <span>Rp {prod.revenue.toLocaleString('id-ID')}</span>
+                        <span>{prod.qty} terjual</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Insight Summary block (computed from real numbers, not a hardcoded message) */}
+          <div className="bg-zinc-900 text-white border-2 border-zinc-800 p-5 relative overflow-hidden rounded-2xl">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 z-10 relative">
+              <div className="space-y-1">
+                <span className="text-[9px] bg-emerald-600/20 text-emerald-400 font-bold px-2 py-0.5 rounded uppercase font-mono tracking-widest">Ringkasan Kinerja</span>
+                <h4 className="text-sm font-black uppercase tracking-wider text-white">
+                  {hasAnySales ? 'Ringkasan Minggu Ini' : 'Menunggu Data Penjualan'}
+                </h4>
+                <p className="text-xs text-gray-400">{insightText}</p>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {selectedFolder === 'Inventory' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><Boxes className="w-5 h-5" /></div>
+              <div>
+                <p className="text-[10px] text-gray-400 font-bold uppercase">Nilai Inventori (Modal)</p>
+                <p className="text-sm font-black text-gray-900">Rp {inventoryValue.toLocaleString('id-ID')}</p>
+              </div>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center"><PackageMinus className="w-5 h-5" /></div>
+              <div>
+                <p className="text-[10px] text-gray-400 font-bold uppercase">Stok Menipis</p>
+                <p className="text-sm font-black text-gray-900">{lowStockProducts.length} produk</p>
+              </div>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center"><PackageX className="w-5 h-5" /></div>
+              <div>
+                <p className="text-[10px] text-gray-400 font-bold uppercase">Stok Habis</p>
+                <p className="text-sm font-black text-gray-900">{outOfStockProducts.length} produk</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-x-auto">
+            <div className="p-4 border-b border-gray-100">
+              <h4 className="text-sm font-black text-gray-800">Produk Perlu Perhatian</h4>
+              <p className="text-[11px] text-gray-400 mt-0.5">Stok menipis atau habis, diurutkan dari yang paling kritis.</p>
+            </div>
+            <table className="w-full text-xs min-w-[480px]">
+              <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 font-bold">
+                <tr>
+                  <th className="text-left p-3">SKU</th>
+                  <th className="text-left p-3">Nama Produk</th>
+                  <th className="text-left p-3">Kategori</th>
+                  <th className="text-right p-3">Sisa Stok</th>
+                  <th className="text-center p-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {[...outOfStockProducts, ...lowStockProducts].length === 0 ? (
+                  <tr><td colSpan={5} className="p-6 text-center text-gray-400">Semua stok dalam kondisi sehat.</td></tr>
+                ) : (
+                  [...outOfStockProducts, ...lowStockProducts].map((p) => (
+                    <tr key={p.sku} className="hover:bg-gray-50">
+                      <td className="p-3 font-mono text-gray-500">{p.sku}</td>
+                      <td className="p-3 font-bold text-gray-800">{p.name}</td>
+                      <td className="p-3 text-gray-500">{p.category}</td>
+                      <td className="p-3 text-right font-bold text-gray-900">{p.stock}</td>
+                      <td className="p-3 text-center">
+                        <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${p.stockStatus === 'Out of Stock' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
+                          {p.stockStatus === 'Out of Stock' ? 'Habis' : 'Menipis'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
-      </div>
+      )}
+
+      {selectedFolder === 'Purchase' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs">
+              <p className="text-[10px] text-gray-400 font-bold uppercase">Total Nilai PO</p>
+              <p className="text-sm font-black text-gray-900 mt-1">Rp {poSummary.totalSpend.toLocaleString('id-ID')}</p>
+            </div>
+            {(['Draft', 'Ordered', 'In Transit', 'Received'] as const).map((status) => (
+              <div key={status} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs sm:col-span-1">
+                <p className="text-[10px] text-gray-400 font-bold uppercase">{status}</p>
+                <p className="text-sm font-black text-gray-900 mt-1">{poSummary.byStatus[status] || 0} PO</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-x-auto">
+            <div className="p-4 border-b border-gray-100">
+              <h4 className="text-sm font-black text-gray-800">Daftar Pesanan Pembelian</h4>
+            </div>
+            <table className="w-full text-xs min-w-[480px]">
+              <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 font-bold">
+                <tr>
+                  <th className="text-left p-3">No. PO</th>
+                  <th className="text-left p-3">Supplier</th>
+                  <th className="text-left p-3">Tanggal</th>
+                  <th className="text-center p-3">Status</th>
+                  <th className="text-right p-3">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {pos.length === 0 ? (
+                  <tr><td colSpan={5} className="p-6 text-center text-gray-400">Belum ada PO tercatat.</td></tr>
+                ) : (
+                  pos.map((p) => (
+                    <tr key={p.poNumber} className="hover:bg-gray-50">
+                      <td className="p-3 font-bold text-gray-800">{p.poNumber}</td>
+                      <td className="p-3 text-gray-600">{p.supplier}</td>
+                      <td className="p-3 text-gray-500">{p.createdDate}</td>
+                      <td className="p-3 text-center">
+                        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">{p.status}</span>
+                      </td>
+                      <td className="p-3 text-right font-bold text-gray-900">Rp {p.total.toLocaleString('id-ID')}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {selectedFolder === 'Finance' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs">
+              <p className="text-[10px] text-gray-400 font-bold uppercase">Total Disetujui</p>
+              <p className="text-sm font-black text-emerald-600 mt-1">Rp {financeSummary.totalApproved.toLocaleString('id-ID')}</p>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs">
+              <p className="text-[10px] text-gray-400 font-bold uppercase">Menunggu Persetujuan</p>
+              <p className="text-sm font-black text-amber-600 mt-1">Rp {financeSummary.totalPending.toLocaleString('id-ID')}</p>
+            </div>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-x-auto">
+            <div className="p-4 border-b border-gray-100">
+              <h4 className="text-sm font-black text-gray-800">Klaim &amp; Pengeluaran</h4>
+            </div>
+            <table className="w-full text-xs min-w-[520px]">
+              <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 font-bold">
+                <tr>
+                  <th className="text-left p-3">Tanggal</th>
+                  <th className="text-left p-3">Kategori</th>
+                  <th className="text-left p-3">Deskripsi</th>
+                  <th className="text-left p-3">Diajukan Oleh</th>
+                  <th className="text-center p-3">Status</th>
+                  <th className="text-right p-3">Jumlah</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {expenses.length === 0 ? (
+                  <tr><td colSpan={6} className="p-6 text-center text-gray-400">Belum ada pengeluaran tercatat.</td></tr>
+                ) : (
+                  expenses.map((e) => (
+                    <tr key={e.id} className="hover:bg-gray-50">
+                      <td className="p-3 text-gray-500">{e.date}</td>
+                      <td className="p-3 text-gray-600">{e.category}</td>
+                      <td className="p-3 text-gray-800">{e.description}</td>
+                      <td className="p-3 text-gray-500">{e.submittedBy}</td>
+                      <td className="p-3 text-center">
+                        <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                          e.status === 'Approved' ? 'bg-emerald-50 text-emerald-700' : e.status === 'Rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+                        }`}>{e.status}</span>
+                      </td>
+                      <td className="p-3 text-right font-bold text-gray-900">Rp {e.amount.toLocaleString('id-ID')}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
 import { PO, Supplier, Product } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDialog } from '../../components/shared/DialogProvider';
+import { CurrentUser, hasPermission } from '../../lib/permissions';
 
 interface PurchaseViewProps {
   pos: PO[];
@@ -21,6 +22,7 @@ interface PurchaseViewProps {
   onUpdateProducts: (updatedProducts: Product[]) => void;
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
   onUpdateSuppliers: (updatedSuppliers: Supplier[]) => void;
+  currentUser?: CurrentUser | null;
 }
 
 export default function PurchaseView({ 
@@ -30,9 +32,15 @@ export default function PurchaseView({
   onUpdatePOs, 
   onUpdateProducts, 
   onAddActivity,
-  onUpdateSuppliers
+  onUpdateSuppliers,
+  currentUser
 }: PurchaseViewProps) {
   const dialog = useDialog();
+  // Approving a PO commits the store to spending money with a supplier —
+  // gate it separately from "can open the Purchasing tab" so warehouse
+  // staff (Stoker) can still receive goods without being able to approve
+  // new spend. See lib/permissions.ts.
+  const canApprovePO = hasPermission(currentUser, 'manage_purchase_approve');
   const [selectedPO, setSelectedPO] = useState<PO | null>(pos[0] || null);
   const [filterSupplier, setFilterSupplier] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -112,9 +120,19 @@ export default function PurchaseView({
 
   const handleApprovePO = (po: PO) => {
     if (po.status !== 'Draft') return;
+    if (!canApprovePO) {
+      dialog.alert('Anda tidak memiliki izin untuk menyetujui pesanan pembelian ini. Hubungi Owner atau Admin.');
+      return;
+    }
     const updated = pos.map(p => p.poNumber === po.poNumber ? { ...p, status: 'Ordered' as const } : p);
     onUpdatePOs(updated);
     setSelectedPO(updated.find(p => p.poNumber === po.poNumber) || null);
+    onAddActivity(
+      `PO Disetujui: ${po.poNumber}`,
+      `Disetujui oleh ${currentUser?.name || 'staf'} — supplier ${po.supplier}`,
+      po.total,
+      'quote'
+    );
     dialog.alert(`Nomor PO ${po.poNumber} disetujui! Status diperbarui ke Dipesan.`);
   };
 
@@ -398,13 +416,19 @@ export default function PurchaseView({
                   <span className="font-bold uppercase text-gray-700">{statusTranslationMap[selectedPO.status]?.label}</span>
                 </div>
 
-                {selectedPO.status === 'Draft' && (
+                {selectedPO.status === 'Draft' && canApprovePO && (
                   <button
                     onClick={() => handleApprovePO(selectedPO)}
                     className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-center cursor-pointer transition-colors"
                   >
                     Setujui &amp; Kirim Pesanan PO
                   </button>
+                )}
+
+                {selectedPO.status === 'Draft' && !canApprovePO && (
+                  <div className="w-full py-2.5 bg-gray-100 text-gray-500 rounded-lg font-semibold text-center text-[11px]">
+                    Menunggu persetujuan Owner/Admin
+                  </div>
                 )}
 
                 {(selectedPO.status === 'Ordered' || selectedPO.status === 'In Transit') && (
