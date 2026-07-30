@@ -5,6 +5,13 @@ export interface CartItem {
   product: Product;
   quantity: number;
   selectedPriceType: 'retail' | 'wholesale' | 'project';
+  /**
+   * Actual unit price the cashier will charge for this line, editable in
+   * the cart between the product's Harga Minimum and Harga Standard. Falls
+   * back to selectedPriceType-derived pricing when unset (older persisted
+   * carts / invoices from before this field existed).
+   */
+  customPrice?: number;
   notes: string;
 }
 

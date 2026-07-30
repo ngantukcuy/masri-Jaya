@@ -44,6 +44,18 @@ import {
   clearPersistedPOSState
 } from './lib/posCartStorage';
 import { useDialog } from '../../components/shared/DialogProvider';
+import NumberInput from '../../components/shared/NumberInput';
+
+/** Resolves the actual unit price to charge for a cart line: the cashier's
+ * edited price when present, otherwise falls back to the tier derived from
+ * selectedPriceType (kept for carts/invoices persisted before per-line
+ * price editing existed). */
+const getCartItemPrice = (item: CartItem) => {
+  if (typeof item.customPrice === 'number' && item.customPrice > 0) return item.customPrice;
+  return item.selectedPriceType === 'retail' ? item.product.retailPrice :
+         item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice :
+         item.product.projectPrice;
+};
 
 interface StoreProfileLite {
   storeName: string;
@@ -230,6 +242,7 @@ export default function POSView({
       product: newProduct,
       quantity: 1,
       selectedPriceType: 'wholesale',
+      customPrice: newProduct.wholesalePrice,
       notes: ''
     }]);
     setSelectedCategory('Semua Kategori');
@@ -278,6 +291,7 @@ export default function POSView({
         product: prod,
         quantity: 1,
         selectedPriceType: 'wholesale',
+        customPrice: prod.wholesalePrice,
         notes: ''
       }]);
     }
@@ -391,12 +405,7 @@ export default function POSView({
 
   // Cart Calculations
   const getCartSubtotal = () => {
-    return cart.reduce((acc, item) => {
-      const price = item.selectedPriceType === 'retail' ? item.product.retailPrice :
-                    item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice :
-                    item.product.projectPrice;
-      return acc + (price * item.quantity);
-    }, 0);
+    return cart.reduce((acc, item) => acc + (getCartItemPrice(item) * item.quantity), 0);
   };
 
   const subtotal = getCartSubtotal();
@@ -487,9 +496,7 @@ export default function POSView({
           sku: item.product.sku,
           name: item.product.name,
           quantity: item.quantity,
-          price: item.selectedPriceType === 'retail' ? item.product.retailPrice :
-                 item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice :
-                 item.product.projectPrice,
+          price: getCartItemPrice(item),
           unit: item.product.unit
         })),
         total: totalAmount,
@@ -944,11 +951,11 @@ export default function POSView({
             </div>
           ) : (
             cart.map((item) => {
-              const price = item.selectedPriceType === 'retail' ? item.product.retailPrice :
-                            item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice :
-                            item.product.projectPrice;
+              const price = getCartItemPrice(item);
               const lineTotal = price * item.quantity;
-              
+              const minPrice = item.product.projectPrice;
+              const maxPrice = item.product.wholesalePrice;
+
               return (
                 <div key={item.product.sku} className="p-3 bg-gray-50 border border-gray-100 rounded-xl space-y-2 relative group">
                   <div className="flex justify-between items-start gap-2">
@@ -965,16 +972,30 @@ export default function POSView({
                     </button>
                   </div>
 
-                  {/* Pricing line information */}
-                  <div className="flex justify-between items-center bg-white p-2 rounded-lg border border-gray-100 text-xs">
-                    <div className="flex items-center gap-1">
-                      <span className="font-extrabold text-gray-800">Rp {price.toLocaleString('id-ID')}</span>
-                      <span className="text-gray-400">/ {item.product.unit}</span>
+                  {/* Pricing: shows Harga Minimum as a reference, price itself is editable
+                      and clamped to [Harga Minimum, Harga Standard] */}
+                  <div className="bg-white p-2 rounded-lg border border-gray-100 text-xs space-y-1.5">
+                    <div className="flex justify-between items-center text-[9px] font-bold uppercase text-gray-400">
+                      <span>Harga Minimum: Rp {minPrice.toLocaleString('id-ID')}</span>
+                      <span className="font-black text-blue-600 text-xs normal-case">Rp {lineTotal.toLocaleString('id-ID')}</span>
                     </div>
-                    <span className="font-black text-blue-600">Rp {lineTotal.toLocaleString('id-ID')}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-gray-400 font-bold">Rp</span>
+                      <NumberInput
+                        value={price}
+                        min={minPrice}
+                        max={maxPrice}
+                        onChange={(v) => {
+                          const updated = cart.map(it => it.product.sku === item.product.sku ? { ...it, customPrice: v } : it);
+                          setCart(updated);
+                        }}
+                        className="flex-1 min-w-0 bg-gray-50 border border-gray-200 rounded-md px-2 py-1 font-extrabold text-gray-800 outline-none focus:ring-2 focus:ring-blue-600/15"
+                      />
+                      <span className="text-gray-400 shrink-0">/ {item.product.unit}</span>
+                    </div>
                   </div>
 
-                  {/* Quantity and configuration */}
+                  {/* Quantity control */}
                   <div className="flex items-center justify-between pt-1">
                     <div className="flex items-center gap-1 border border-gray-200 bg-white rounded-lg p-1">
                       <button 
@@ -991,19 +1012,6 @@ export default function POSView({
                         <Plus className="w-3.5 h-3.5 text-gray-500" />
                       </button>
                     </div>
-                    
-                    {/* Tier selector */}
-                    <select 
-                      value={item.selectedPriceType}
-                      onChange={(e) => {
-                        const updated = cart.map(it => it.product.sku === item.product.sku ? { ...it, selectedPriceType: e.target.value as any } : it);
-                        setCart(updated);
-                      }}
-                      className="bg-white border border-gray-200 rounded-lg p-1.5 text-[10px] font-bold text-gray-600 outline-none"
-                    >
-                      <option value="wholesale">Harga Standard</option>
-                      <option value="project">Harga Minimum</option>
-                    </select>
                   </div>
                 </div>
               );
@@ -1046,13 +1054,10 @@ export default function POSView({
                 >
                   Rp
                 </button>
-                <input 
-                  type="number" 
+                <NumberInput
                   value={discountValue}
-                  onChange={(e) => {
-                    const raw = Number(e.target.value);
-                    setDiscountValue(discountMode === 'percent' ? Math.min(100, Math.max(0, raw)) : Math.max(0, raw));
-                  }}
+                  max={discountMode === 'percent' ? 100 : undefined}
+                  onChange={(v) => setDiscountValue(v)}
                   className="w-16 bg-white border border-gray-200 rounded p-1 text-right font-bold text-xs"
                 />
               </div>

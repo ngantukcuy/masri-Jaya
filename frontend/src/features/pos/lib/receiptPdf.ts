@@ -82,9 +82,11 @@ export function generateReceiptPDF(orderDetails: any, storeProfile: StoreProfile
 
   // Items
   orderDetails.items.forEach((item: any) => {
-    const price = item.selectedPriceType === 'retail' ? item.product.retailPrice :
-                  item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice :
-                  item.product.projectPrice;
+    const price = typeof item.customPrice === 'number' && item.customPrice > 0
+      ? item.customPrice
+      : item.selectedPriceType === 'retail' ? item.product.retailPrice :
+        item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice :
+        item.product.projectPrice;
     doc.setFontSize(7.5);
     doc.setFont('courier', 'bold');
     const nameLines = doc.splitTextToSize(item.product.name, contentWidth);
@@ -230,7 +232,7 @@ export function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProfile: S
 /** Struk Surat Jalan (delivery note) — no prices, includes signature boxes. */
 export function generateDeliveryNotePDF(invoice: SalesInvoice, storeProfile: StoreProfileFull | undefined) {
   const storeName = storeProfile?.storeName || 'Toko Saya';
-  const doc = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'portrait' });
+  const doc = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'landscape' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginX = 12;
   const contentWidth = pageWidth - marginX * 2;

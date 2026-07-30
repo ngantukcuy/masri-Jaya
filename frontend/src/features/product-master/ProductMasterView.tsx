@@ -21,6 +21,7 @@ import { uploadProductImage } from '../../lib/uploadProductImage';
 import BarcodeScannerModal from '../../components/shared/BarcodeScannerModal';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
+import NumberInput from '../../components/shared/NumberInput';
 
 interface CategoryEntry {
   id: string;
@@ -445,7 +446,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                   {skuForm.showLowStockAlert && (
                     <div>
                       <label className={labelCls}>Qty Stok Minimum</label>
-                      <input type="number" min={0} value={skuForm.minStockQty} onChange={(e) => setSkuForm({ ...skuForm, minStockQty: Number(e.target.value) })} className={inputCls} />
+                      <NumberInput min={0} value={skuForm.minStockQty} onChange={(v) => setSkuForm({ ...skuForm, minStockQty: v })} className={inputCls} placeholder="0" />
                     </div>
                   )}
                 </div>
@@ -457,7 +458,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                   {skuForm.showInDeadstock && (
                     <div>
                       <label className={labelCls}>Periode (Bulan)</label>
-                      <input type="number" min={1} value={skuForm.deadstockPeriodMonths} onChange={(e) => setSkuForm({ ...skuForm, deadstockPeriodMonths: Number(e.target.value) })} className={inputCls} />
+                      <NumberInput min={1} value={skuForm.deadstockPeriodMonths} onChange={(v) => setSkuForm({ ...skuForm, deadstockPeriodMonths: v })} className={inputCls} placeholder="0" />
                     </div>
                   )}
                 </div>
@@ -504,16 +505,16 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                 {can('view_cost_price') && (
                 <div>
                   <label className={labelCls}>Harga Modal</label>
-                  <input type="number" min={0} value={skuForm.costPrice} onChange={(e) => setSkuForm({ ...skuForm, costPrice: Number(e.target.value) })} className={inputCls} />
+                  <NumberInput min={0} value={skuForm.costPrice} onChange={(v) => setSkuForm({ ...skuForm, costPrice: v })} className={inputCls} placeholder="0" />
                 </div>
                 )}
                 <div>
                   <label className={labelCls}>Harga Jual Minimum</label>
-                  <input type="number" min={0} value={skuForm.minSellPrice} onChange={(e) => setSkuForm({ ...skuForm, minSellPrice: Number(e.target.value) })} className={inputCls} />
+                  <NumberInput min={0} value={skuForm.minSellPrice} onChange={(v) => setSkuForm({ ...skuForm, minSellPrice: v })} className={inputCls} placeholder="0" />
                 </div>
                 <div>
                   <label className={labelCls}>Harga Jual Standard</label>
-                  <input type="number" min={0} value={skuForm.standardSellPrice} onChange={(e) => setSkuForm({ ...skuForm, standardSellPrice: Number(e.target.value) })} className={inputCls} />
+                  <NumberInput min={0} value={skuForm.standardSellPrice} onChange={(v) => setSkuForm({ ...skuForm, standardSellPrice: v })} className={inputCls} placeholder="0" />
                 </div>
               </div>
 
@@ -542,7 +543,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                   </select>
                   <div>
                     <label className={labelCls}>Nilai Konversi</label>
-                    <input type="number" min={1} value={eceranForm.conversionValue} onChange={(e) => setEceranForm({ ...eceranForm, conversionValue: Number(e.target.value) })} className={inputCls} placeholder="Contoh: 40" />
+                    <NumberInput min={1} value={eceranForm.conversionValue} onChange={(v) => setEceranForm({ ...eceranForm, conversionValue: v })} className={inputCls} placeholder="Contoh: 40" />
                   </div>
                   <div>
                     <label className={labelCls}>Pilih Satuan Eceran</label>
@@ -574,7 +575,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                   {eceranForm.showLowStockAlert && (
                     <div>
                       <label className={labelCls}>Qty Stok Minimum</label>
-                      <input type="number" min={0} value={eceranForm.minStockQty} onChange={(e) => setEceranForm({ ...eceranForm, minStockQty: Number(e.target.value) })} className={inputCls} />
+                      <NumberInput min={0} value={eceranForm.minStockQty} onChange={(v) => setEceranForm({ ...eceranForm, minStockQty: v })} className={inputCls} placeholder="0" />
                     </div>
                   )}
                 </div>
@@ -586,7 +587,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                   {eceranForm.showInDeadstock && (
                     <div>
                       <label className={labelCls}>Periode (Bulan)</label>
-                      <input type="number" min={1} value={eceranForm.deadstockPeriodMonths} onChange={(e) => setEceranForm({ ...eceranForm, deadstockPeriodMonths: Number(e.target.value) })} className={inputCls} />
+                      <NumberInput min={1} value={eceranForm.deadstockPeriodMonths} onChange={(v) => setEceranForm({ ...eceranForm, deadstockPeriodMonths: v })} className={inputCls} placeholder="0" />
                     </div>
                   )}
                 </div>
@@ -609,16 +610,16 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                 {can('view_cost_price') && (
                 <div>
                   <label className={labelCls}>Harga Modal</label>
-                  <input type="number" min={0} value={eceranForm.costPrice} onChange={(e) => setEceranForm({ ...eceranForm, costPrice: Number(e.target.value) })} className={inputCls} />
+                  <NumberInput min={0} value={eceranForm.costPrice} onChange={(v) => setEceranForm({ ...eceranForm, costPrice: v })} className={inputCls} placeholder="0" />
                 </div>
                 )}
                 <div>
                   <label className={labelCls}>Harga Minimum</label>
-                  <input type="number" min={0} value={eceranForm.minSellPrice} onChange={(e) => setEceranForm({ ...eceranForm, minSellPrice: Number(e.target.value) })} className={inputCls} />
+                  <NumberInput min={0} value={eceranForm.minSellPrice} onChange={(v) => setEceranForm({ ...eceranForm, minSellPrice: v })} className={inputCls} placeholder="0" />
                 </div>
                 <div>
                   <label className={labelCls}>Harga Standard</label>
-                  <input type="number" min={0} value={eceranForm.standardSellPrice} onChange={(e) => setEceranForm({ ...eceranForm, standardSellPrice: Number(e.target.value) })} className={inputCls} />
+                  <NumberInput min={0} value={eceranForm.standardSellPrice} onChange={(v) => setEceranForm({ ...eceranForm, standardSellPrice: v })} className={inputCls} placeholder="0" />
                 </div>
               </div>
 
@@ -864,11 +865,11 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                     <option key={p.sku} value={p.sku}>{p.name}</option>
                   ))}
                 </select>
-                <input
-                  type="number"
+                <NumberInput
                   min={1}
                   value={pickQty}
-                  onChange={(e) => setPickQty(Math.max(1, Number(e.target.value)))}
+                  onChange={setPickQty}
+                  placeholder="0"
                   className="w-16 border border-gray-200 rounded-lg p-2 text-xs text-center outline-none"
                 />
                 <button onClick={handleAddItemToBundle} className="px-3 bg-gray-900 hover:bg-black text-white rounded-lg cursor-pointer">
@@ -890,10 +891,9 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
             <div>
               <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Harga Paket (IDR)</label>
-              <input
-                type="number"
-                value={bundlePrice || ''}
-                onChange={(e) => setBundlePrice(Number(e.target.value))}
+              <NumberInput
+                value={bundlePrice}
+                onChange={setBundlePrice}
                 className="w-full border border-gray-200 rounded-lg p-2.5 text-sm font-bold outline-none"
                 placeholder="0"
               />

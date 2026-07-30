@@ -179,7 +179,7 @@ export default function Sidebar({
             <span>Masri</span>
             <span className="text-blue-600">/ jaya</span>
           </div>
-          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.3em] mt-1.5">SISTEM ERP MATERIAL / v1.0</p>
+          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.3em] mt-1.5">SISTEM ERP MATERIAL / v{__APP_VERSION__}</p>
         </div>
         {isMobile && onClose && (
           <button

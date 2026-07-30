@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
+import NumberInput from '../../components/shared/NumberInput';
 
 interface FinanceViewProps {
   expenses: Expense[];
@@ -474,11 +475,11 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                 <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Jumlah Biaya Pengeluaran (IDR)</label>
-                    <input 
-                      type="number"
+                    <NumberInput
                       min={100}
                       value={newExpAmount}
-                      onChange={(e) => setNewExpAmount(Math.max(100, Number(e.target.value)))}
+                      onChange={setNewExpAmount}
+                      placeholder="0"
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-850 outline-none"
                     />
                   </div>

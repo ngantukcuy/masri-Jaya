@@ -1,6 +1,7 @@
 import { FormEvent } from 'react';
 import { Plus, X } from 'lucide-react';
 import { motion } from 'motion/react';
+import NumberInput from '../../../components/shared/NumberInput';
 
 interface AddProductModalProps {
   onClose: () => void;
@@ -14,14 +15,14 @@ interface AddProductModalProps {
   onCategoryChange: (v: string) => void;
   unit: string;
   onUnitChange: (v: string) => void;
-  retailPrice: string;
-  onRetailPriceChange: (v: string) => void;
-  wholesalePrice: string;
-  onWholesalePriceChange: (v: string) => void;
-  projectPrice: string;
-  onProjectPriceChange: (v: string) => void;
-  stock: string;
-  onStockChange: (v: string) => void;
+  retailPrice: number;
+  onRetailPriceChange: (v: number) => void;
+  wholesalePrice: number;
+  onWholesalePriceChange: (v: number) => void;
+  projectPrice: number;
+  onProjectPriceChange: (v: number) => void;
+  stock: number;
+  onStockChange: (v: number) => void;
 }
 
 export default function AddProductModal({
@@ -110,31 +111,29 @@ export default function AddProductModal({
             </div>
             <div>
               <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Harga Standard</label>
-              <input
-                type="number"
-                min="0"
+              <NumberInput
                 value={wholesalePrice}
-                onChange={(e) => onWholesalePriceChange(e.target.value)}
+                onChange={onWholesalePriceChange}
+                placeholder="0"
                 className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-bold text-xs outline-none focus:ring-2 focus:ring-emerald-600/15 text-gray-800"
               />
             </div>
             <div>
               <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Harga Minimum</label>
-              <input
-                type="number"
-                min="0"
+              <NumberInput
                 value={projectPrice}
-                onChange={(e) => onProjectPriceChange(e.target.value)}
+                max={wholesalePrice || undefined}
+                onChange={onProjectPriceChange}
+                placeholder="0"
                 className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-bold text-xs outline-none focus:ring-2 focus:ring-emerald-600/15 text-gray-800"
               />
             </div>
             <div>
               <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Stok Awal</label>
-              <input
-                type="number"
-                min="0"
+              <NumberInput
                 value={stock}
-                onChange={(e) => onStockChange(e.target.value)}
+                onChange={onStockChange}
+                placeholder="0"
                 className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-bold text-xs outline-none focus:ring-2 focus:ring-emerald-600/15 text-gray-800"
               />
             </div>

@@ -4,6 +4,7 @@ import { Customer } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
+import NumberInput from '../../components/shared/NumberInput';
 
 interface DepositViewProps {
   customers: Customer[];
@@ -144,7 +145,7 @@ export default function DepositView({ customers, onUpdateCustomers, onAddActivit
 
               <div>
                 <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Nominal (IDR)</label>
-                <input type="number" value={amount || ''} onChange={(e) => setAmount(Number(e.target.value))} className="w-full border border-gray-200 rounded-lg p-2.5 text-sm font-bold outline-none" placeholder="0" />
+                <NumberInput value={amount} onChange={setAmount} className="w-full border border-gray-200 rounded-lg p-2.5 text-sm font-bold outline-none" placeholder="0" />
               </div>
 
               <div>

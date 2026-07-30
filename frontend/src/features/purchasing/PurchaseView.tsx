@@ -13,6 +13,7 @@ import { PO, Supplier, Product } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
+import NumberInput from '../../components/shared/NumberInput';
 
 interface PurchaseViewProps {
   pos: PO[];
@@ -556,22 +557,22 @@ export default function PurchaseView({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Jumlah Pasokan (Unit/Zak)</label>
-                    <input 
-                      type="number"
+                    <NumberInput
                       min={1}
                       value={newPOItemQuantity}
-                      onChange={(e) => setNewPOItemQuantity(Math.max(1, Number(e.target.value)))}
+                      onChange={setNewPOItemQuantity}
+                      placeholder="0"
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-850 outline-none"
                     />
                   </div>
 
                   <div>
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Harga Beli per Unit (IDR)</label>
-                    <input 
-                      type="number"
+                    <NumberInput
                       min={1}
                       value={newPOItemPrice}
-                      onChange={(e) => setNewPOItemPrice(Math.max(1, Number(e.target.value)))}
+                      onChange={setNewPOItemPrice}
+                      placeholder="0"
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-850 outline-none"
                     />
                   </div>
@@ -653,22 +654,22 @@ export default function PurchaseView({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Jumlah Pasokan (Unit/Zak)</label>
-                    <input 
-                      type="number"
+                    <NumberInput
                       min={1}
                       value={editPOItemQuantity}
-                      onChange={(e) => setEditPOItemQuantity(Math.max(1, Number(e.target.value)))}
+                      onChange={setEditPOItemQuantity}
+                      placeholder="0"
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-850 outline-none focus:bg-white"
                     />
                   </div>
 
                   <div>
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Harga Beli per Unit (IDR)</label>
-                    <input 
-                      type="number"
+                    <NumberInput
                       min={1}
                       value={editPOItemPrice}
-                      onChange={(e) => setEditPOItemPrice(Math.max(1, Number(e.target.value)))}
+                      onChange={setEditPOItemPrice}
+                      placeholder="0"
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-850 outline-none focus:bg-white"
                     />
                   </div>

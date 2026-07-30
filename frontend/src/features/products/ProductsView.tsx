@@ -22,6 +22,7 @@ import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import { uploadProductImage } from '../../lib/uploadProductImage';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
+import NumberInput from '../../components/shared/NumberInput';
 
 interface ProductsViewProps {
   products: Product[];
@@ -967,11 +968,11 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
 
                   <div>
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Jumlah Unit</label>
-                    <input 
-                      type="number"
-                      min={0}
+                    <NumberInput
+                      min={1}
                       value={adjustValue}
-                      onChange={(e) => setAdjustValue(Math.max(1, Number(e.target.value)))}
+                      onChange={setAdjustValue}
+                      placeholder="0"
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-700 outline-none"
                     />
                   </div>
@@ -1103,34 +1104,32 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Modal</label>
-                    <input 
-                      type="number"
+                    <NumberInput
                       required
-                      min={0}
                       value={formRetailPrice}
-                      onChange={(e) => setFormRetailPrice(Number(e.target.value))}
+                      onChange={setFormRetailPrice}
+                      placeholder="0"
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Standard</label>
-                    <input 
-                      type="number"
+                    <NumberInput
                       required
-                      min={0}
                       value={formWholesalePrice}
-                      onChange={(e) => setFormWholesalePrice(Number(e.target.value))}
+                      onChange={setFormWholesalePrice}
+                      placeholder="0"
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Minimum</label>
-                    <input 
-                      type="number"
+                    <NumberInput
                       required
-                      min={0}
+                      max={formWholesalePrice || undefined}
                       value={formProjectPrice}
-                      onChange={(e) => setFormProjectPrice(Number(e.target.value))}
+                      onChange={setFormProjectPrice}
+                      placeholder="0"
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
                     />
                   </div>
@@ -1139,12 +1138,11 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Stok Awal</label>
-                    <input 
-                      type="number"
+                    <NumberInput
                       required
-                      min={0}
                       value={formStock}
-                      onChange={(e) => setFormStock(Number(e.target.value))}
+                      onChange={setFormStock}
+                      placeholder="0"
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
                     />
                   </div>
@@ -1286,34 +1284,32 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Modal</label>
-                    <input 
-                      type="number"
+                    <NumberInput
                       required
-                      min={0}
                       value={formRetailPrice}
-                      onChange={(e) => setFormRetailPrice(Number(e.target.value))}
+                      onChange={setFormRetailPrice}
+                      placeholder="0"
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Standard</label>
-                    <input 
-                      type="number"
+                    <NumberInput
                       required
-                      min={0}
                       value={formWholesalePrice}
-                      onChange={(e) => setFormWholesalePrice(Number(e.target.value))}
+                      onChange={setFormWholesalePrice}
+                      placeholder="0"
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
                     />
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Harga Minimum</label>
-                    <input 
-                      type="number"
+                    <NumberInput
                       required
-                      min={0}
+                      max={formWholesalePrice || undefined}
                       value={formProjectPrice}
-                      onChange={(e) => setFormProjectPrice(Number(e.target.value))}
+                      onChange={setFormProjectPrice}
+                      placeholder="0"
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
                     />
                   </div>
@@ -1322,12 +1318,11 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Stok Gudang</label>
-                    <input 
-                      type="number"
+                    <NumberInput
                       required
-                      min={0}
                       value={formStock}
-                      onChange={(e) => setFormStock(Number(e.target.value))}
+                      onChange={setFormStock}
+                      placeholder="0"
                       className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
                     />
                   </div>

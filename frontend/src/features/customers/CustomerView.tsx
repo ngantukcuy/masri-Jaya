@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
+import NumberInput from '../../components/shared/NumberInput';
 
 interface CustomerViewProps {
   customers: Customer[];
@@ -562,20 +563,20 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
                     {newPaymentTerms === 'Tempo' ? (
                       <div>
                         <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Masa Tempo (Hari)</label>
-                        <input 
-                          type="number"
+                        <NumberInput
                           value={newTempoDays}
-                          onChange={(e) => setNewTempoDays(Number(e.target.value))}
+                          onChange={setNewTempoDays}
+                          placeholder="0"
                           className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none"
                         />
                       </div>
                     ) : (
                       <div>
                         <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Limit Kredit (IDR)</label>
-                        <input 
-                          type="number"
+                        <NumberInput
                           value={newCreditLimit}
-                          onChange={(e) => setNewCreditLimit(Number(e.target.value))}
+                          onChange={setNewCreditLimit}
+                          placeholder="0"
                           className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none"
                         />
                       </div>
@@ -585,11 +586,10 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Setor Deposit Awal (IDR)</label>
-                      <input 
-                        type="number"
+                      <NumberInput
                         placeholder="0"
                         value={newDepositBalance}
-                        onChange={(e) => setNewDepositBalance(Number(e.target.value))}
+                        onChange={setNewDepositBalance}
                         className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none"
                       />
                     </div>
@@ -703,20 +703,20 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
                     {editPaymentTerms === 'Tempo' ? (
                       <div>
                         <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Masa Tempo (Hari)</label>
-                        <input 
-                          type="number"
+                        <NumberInput
                           value={editTempoDays}
-                          onChange={(e) => setEditTempoDays(Number(e.target.value))}
+                          onChange={setEditTempoDays}
+                          placeholder="0"
                           className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
                         />
                       </div>
                     ) : (
                       <div>
                         <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Limit Kredit (IDR)</label>
-                        <input 
-                          type="number"
+                        <NumberInput
                           value={editCreditLimit}
-                          onChange={(e) => setEditCreditLimit(Number(e.target.value))}
+                          onChange={setEditCreditLimit}
+                          placeholder="0"
                           className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
                         />
                       </div>
@@ -726,24 +726,22 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Poin Loyalitas</label>
-                      <input 
-                        type="number"
+                      <NumberInput
                         required
-                        min={0}
                         value={editPoints}
-                        onChange={(e) => setEditPoints(Number(e.target.value))}
+                        onChange={setEditPoints}
+                        placeholder="0"
                         className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-850 outline-none focus:bg-white focus:border-blue-500"
                       />
                     </div>
 
                     <div>
                       <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Saldo Piutang (IDR)</label>
-                      <input 
-                        type="number"
+                      <NumberInput
                         required
-                        min={0}
                         value={editDebt}
-                        onChange={(e) => setEditDebt(Number(e.target.value))}
+                        onChange={setEditDebt}
+                        placeholder="0"
                         className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-855 outline-none focus:bg-white focus:border-blue-500"
                       />
                     </div>
@@ -752,12 +750,11 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Saldo Deposit (IDR)</label>
-                      <input 
-                        type="number"
+                      <NumberInput
                         required
-                        min={0}
                         value={editDepositBalance}
-                        onChange={(e) => setEditDepositBalance(Number(e.target.value))}
+                        onChange={setEditDepositBalance}
+                        placeholder="0"
                         className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
                       />
                     </div>
@@ -833,10 +830,9 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
 
               <div>
                 <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Nominal (IDR)</label>
-                <input
-                  type="number"
-                  value={depositAmount || ''}
-                  onChange={(e) => setDepositAmount(Number(e.target.value))}
+                <NumberInput
+                  value={depositAmount}
+                  onChange={setDepositAmount}
                   className="w-full border border-gray-200 rounded-lg p-2.5 text-sm font-bold outline-none"
                   placeholder="0"
                 />

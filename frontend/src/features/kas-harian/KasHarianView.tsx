@@ -23,6 +23,7 @@ import {
   getMutationTotals
 } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
+import NumberInput from '../../components/shared/NumberInput';
 
 interface KasHarianViewProps {
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
@@ -153,10 +154,10 @@ export default function KasHarianView({ onAddActivity }: KasHarianViewProps) {
               </div>
               <div className="w-full">
                 <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5 text-left">Jumlah Kas Awal (IDR)</label>
-                <input
-                  type="number"
+                <NumberInput
                   value={openingInput}
-                  onChange={(e) => setOpeningInput(Number(e.target.value))}
+                  onChange={setOpeningInput}
+                  placeholder="0"
                   className="w-full border border-gray-200 rounded-xl p-3 text-center font-bold text-lg outline-none focus:border-blue-400"
                 />
               </div>
@@ -365,10 +366,9 @@ export default function KasHarianView({ onAddActivity }: KasHarianViewProps) {
 
               <div>
                 <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Nominal (IDR)</label>
-                <input
-                  type="number"
-                  value={mutationAmount || ''}
-                  onChange={(e) => setMutationAmount(Number(e.target.value))}
+                <NumberInput
+                  value={mutationAmount}
+                  onChange={setMutationAmount}
                   className="w-full border border-gray-200 rounded-lg p-2.5 text-sm font-bold outline-none"
                   placeholder="0"
                 />
@@ -424,10 +424,10 @@ export default function KasHarianView({ onAddActivity }: KasHarianViewProps) {
 
               <div>
                 <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Jumlah Kas Aktual di Laci</label>
-                <input
-                  type="number"
-                  value={actualCashInput || ''}
-                  onChange={(e) => setActualCashInput(Number(e.target.value))}
+                <NumberInput
+                  value={actualCashInput}
+                  onChange={setActualCashInput}
+                  placeholder="0"
                   className="w-full border border-gray-200 rounded-lg p-3 text-center text-lg font-black outline-none"
                 />
               </div>

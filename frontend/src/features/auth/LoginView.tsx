@@ -397,7 +397,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
       </AnimatePresence>
 
       <p className="text-[10px] text-gray-600 mt-8 font-mono text-center uppercase tracking-[0.2em]">
-        MASRI JAYA • SECURE ACCESS CONTROL
+        MASRI JAYA • SECURE ACCESS CONTROL • v{__APP_VERSION__}
       </p>
     </main>
   );

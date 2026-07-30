@@ -16,6 +16,7 @@ import { Supplier } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
+import NumberInput from '../../components/shared/NumberInput';
 
 interface PemasokViewProps {
   suppliers: Supplier[];
@@ -314,7 +315,7 @@ export default function PemasokView({ suppliers, onUpdateSuppliers, onAddActivit
                   {form.paymentMethod === 'Tempo' && (
                     <div>
                       <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Jangka Waktu (Hari)</label>
-                      <input type="number" min={1} value={form.topDays} onChange={(e) => setForm({ ...form, topDays: Number(e.target.value) })} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold outline-none focus:bg-white focus:border-blue-500" />
+                      <NumberInput min={1} value={form.topDays} onChange={(v) => setForm({ ...form, topDays: v })} placeholder="0" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold outline-none focus:bg-white focus:border-blue-500" />
                     </div>
                   )}
                 </div>

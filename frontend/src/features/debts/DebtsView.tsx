@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
 import { getSupabaseTableCache } from '../../lib/supabaseCache';
 import { useDialog } from '../../components/shared/DialogProvider';
+import NumberInput from '../../components/shared/NumberInput';
 
 interface DebtsStoreProfileLite {
   storeName: string;
@@ -50,8 +51,8 @@ export default function DebtsView({
   const [showPrintInvoice, setShowPrintInvoice] = useState(false);
   
   // Form states
-  const [payAmount, setPayAmount] = useState('');
-  const [addDebtAmount, setAddDebtAmount] = useState('');
+  const [payAmount, setPayAmount] = useState(0);
+  const [addDebtAmount, setAddDebtAmount] = useState(0);
   const [debtDescription, setDebtDescription] = useState('');
   const [debtDueDate, setDebtDueDate] = useState('');
 
@@ -80,13 +81,13 @@ export default function DebtsView({
 
   const handleOpenPayModal = (customer: Customer) => {
     setSelectedCustomerForAction(customer);
-    setPayAmount(customer.currentDebt.toString());
+    setPayAmount(customer.currentDebt);
     setShowPayModal(true);
   };
 
   const handleOpenAddDebtModal = (customer: Customer) => {
     setSelectedCustomerForAction(customer);
-    setAddDebtAmount('');
+    setAddDebtAmount(0);
     setDebtDescription('');
     // Default due date 30 days from now
     const d = new Date();
@@ -104,8 +105,8 @@ export default function DebtsView({
     e.preventDefault();
     if (!selectedCustomerForAction) return;
 
-    const payment = Number(payAmount);
-    if (isNaN(payment) || payment <= 0) {
+    const payment = payAmount;
+    if (!payment || payment <= 0) {
       dialog.alert("Masukkan nominal pembayaran yang valid!");
       return;
     }
@@ -170,7 +171,7 @@ export default function DebtsView({
     e.preventDefault();
     if (!selectedCustomerForAction) return;
 
-    const amount = Number(addDebtAmount);
+    const amount = addDebtAmount;
     if (isNaN(amount) || amount <= 0) {
       dialog.alert("Masukkan nominal penambahan hutang yang valid!");
       return;
@@ -466,10 +467,9 @@ export default function DebtsView({
               <form onSubmit={submitRepayment} className="space-y-4">
                 <div>
                   <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Nominal Pembayaran (Rp)</label>
-                  <input 
-                    type="number"
+                  <NumberInput
                     value={payAmount}
-                    onChange={(e) => setPayAmount(e.target.value)}
+                    onChange={setPayAmount}
                     placeholder="Masukkan nominal Rp..."
                     required
                     className="w-full bg-white border border-gray-200 rounded-xl p-3 font-black text-sm outline-none focus:ring-2 focus:ring-emerald-500/15 text-gray-800"
@@ -477,14 +477,14 @@ export default function DebtsView({
                   <div className="flex gap-2 mt-2">
                     <button 
                       type="button"
-                      onClick={() => setPayAmount((selectedCustomerForAction.currentDebt / 2).toString())}
+                      onClick={() => setPayAmount(Math.round(selectedCustomerForAction.currentDebt / 2))}
                       className="flex-1 py-1 px-2 border border-gray-200 rounded-lg hover:bg-slate-50 text-[10px] text-gray-500 font-bold"
                     >
                       Bayar Setengah (50%)
                     </button>
                     <button 
                       type="button"
-                      onClick={() => setPayAmount(selectedCustomerForAction.currentDebt.toString())}
+                      onClick={() => setPayAmount(selectedCustomerForAction.currentDebt)}
                       className="flex-1 py-1 px-2 border border-gray-200 rounded-lg hover:bg-slate-50 text-[10px] text-gray-500 font-bold"
                     >
                       Bayar Lunas (100%)
@@ -554,10 +554,9 @@ export default function DebtsView({
               <form onSubmit={submitAddDebt} className="space-y-4 text-xs">
                 <div>
                   <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Nominal Hutang Baru (Rp)</label>
-                  <input 
-                    type="number"
+                  <NumberInput
                     value={addDebtAmount}
-                    onChange={(e) => setAddDebtAmount(e.target.value)}
+                    onChange={setAddDebtAmount}
                     placeholder="Rp..."
                     required
                     className="w-full bg-white border border-gray-200 rounded-xl p-3 font-black text-sm outline-none focus:ring-2 focus:ring-blue-500/15 text-gray-800"

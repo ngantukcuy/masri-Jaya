@@ -13,6 +13,7 @@ import { Product, SalesInvoice, PO, ReturnRecord, ReturnItem } from '../../types
 import { addMutation } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
+import NumberInput from '../../components/shared/NumberInput';
 
 interface ReturViewProps {
   products: Product[];
@@ -337,15 +338,11 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Jumlah Retur</label>
-                        <input
-                          type="number"
-                          min={0}
+                        <NumberInput
                           max={item.quantity}
                           value={returnQtys[item.sku] || 0}
-                          onChange={(e) => {
-                            const val = Math.max(0, Math.min(item.quantity, Number(e.target.value)));
-                            setReturnQtys({ ...returnQtys, [item.sku]: val });
-                          }}
+                          onChange={(v) => setReturnQtys({ ...returnQtys, [item.sku]: v })}
+                          placeholder="0"
                           className="w-full border border-gray-200 rounded-lg p-2 text-xs font-bold outline-none"
                         />
                       </div>
@@ -368,10 +365,9 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
                 <div>
                   <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Diskon Nilai Retur (IDR)</label>
-                  <input
-                    type="number"
-                    value={discount || ''}
-                    onChange={(e) => setDiscount(Number(e.target.value))}
+                  <NumberInput
+                    value={discount}
+                    onChange={setDiscount}
                     className="w-full border border-gray-200 rounded-lg p-2 text-xs font-bold outline-none"
                     placeholder="0"
                   />
