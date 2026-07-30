@@ -65,28 +65,19 @@ export default function DebtsView({
     setTimeout(() => setToastMsg(''), 3000);
   };
 
-  // A customer counts as overdue either because someone manually flagged
-  // them (debtStatus === 'Overdue') or because their tracked due date
-  // (auto-set from a POS split payment, or entered manually via Tambah
-  // Hutang) has already passed. Purely additive — never overrides the
-  // manually-managed debtStatus field itself.
-  const todayIso = new Date().toISOString().split('T')[0];
-  const isEffectivelyOverdue = (cust: Customer) =>
-    cust.currentDebt > 0 && (cust.debtStatus === 'Overdue' || (!!cust.nextDueDate && cust.nextDueDate < todayIso));
-
   // Get filtered customers
   const filteredCustomers = customers.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           c.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'Semua' || (statusFilter === 'Overdue' ? isEffectivelyOverdue(c) : c.debtStatus === statusFilter);
+    const matchesStatus = statusFilter === 'Semua' || c.debtStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   // Calculate stats
   const totalDebt = customers.reduce((acc, c) => acc + (c.currentDebt || 0), 0);
-  const totalOverdue = customers.reduce((acc, c) => acc + (isEffectivelyOverdue(c) ? (c.overdueAmount || c.currentDebt) : 0), 0);
+  const totalOverdue = customers.reduce((acc, c) => acc + (c.overdueAmount || (c.debtStatus === 'Overdue' ? c.currentDebt : 0)), 0);
   const activeDebtorsCount = customers.filter(c => c.currentDebt > 0).length;
-  const overdueDebtorsCount = customers.filter(c => isEffectivelyOverdue(c)).length;
+  const overdueDebtorsCount = customers.filter(c => c.debtStatus === 'Overdue' && c.currentDebt > 0).length;
 
   const handleOpenPayModal = (customer: Customer) => {
     setSelectedCustomerForAction(customer);
@@ -157,8 +148,7 @@ export default function DebtsView({
           debtStatus: newStatus,
           overdueAmount: newOverdue,
           pendingAmount: newPending,
-          lastTransactions: updatedTransactions,
-          nextDueDate: remaining === 0 ? undefined : c.nextDueDate
+          lastTransactions: updatedTransactions
         };
       }
       return c;
@@ -199,8 +189,7 @@ export default function DebtsView({
           currentDebt: nextDebt,
           debtStatus: 'Pending' as const,
           pendingAmount: (c.pendingAmount || 0) + amount,
-          lastTransactions: nextTransactions,
-          nextDueDate: c.nextDueDate && c.nextDueDate < debtDueDate ? c.nextDueDate : debtDueDate
+          lastTransactions: nextTransactions
         };
       }
       return c;
@@ -357,7 +346,6 @@ export default function DebtsView({
                 <th className="p-4 font-extrabold text-gray-500 uppercase tracking-widest text-[9px]">ID &amp; Pelanggan</th>
                 <th className="p-4 font-extrabold text-gray-500 uppercase tracking-widest text-[9px]">Tingkat Loyalitas</th>
                 <th className="p-4 font-extrabold text-gray-500 uppercase tracking-widest text-[9px]">Status Kredit</th>
-                <th className="p-4 font-extrabold text-gray-500 uppercase tracking-widest text-[9px]">Jatuh Tempo</th>
                 <th className="p-4 font-extrabold text-gray-500 uppercase tracking-widest text-[9px]">Sisa Piutang Aktif</th>
                 <th className="p-4 font-extrabold text-gray-500 uppercase tracking-widest text-[9px] text-right">Opsi Operasional</th>
               </tr>
@@ -365,7 +353,7 @@ export default function DebtsView({
             <tbody className="divide-y divide-gray-100">
               {filteredCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-400">
+                  <td colSpan={5} className="p-8 text-center text-gray-400">
                     <span className="text-2xl block mb-2">📒</span>
                     <span className="font-extrabold uppercase tracking-wider block text-xs">Tidak Ada Data Piutang</span>
                     <span className="text-[10px] text-gray-400 mt-1 block">Silakan ubah filter atau tambahkan transaksi piutang baru di POS.</span>
@@ -389,24 +377,10 @@ export default function DebtsView({
                     <td className="p-4">
                       {cust.currentDebt === 0 ? (
                         <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border border-emerald-100">Lunas</span>
-                      ) : isEffectivelyOverdue(cust) ? (
+                      ) : cust.debtStatus === 'Overdue' ? (
                         <span className="bg-red-50 text-red-700 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border border-red-100 animate-pulse">Jatuh Tempo</span>
                       ) : (
                         <span className="bg-amber-50 text-amber-700 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border border-amber-100">Berjalan</span>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      {cust.currentDebt > 0 && cust.nextDueDate ? (
-                        <div>
-                          <p className="font-bold text-gray-700">{new Date(cust.nextDueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                          {isEffectivelyOverdue(cust) && (
-                            <p className="text-[9px] text-red-500 font-bold mt-0.5">
-                              Terlambat {Math.max(1, Math.floor((new Date(todayIso).getTime() - new Date(cust.nextDueDate).getTime()) / 86400000))} hari
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-300">-</span>
                       )}
                     </td>
                     <td className="p-4">
@@ -720,15 +694,9 @@ export default function DebtsView({
                     <span className="text-slate-900 uppercase">SISA HUTANG AKTIF:</span>
                     <span className="text-red-600">Rp {selectedCustomerForAction.currentDebt.toLocaleString('id-ID')}</span>
                   </div>
-                  {selectedCustomerForAction.nextDueDate && (
-                    <div className="flex justify-between text-[9px] text-slate-400">
-                      <span>Jatuh Tempo:</span>
-                      <span className="font-bold">{new Date(selectedCustomerForAction.nextDueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                    </div>
-                  )}
                   <div className="flex justify-between text-[9px] text-slate-400">
                     <span>Status Kolektibilitas:</span>
-                    <span className="font-bold">{isEffectivelyOverdue(selectedCustomerForAction) ? 'Jatuh Tempo (Kritis)' : selectedCustomerForAction.currentDebt > 0 ? 'Berjalan (Lancar)' : 'Lunas'}</span>
+                    <span className="font-bold">{selectedCustomerForAction.debtStatus === 'Overdue' ? 'Jatuh Tempo (Kritis)' : selectedCustomerForAction.currentDebt > 0 ? 'Berjalan (Lancar)' : 'Lunas'}</span>
                   </div>
                 </div>
 

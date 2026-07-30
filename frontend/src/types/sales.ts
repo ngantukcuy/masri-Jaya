@@ -27,18 +27,6 @@ export interface SalesInvoice {
   fulfillmentMethod?: 'Pickup' | 'Delivery';
   /** Only meaningful when fulfillmentMethod is 'Delivery'. */
   deliveryAddress?: string;
-  /** Only meaningful when paymentMethod is 'Cash': amount of physical cash
-   * the cashier received from the customer. */
-  cashReceived?: number;
-  /** Only meaningful when paymentMethod is 'Cash': change given back
-   * (cashReceived - total). */
-  changeAmount?: number;
-  /** Only meaningful when paymentMethod is 'Split': amount paid at
-   * checkout time. */
-  splitPaidAmount?: number;
-  /** Only meaningful when paymentMethod is 'Split': remaining amount
-   * recorded as the customer's receivable/debt (piutang). */
-  splitRemainingDebt?: number;
 }
 
 // ---- Retur (Sales & Purchase Returns) ----

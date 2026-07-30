@@ -21,7 +21,6 @@ import { Branch, StoreProfile, StaffMember, BankAccount, SkuLocation, Printer } 
 import { motion, AnimatePresence } from 'motion/react';
 import { useSupabaseState } from '../../lib/useSupabaseState';
 import { useSupabaseTable } from '../../lib/useSupabaseTable';
-import { uploadProductImage } from '../../lib/uploadProductImage';
 import {
   connectBluetoothPrinter,
   connectUsbPrinter,
@@ -87,24 +86,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     }
   });
   const [bankAccounts, setBankAccounts] = useSupabaseTable<BankAccount>('bank_accounts', [], (b) => b.id);
-  const [newBankAccount, setNewBankAccount] = useState({ name: '', type: 'Bank' as BankAccount['type'], accountNumber: '', holderName: '', notes: '', qrisImageUrl: '' });
-  const [qrisImageUploading, setQrisImageUploading] = useState(false);
-  const [qrisImageUploadError, setQrisImageUploadError] = useState<string | null>(null);
-  const handleQrisImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    setQrisImageUploadError(null);
-    setQrisImageUploading(true);
-    try {
-      const url = await uploadProductImage(file, 'qris');
-      setNewBankAccount((prev) => ({ ...prev, qrisImageUrl: url }));
-    } catch (err) {
-      setQrisImageUploadError(err instanceof Error ? err.message : 'Gagal mengunggah gambar QRIS.');
-    } finally {
-      setQrisImageUploading(false);
-    }
-  };
+  const [newBankAccount, setNewBankAccount] = useState({ name: '', type: 'Bank' as BankAccount['type'], accountNumber: '', holderName: '', notes: '' });
 
   // SKU Location (Lokasi Penyimpanan) form state - list itself is lifted to App level
   const [newLocationName, setNewLocationName] = useState('');
@@ -372,13 +354,11 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
       type: newBankAccount.type,
       accountNumber: newBankAccount.accountNumber.trim(),
       holderName: newBankAccount.holderName.trim(),
-      notes: newBankAccount.notes.trim(),
-      qrisImageUrl: newBankAccount.type === 'QRIS' ? (newBankAccount.qrisImageUrl.trim() || undefined) : undefined
+      notes: newBankAccount.notes.trim()
     };
     const updated = [...bankAccounts, account];
     setBankAccounts(updated);
-    setNewBankAccount({ name: '', type: 'Bank', accountNumber: '', holderName: '', notes: '', qrisImageUrl: '' });
-    setQrisImageUploadError(null);
+    setNewBankAccount({ name: '', type: 'Bank', accountNumber: '', holderName: '', notes: '' });
     triggerToast(`Rekening "${account.name}" berhasil ditambahkan.`);
   };
 
@@ -1026,23 +1006,6 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                 <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Catatan</label>
                 <textarea rows={2} value={newBankAccount.notes} onChange={(e) => setNewBankAccount((prev) => ({ ...prev, notes: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white p-2.5 font-bold text-gray-800" />
               </div>
-              {newBankAccount.type === 'QRIS' && (
-                <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Gambar QRIS</label>
-                  <p className="text-[9px] text-gray-400 mb-2">Unggah gambar kode QRIS toko sekali di sini — kode ini yang akan tampil di halaman Pos Kasir setiap kali pelanggan memilih bayar QRIS.</p>
-                  <div className="flex items-center gap-3">
-                    {newBankAccount.qrisImageUrl && (
-                      <img src={newBankAccount.qrisImageUrl} alt="Preview QRIS" className="w-16 h-16 rounded-lg border border-gray-200 object-contain bg-white" />
-                    )}
-                    <label className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-[11px] font-bold text-gray-700 cursor-pointer hover:bg-gray-50">
-                      {qrisImageUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                      <span>{qrisImageUploading ? 'Mengunggah...' : newBankAccount.qrisImageUrl ? 'Ganti Gambar' : 'Unggah Gambar QRIS'}</span>
-                      <input type="file" accept="image/*" className="hidden" onChange={handleQrisImageFileSelect} disabled={qrisImageUploading} />
-                    </label>
-                  </div>
-                  {qrisImageUploadError && <p className="text-[9px] text-red-500 font-bold mt-1">{qrisImageUploadError}</p>}
-                </div>
-              )}
               <div className="flex justify-end">
                 <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-black uppercase text-white">Tambah Rekening</button>
               </div>
@@ -1056,17 +1019,9 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
               ) : bankAccounts.map((account) => (
                 <div key={account.id} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      {account.type === 'QRIS' && account.qrisImageUrl && (
-                        <img src={account.qrisImageUrl} alt="QRIS" className="w-10 h-10 rounded-lg border border-gray-200 object-contain bg-white shrink-0" />
-                      )}
-                      <div>
-                        <p className="font-bold text-gray-800">{account.name}</p>
-                        <p className="text-[10px] text-gray-400">{account.type} • {account.accountNumber || 'Tidak ada nomor'} • {account.holderName || 'Tanpa pemilik'}</p>
-                        {account.type === 'QRIS' && !account.qrisImageUrl && (
-                          <p className="text-[9px] text-amber-500 font-bold mt-0.5">Belum ada gambar QRIS diunggah.</p>
-                        )}
-                      </div>
+                    <div>
+                      <p className="font-bold text-gray-800">{account.name}</p>
+                      <p className="text-[10px] text-gray-400">{account.type} • {account.accountNumber || 'Tidak ada nomor'} • {account.holderName || 'Tanpa pemilik'}</p>
                     </div>
                     {can('manage_rekening_delete') && (
                       <button onClick={() => handleDeleteBankAccount(account.id)} className="rounded-lg p-2 text-red-500 hover:bg-red-50"> <Trash2 className="w-4 h-4" /> </button>

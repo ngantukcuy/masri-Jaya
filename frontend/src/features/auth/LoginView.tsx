@@ -132,6 +132,32 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
     setPinError(false);
   };
 
+  // Allow entering the PIN using a physical keyboard (number row + numpad),
+  // not just tapping the on-screen keypad. Only active once a staff account
+  // has been picked, mirroring the on-screen keypad's own availability.
+  useEffect(() => {
+    if (!selectedStaff) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        handlePinDigit(e.key);
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        handleBackspace();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setPinInput('');
+        setPinError(false);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStaff, pinInput]);
+
+
   return (
     <main className="min-h-screen bg-[#E0E5EC] flex flex-col items-center justify-center p-4 font-sans select-none">
       
@@ -328,6 +354,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                   {/* PIN Display Indicators */}
                   <div className="text-center space-y-2">
                     <span className="block text-[10px] font-bold text-gray-600 uppercase tracking-widest">Masukkan 6-Digit PIN</span>
+                    <span className="block text-[9px] text-gray-400 font-medium normal-case">Bisa ketik langsung dari keyboard</span>
                     <div className="flex justify-center gap-3 py-4">
                       {[0, 1, 2, 3, 4, 5].map((index) => (
                         <div
