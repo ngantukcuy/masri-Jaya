@@ -18,7 +18,7 @@ export default function QRISModal({ onClose, onConfirm, totalAmount, qrisImageUr
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-2xl max-w-sm w-full p-6 border border-gray-200 shadow-2xl max-h-[85vh] overflow-y-auto text-center space-y-4"
+        className="bg-white rounded-2xl max-w-md w-full p-6 border border-gray-200 shadow-2xl max-h-[90vh] overflow-y-auto text-center space-y-4"
       >
         <div className="flex justify-between items-center border-b border-gray-100 pb-3">
           <span className="font-extrabold text-xs uppercase tracking-widest text-blue-600">PEMBAYARAN QRIS OTOMATIS</span>
@@ -32,17 +32,17 @@ export default function QRISModal({ onClose, onConfirm, totalAmount, qrisImageUr
 
         {/* QR Code graphic — real store QRIS if uploaded in Pengaturan, otherwise placeholder */}
         {qrisImageUrl ? (
-          <div className="w-52 h-52 bg-white border border-gray-200 rounded-2xl mx-auto flex items-center justify-center overflow-hidden p-2">
+          <div className="w-80 h-80 max-w-full bg-white border border-gray-200 rounded-2xl mx-auto flex items-center justify-center overflow-hidden p-2">
             <img src={qrisImageUrl} alt="QRIS Toko" className="w-full h-full object-contain" />
           </div>
         ) : (
-          <div className="w-44 h-44 bg-gray-100 border border-gray-200 rounded-2xl mx-auto flex items-center justify-center relative overflow-hidden">
-            <QrCode className="w-36 h-36 text-gray-800" />
+          <div className="w-64 h-64 max-w-full bg-gray-100 border border-gray-200 rounded-2xl mx-auto flex items-center justify-center relative overflow-hidden">
+            <QrCode className="w-52 h-52 text-gray-800" />
             <div className="absolute inset-0 bg-white/5 bg-radial-gradient flex items-center justify-center"></div>
           </div>
         )}
 
-        <p className="text-[10px] text-gray-400 max-w-[220px] mx-auto">
+        <p className="text-[11px] text-gray-400 max-w-[280px] mx-auto">
           {qrisImageUrl
             ? 'Minta pelanggan memindai kode QRIS di atas dari aplikasi e-wallet/m-banking. Klik tombol otorisasi setelah pembayaran diterima.'
             : 'Belum ada kode QRIS toko. Tambahkan gambar QRIS di Pengaturan > Daftar Rekening. Klik tombol otorisasi untuk menyelesaikan transaksi.'}
