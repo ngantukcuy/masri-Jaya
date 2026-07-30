@@ -232,6 +232,7 @@ function Dashboard({
                         address: registeredOwner.address,
                         phone: registeredOwner.phone,
                         receiptNote: registeredOwner.receiptNote,
+                        taxId: registeredOwner.taxId,
                       } : undefined}
                       onExitFullScreen={() => setCurrentTab('dashboard')}
                     />

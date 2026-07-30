@@ -50,6 +50,7 @@ interface StoreProfileLite {
   address?: string;
   phone?: string;
   receiptNote?: string;
+  taxId?: string;
 }
 
 interface POSViewProps {
@@ -188,8 +189,10 @@ export default function POSView({
 
     const name = newProductName.trim();
     const sku = newProductSku.trim().toUpperCase();
-    const retailPrice = Number(newProductRetailPrice) || 0;
     const wholesalePrice = Number(newProductWholesalePrice) || 0;
+    // Harga Modal (retailPrice) is hidden from this quick-add form — mirror
+    // the standard price so stock-value reports elsewhere don't read 0.
+    const retailPrice = wholesalePrice;
     const projectPrice = Number(newProductProjectPrice) || 0;
     const stock = Math.max(0, Number(newProductStock) || 0);
 
@@ -226,7 +229,7 @@ export default function POSView({
     setCart((prev) => [...prev, {
       product: newProduct,
       quantity: 1,
-      selectedPriceType: 'retail',
+      selectedPriceType: 'wholesale',
       notes: ''
     }]);
     setSelectedCategory('Semua Kategori');
@@ -269,18 +272,12 @@ export default function POSView({
         return;
       }
       updated[existingIdx].quantity += 1;
-      
-      // Auto-apply wholesale if quantity >= 10
-      if (updated[existingIdx].quantity >= 10) {
-        updated[existingIdx].selectedPriceType = 'wholesale';
-      }
-      
       setCart(updated);
     } else {
       setCart([...cart, {
         product: prod,
         quantity: 1,
-        selectedPriceType: 'retail',
+        selectedPriceType: 'wholesale',
         notes: ''
       }]);
     }
@@ -352,15 +349,8 @@ export default function POSView({
           dialog.alert("Jumlah tidak boleh melebihi stok fisik di gudang!");
           return item;
         }
-        
-        let priceType = item.selectedPriceType;
-        if (targetQty >= 10) {
-          priceType = 'wholesale';
-        } else if (item.selectedPriceType === 'wholesale') {
-          priceType = 'retail';
-        }
 
-        return { ...item, quantity: targetQty, selectedPriceType: priceType };
+        return { ...item, quantity: targetQty };
       }
       return item;
     }).filter(Boolean) as CartItem[];
@@ -894,9 +884,9 @@ export default function POSView({
                 <p className="text-[10px] text-gray-400 font-mono mt-0.5">{prod.sku}</p>
               </div>
 
-              {/* Price Details */}
+              {/* Price Details — shows Harga Standard, not Harga Modal/Minimum */}
               <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
-                <span className="text-xs font-black text-gray-950">Rp {prod.retailPrice.toLocaleString('id-ID')}</span>
+                <span className="text-xs font-black text-gray-950">Rp {prod.wholesalePrice.toLocaleString('id-ID')}</span>
                 <span className="text-[9px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded uppercase">
                   {prod.unit}
                 </span>
@@ -980,11 +970,6 @@ export default function POSView({
                     <div className="flex items-center gap-1">
                       <span className="font-extrabold text-gray-800">Rp {price.toLocaleString('id-ID')}</span>
                       <span className="text-gray-400">/ {item.product.unit}</span>
-                      {item.selectedPriceType === 'wholesale' && (
-                        <span className="text-[8px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1 rounded font-black uppercase">
-                          Standard Otomatis
-                        </span>
-                      )}
                     </div>
                     <span className="font-black text-blue-600">Rp {lineTotal.toLocaleString('id-ID')}</span>
                   </div>
@@ -1016,7 +1001,6 @@ export default function POSView({
                       }}
                       className="bg-white border border-gray-200 rounded-lg p-1.5 text-[10px] font-bold text-gray-600 outline-none"
                     >
-                      <option value="retail">Harga Modal</option>
                       <option value="wholesale">Harga Standard</option>
                       <option value="project">Harga Minimum</option>
                     </select>

@@ -486,7 +486,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   };
 
   return (
-    <div className="space-y-6 relative">
+    <div className="space-y-6 relative overflow-x-hidden">
       {/* Title Header */}
       <div>
         <h2 className="text-2xl font-black text-gray-900 tracking-tight">Pengaturan Sistem</h2>
@@ -494,7 +494,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
       </div>
 
       {/* Settings Navigation Tabs */}
-      <div className="flex border-b border-gray-200 gap-6">
+      <div className="flex flex-wrap border-b border-gray-200 gap-x-6 gap-y-2">
         <button 
           onClick={() => setActiveTab('profile')}
           className={`pb-3 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 ${
@@ -563,8 +563,11 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
         {/* Tab 1: Profile */}
         {activeTab === 'profile' && (
           <form onSubmit={handleSaveProfile} className="space-y-4 text-xs">
-            <h4 className="font-extrabold text-sm text-gray-800 border-b border-gray-100 pb-2 mb-4">Informasi Bisnis Utama</h4>
-            
+            <div className="border-b border-gray-100 pb-2 mb-4">
+              <h4 className="font-extrabold text-sm text-gray-800">Informasi Bisnis Utama</h4>
+              <p className="text-[10px] text-gray-400 mt-0.5">Field di bawah ini persis yang akan tercetak di struk pembeli.</p>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Nama Resmi Perusahaan / Toko</label>
@@ -573,27 +576,6 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none font-bold text-gray-700 focus:ring-2 focus:ring-blue-600/15"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Nomor NPWP Terdaftar</label>
-                <input 
-                  type="text" 
-                  value={taxId}
-                  onChange={(e) => setTaxId(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none font-mono text-gray-700 focus:ring-2 focus:ring-blue-600/15"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Alamat Email Kontak</label>
-                <input 
-                  type="email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none text-gray-700 focus:ring-2 focus:ring-blue-600/15"
                 />
               </div>
               <div>
@@ -607,25 +589,24 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Alamat Toko</label>
-                <input 
-                  type="text" 
-                  value={storeProfile.address || ''}
-                  onChange={(e) => setStoreProfile((prev) => ({ ...prev, address: e.target.value }))}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none text-gray-700 focus:ring-2 focus:ring-blue-600/15"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Kota</label>
-                <input 
-                  type="text" 
-                  value={storeProfile.city || ''}
-                  onChange={(e) => setStoreProfile((prev) => ({ ...prev, city: e.target.value }))}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none text-gray-700 focus:ring-2 focus:ring-blue-600/15"
-                />
-              </div>
+            <div>
+              <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Alamat Toko</label>
+              <input 
+                type="text" 
+                value={storeProfile.address || ''}
+                onChange={(e) => setStoreProfile((prev) => ({ ...prev, address: e.target.value }))}
+                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none text-gray-700 focus:ring-2 focus:ring-blue-600/15"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Nomor NPWP Terdaftar</label>
+              <input 
+                type="text" 
+                value={taxId}
+                onChange={(e) => setTaxId(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none font-mono text-gray-700 focus:ring-2 focus:ring-blue-600/15"
+              />
             </div>
 
             <div>
@@ -638,13 +619,15 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
               />
             </div>
 
-            <div>
-              <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Simbol Mata Uang</label>
-              <select className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none font-bold text-gray-700 focus:ring-2 focus:ring-blue-600/15">
-                <option value="IDR">IDR (Rp) - Rupiah Indonesia (Default)</option>
-                <option value="USD">USD ($) - US Dollar</option>
-                <option value="EUR">EUR (€) - Euro Standard</option>
-              </select>
+            {/* Account/login field — kept separate since it's used for signing in, not printed on the receipt */}
+            <div className="pt-2 border-t border-gray-100">
+              <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Alamat Email Kontak <span className="normal-case font-medium text-gray-300">(untuk login, tidak tampil di struk)</span></label>
+              <input 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none text-gray-700 focus:ring-2 focus:ring-blue-600/15"
+              />
             </div>
 
             <div className="pt-4 border-t border-gray-100 flex justify-end">

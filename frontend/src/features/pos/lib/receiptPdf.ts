@@ -6,6 +6,7 @@ interface StoreProfileLite {
   address?: string;
   phone?: string;
   receiptNote?: string;
+  taxId?: string;
 }
 
 interface StoreProfileFull extends StoreProfileLite {
@@ -58,6 +59,7 @@ export function generateReceiptPDF(orderDetails: any, storeProfile: StoreProfile
   center(storeName, 12, true);
   if (storeProfile?.address) center(storeProfile.address, 7);
   if (storeProfile?.phone) center(`Tel: ${storeProfile.phone}`, 7);
+  if (storeProfile?.taxId) center(`NPWP: ${storeProfile.taxId}`, 7);
   y += 1;
   dashedLine();
 
@@ -171,6 +173,7 @@ export function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProfile: S
   center(storeName, 12, true);
   if (storeProfile?.address) center(storeProfile.address, 7);
   if (storeProfile?.phone) center(`Tel: ${storeProfile.phone}`, 7);
+  if (storeProfile?.taxId) center(`NPWP: ${storeProfile.taxId}`, 7);
   y += 1;
   dashedLine();
 

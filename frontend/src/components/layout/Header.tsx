@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Search, MapPin, RotateCw, Bell, Menu, LogOut, Clock, Coins, Shield, X, AlertTriangle, PackageX, ShoppingBag, Wallet, Sun, Moon } from 'lucide-react';
 import { getCurrentSession, getMutationTotals } from '../../lib/cashSession';
 import { useTheme } from '../../lib/ThemeContext';
+import InstallAppButton from '../shared/InstallAppButton';
 
 interface SearchResultItem {
   id: string;
@@ -312,6 +313,9 @@ export default function Header({
         >
           {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
+
+        {/* Install App (PWA) — hides itself once installed or unsupported */}
+        <InstallAppButton compact />
 
         {/* Sync Button (Moderate Neumorphic Feel) */}
         <button 

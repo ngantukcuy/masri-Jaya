@@ -109,16 +109,6 @@ export default function AddProductModal({
               />
             </div>
             <div>
-              <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Harga Modal</label>
-              <input
-                type="number"
-                min="0"
-                value={retailPrice}
-                onChange={(e) => onRetailPriceChange(e.target.value)}
-                className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-bold text-xs outline-none focus:ring-2 focus:ring-emerald-600/15 text-gray-800"
-              />
-            </div>
-            <div>
               <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Harga Standard</label>
               <input
                 type="number"

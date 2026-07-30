@@ -6,6 +6,7 @@ interface StoreProfileLite {
   address?: string;
   phone?: string;
   receiptNote?: string;
+  taxId?: string;
 }
 
 interface ReceiptModalProps {
@@ -38,6 +39,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
             <span className="text-lg font-black text-gray-900 tracking-tight block">{storeName}</span>
             {storeProfile?.address && <span className="text-[10px] text-gray-400 block mt-0.5">{storeProfile.address}</span>}
             {storeProfile?.phone && <span className="text-[10px] text-gray-400 block mt-1">Tel: {storeProfile.phone}</span>}
+            {storeProfile?.taxId && <span className="text-[10px] text-gray-400 block mt-1">NPWP: {storeProfile.taxId}</span>}
           </div>
 
           <div className="space-y-1.5 text-[10px] py-3">

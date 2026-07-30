@@ -56,20 +56,9 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     if (initialTab) setActiveTab(initialTab);
   }, [initialTab]);
 
-  const { list: categories, persist: persistCategories } = useLocalList<CategoryEntry>('product_categories', [
-    { id: 'CAT-01', name: 'Bahan Bangunan', level: 1 },
-    { id: 'CAT-02', name: 'Semen & Beton', level: 2 },
-    { id: 'CAT-03', name: 'Cat & Coating', level: 2 },
-  ]);
-  const { list: brands, persist: persistBrands } = useLocalList<SimpleEntry>('product_brands', [
-    { id: 'BRD-01', name: 'Avian' },
-    { id: 'BRD-02', name: 'Tiga Roda' },
-  ]);
-  const { list: units, persist: persistUnits } = useLocalList<SimpleEntry>('product_units', [
-    { id: 'UNT-01', name: 'Pcs' },
-    { id: 'UNT-02', name: 'Sak' },
-    { id: 'UNT-03', name: 'Galon' },
-  ]);
+  const { list: categories, persist: persistCategories } = useLocalList<CategoryEntry>('product_categories', []);
+  const { list: brands, persist: persistBrands } = useLocalList<SimpleEntry>('product_brands', []);
+  const { list: units, persist: persistUnits } = useLocalList<SimpleEntry>('product_units', []);
   const { list: bundles, persist: persistBundles } = useLocalList<Bundle>('product_bundles', []);
 
   // Category form
