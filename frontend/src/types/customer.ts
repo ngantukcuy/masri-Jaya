@@ -23,4 +23,9 @@ export interface Customer {
   tempoDays?: number;
   creditLimit?: number;
   depositBalance?: number;
+  /** ISO date (yyyy-mm-dd) of the earliest outstanding piutang due date —
+   * set automatically from a POS "Bayar Sebagian" split (today + tempoDays)
+   * or manually from Utang & Piutang > Tambah Hutang. Cleared once
+   * currentDebt reaches 0. */
+  nextDueDate?: string;
 }

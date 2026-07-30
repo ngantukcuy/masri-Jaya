@@ -5,9 +5,13 @@ interface QRISModalProps {
   onClose: () => void;
   onConfirm: () => void;
   totalAmount: number;
+  /** Public URL of the store's real QRIS code image, set once in
+   * Pengaturan > Daftar Rekening (tipe QRIS). Falls back to a placeholder
+   * icon when the store hasn't uploaded one yet. */
+  qrisImageUrl?: string;
 }
 
-export default function QRISModal({ onClose, onConfirm, totalAmount }: QRISModalProps) {
+export default function QRISModal({ onClose, onConfirm, totalAmount, qrisImageUrl }: QRISModalProps) {
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-[150] p-4">
       <motion.div
@@ -26,13 +30,23 @@ export default function QRISModal({ onClose, onConfirm, totalAmount }: QRISModal
           <p className="text-xs text-blue-600 font-bold">Total: Rp {totalAmount.toLocaleString('id-ID')}</p>
         </div>
 
-        {/* QR Code graphic */}
-        <div className="w-44 h-44 bg-gray-100 border border-gray-200 rounded-2xl mx-auto flex items-center justify-center relative overflow-hidden">
-          <QrCode className="w-36 h-36 text-gray-800" />
-          <div className="absolute inset-0 bg-white/5 bg-radial-gradient flex items-center justify-center"></div>
-        </div>
+        {/* QR Code graphic — real store QRIS if uploaded in Pengaturan, otherwise placeholder */}
+        {qrisImageUrl ? (
+          <div className="w-52 h-52 bg-white border border-gray-200 rounded-2xl mx-auto flex items-center justify-center overflow-hidden p-2">
+            <img src={qrisImageUrl} alt="QRIS Toko" className="w-full h-full object-contain" />
+          </div>
+        ) : (
+          <div className="w-44 h-44 bg-gray-100 border border-gray-200 rounded-2xl mx-auto flex items-center justify-center relative overflow-hidden">
+            <QrCode className="w-36 h-36 text-gray-800" />
+            <div className="absolute inset-0 bg-white/5 bg-radial-gradient flex items-center justify-center"></div>
+          </div>
+        )}
 
-        <p className="text-[10px] text-gray-400 max-w-[220px] mx-auto">Mensimulasikan pembayaran QRIS elektronik terintegrasi. Klik tombol otorisasi untuk menyelesaikan transaksi.</p>
+        <p className="text-[10px] text-gray-400 max-w-[220px] mx-auto">
+          {qrisImageUrl
+            ? 'Minta pelanggan memindai kode QRIS di atas dari aplikasi e-wallet/m-banking. Klik tombol otorisasi setelah pembayaran diterima.'
+            : 'Belum ada kode QRIS toko. Tambahkan gambar QRIS di Pengaturan > Daftar Rekening. Klik tombol otorisasi untuk menyelesaikan transaksi.'}
+        </p>
 
         <div className="pt-3 border-t border-gray-100 flex gap-2">
           <button

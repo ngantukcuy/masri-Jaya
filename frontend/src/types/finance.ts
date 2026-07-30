@@ -16,6 +16,10 @@ export interface BankAccount {
   accountNumber?: string;
   holderName?: string;
   notes?: string;
+  /** Public URL of the uploaded QRIS code image, used when type is 'QRIS'
+   * so the POS payment modal can show the store's real QRIS instead of a
+   * placeholder icon. */
+  qrisImageUrl?: string;
 }
 
 // ---- Kas Harian (Daily Cash) ----

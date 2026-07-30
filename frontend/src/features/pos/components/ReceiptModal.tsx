@@ -57,7 +57,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
             </div>
             <div className="flex justify-between">
               <span>METODE:</span>
-              <span className="font-bold uppercase text-blue-600">{lastOrderDetails.paymentMethod === 'Cash' ? 'TUNAI' : lastOrderDetails.paymentMethod}</span>
+              <span className="font-bold uppercase text-blue-600">{lastOrderDetails.paymentMethod === 'Cash' ? 'TUNAI' : lastOrderDetails.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : lastOrderDetails.paymentMethod}</span>
             </div>
             {lastOrderDetails.fulfillmentMethod && (
               <div className="flex justify-between">
@@ -114,6 +114,30 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
               <span>TOTAL AKHIR:</span>
               <span>Rp {lastOrderDetails.total.toLocaleString('id-ID')}</span>
             </div>
+            {lastOrderDetails.paymentMethod === 'Cash' && typeof lastOrderDetails.cashReceived === 'number' && (
+              <>
+                <div className="flex justify-between pt-1">
+                  <span>TUNAI DITERIMA:</span>
+                  <span>Rp {lastOrderDetails.cashReceived.toLocaleString('id-ID')}</span>
+                </div>
+                <div className="flex justify-between font-bold text-emerald-600">
+                  <span>KEMBALIAN:</span>
+                  <span>Rp {(lastOrderDetails.changeAmount || 0).toLocaleString('id-ID')}</span>
+                </div>
+              </>
+            )}
+            {lastOrderDetails.paymentMethod === 'Split' && typeof lastOrderDetails.splitPaidAmount === 'number' && (
+              <>
+                <div className="flex justify-between pt-1">
+                  <span>DIBAYAR SEKARANG:</span>
+                  <span>Rp {lastOrderDetails.splitPaidAmount.toLocaleString('id-ID')}</span>
+                </div>
+                <div className="flex justify-between font-bold text-amber-600">
+                  <span>SISA (PIUTANG):</span>
+                  <span>Rp {(lastOrderDetails.splitRemainingDebt || 0).toLocaleString('id-ID')}</span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Loyalty Reward Information */}

@@ -67,7 +67,7 @@ export function generateReceiptPDF(orderDetails: any, storeProfile: StoreProfile
   row('INVOICE:', orderDetails.invoice, true, 7.5);
   row('TANGGAL:', orderDetails.date, false, 7.5);
   row('PELANGGAN:', orderDetails.customerName, false, 7.5);
-  row('METODE:', orderDetails.paymentMethod === 'Cash' ? 'TUNAI' : orderDetails.paymentMethod, false, 7.5);
+  row('METODE:', orderDetails.paymentMethod === 'Cash' ? 'TUNAI' : orderDetails.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : orderDetails.paymentMethod, false, 7.5);
   if (orderDetails.fulfillmentMethod) {
     row('PENGAMBILAN:', orderDetails.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI', false, 7.5);
     if (orderDetails.fulfillmentMethod === 'Delivery' && orderDetails.deliveryAddress) {
@@ -109,6 +109,14 @@ export function generateReceiptPDF(orderDetails: any, storeProfile: StoreProfile
   doc.line(marginX, y, pageWidth - marginX, y);
   y += lineHeight;
   row('TOTAL AKHIR:', rupiah(orderDetails.total), true, 9);
+  if (orderDetails.paymentMethod === 'Cash' && typeof orderDetails.cashReceived === 'number') {
+    row('TUNAI DITERIMA:', rupiah(orderDetails.cashReceived), false, 7.5);
+    row('KEMBALIAN:', rupiah(orderDetails.changeAmount || 0), true, 7.5);
+  }
+  if (orderDetails.paymentMethod === 'Split' && typeof orderDetails.splitPaidAmount === 'number') {
+    row('DIBAYAR SEKARANG:', rupiah(orderDetails.splitPaidAmount), false, 7.5);
+    row('SISA (PIUTANG):', rupiah(orderDetails.splitRemainingDebt || 0), true, 7.5);
+  }
   y += 2;
 
   // if (orderDetails.pointsEarned) {
@@ -182,7 +190,7 @@ export function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProfile: S
   row('INVOICE:', invoice.invoiceNumber, true, 7.5);
   row('TANGGAL:', invoice.date, false, 7.5);
   row('PELANGGAN:', invoice.customerName, false, 7.5);
-  row('METODE:', invoice.paymentMethod === 'Cash' ? 'TUNAI' : invoice.paymentMethod, false, 7.5);
+  row('METODE:', invoice.paymentMethod === 'Cash' ? 'TUNAI' : invoice.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : invoice.paymentMethod, false, 7.5);
   if (invoice.fulfillmentMethod) {
     row('PENGAMBILAN:', invoice.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI', false, 7.5);
     if (invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress) {
@@ -218,6 +226,14 @@ export function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProfile: S
   doc.line(marginX, y, pageWidth - marginX, y);
   y += lineHeight;
   row('TOTAL AKHIR:', rupiah(invoice.total), true, 9);
+  if (invoice.paymentMethod === 'Cash' && typeof invoice.cashReceived === 'number') {
+    row('TUNAI DITERIMA:', rupiah(invoice.cashReceived), false, 7.5);
+    row('KEMBALIAN:', rupiah(invoice.changeAmount || 0), true, 7.5);
+  }
+  if (invoice.paymentMethod === 'Split' && typeof invoice.splitPaidAmount === 'number') {
+    row('DIBAYAR SEKARANG:', rupiah(invoice.splitPaidAmount), false, 7.5);
+    row('SISA (PIUTANG):', rupiah(invoice.splitRemainingDebt || 0), true, 7.5);
+  }
   y += 2;
 
   y += 1;
