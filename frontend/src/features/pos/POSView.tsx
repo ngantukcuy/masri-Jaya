@@ -1014,6 +1014,15 @@ export default function POSView({
                 }}
                 className="w-full bg-white border border-gray-200 rounded-lg p-2 font-bold text-xs text-gray-800 outline-none focus:ring-2 focus:ring-blue-600/15"
               >
+                {/* selectedCustomer bisa berupa pelanggan umum "Customer" (fallback,
+                    bukan baris asli di tabel customers) — kalau tidak ditambahkan
+                    sebagai <option> sendiri, <select> tidak akan menemukan opsi yang
+                    cocok dengan value-nya dan browser otomatis menampilkan opsi
+                    pertama di daftar (nama pelanggan lain), padahal yang benar-benar
+                    terpilih tetap "Customer". */}
+                {!customers.some(c => c.id === selectedCustomer.id) && (
+                  <option value={selectedCustomer.id}>{selectedCustomer.name}</option>
+                )}
                 {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>

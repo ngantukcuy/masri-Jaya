@@ -150,6 +150,35 @@ function customerIdentityChanged(oldData:any,newData:any):boolean{
         (field)=>JSON.stringify(oldData?.[field])!==JSON.stringify(newData?.[field])
     );
 }
+// Field-field "identitas/harga" produk — perubahan di sini layak
+// dinotifikasi (mis. Admin edit harga/nama lewat halaman Produk).
+// SENGAJA tidak termasuk `stock` — field itu ikut turun otomatis tiap ada
+// transaksi POS (satu transaksi bisa mengubah banyak baris produk
+// sekaligus, satu per item di keranjang). Dulu tiap baris produk yang
+// stock-nya berkurang tapi stockStatus-nya TIDAK berubah (masih "Healthy")
+// tetap kena notif generik "Produk diperbarui" — jadi 1 transaksi dengan
+// 5 barang di keranjang = 5 notif generik + 1 notif transaksi. Penurunan
+// stok ke Low Stock/Out of Stock tetap dinotif lewat cabang khusus di
+// bawah karena itu sinyal penting buat restock.
+const PRODUCT_IDENTITY_FIELDS = [
+    "name",
+    "category",
+    "unit",
+    "retailPrice",
+    "wholesalePrice",
+    "projectPrice",
+    "warehouseLocation",
+    "costPrice",
+    "minSellPrice",
+    "standardSellPrice",
+    "alias",
+    "barcode"
+];
+function productIdentityChanged(oldData:any,newData:any):boolean{
+    return PRODUCT_IDENTITY_FIELDS.some(
+        (field)=>JSON.stringify(oldData?.[field])!==JSON.stringify(newData?.[field])
+    );
+}
 function buildUpdate(
     table:string,
     oldData:any,
@@ -194,6 +223,12 @@ Sisa ${newData.stock} ${newData.unit}`,
                     }
                 };
             }
+        }
+        // Stock turun/naik tapi status-nya tetap sama (mis. masih "Healthy"),
+        // dan tidak ada perubahan identitas/harga — ini murni efek samping
+        // transaksi (atau opname), jangan kirim notif terpisah.
+        if(!productIdentityChanged(oldData,newData)){
+            return null;
         }
     }
     return{
