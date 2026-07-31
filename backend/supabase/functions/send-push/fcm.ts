@@ -101,6 +101,15 @@ export async function sendPushToToken(
           notification: { title: payload.title, body: payload.body },
           data: payload.data || {},
           android: { priority: 'high' },
+          // Override khusus platform Web — diabaikan begitu saja oleh FCM
+          // kalau token tujuannya Android/iOS, jadi aman ada di sini buat
+          // SEMUA token (tidak perlu tahu dulu platform token-nya apa).
+          // Klik notifikasi ditangani sendiri oleh notificationclick di
+          // frontend/public/sw.js (bukan lewat fcmOptions.link di sini),
+          // supaya tidak perlu hardcode domain web-nya di backend.
+          webpush: {
+            notification: { icon: '/icon-192.png' },
+          },
         },
       }),
     }

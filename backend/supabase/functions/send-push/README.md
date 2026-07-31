@@ -86,6 +86,47 @@ npx cap open android      # buka di Android Studio, lalu Run/Build APK
 Saat app dibuka pertama kali setelah login, akan muncul minta izin
 notifikasi (wajib di-Izinkan supaya token device-nya kesimpan).
 
+## 6. Push Notification di Web/Browser (opsional, terpisah dari langkah 1-5)
+
+Langkah 1-5 di atas ada aktifkan push di APK Android. Kalau juga mau notif
+muncul di browser (dashboard yang dibuka lewat Chrome/Edge di HP atau
+komputer, bukan APK) — fitur ini sekarang sudah ada di kode
+(`frontend/src/lib/push/webPush.ts` + `frontend/public/sw.js`), tinggal
+lengkapi config-nya:
+
+1. Di project Firebase yang **sama** (`panglong-af0b8`, jangan bikin
+   project baru) → ⚙️ **Project settings** → tab **General** → scroll ke
+   "Your apps" → kalau belum ada app **Web** (ikon `</>`) → **Add app** →
+   pilih Web → kasih nickname bebas → **Register app**. Firebase akan
+   kasih object `firebaseConfig` (`apiKey`, `authDomain`, `projectId`,
+   `storageBucket`, `messagingSenderId`, `appId`).
+2. Masih di **Project settings** → tab **Cloud Messaging** → scroll ke
+   **"Web Push certificates"** → kalau belum ada, klik **"Generate key
+   pair"** → copy key yang muncul (ini VAPID key-nya).
+3. Paste `firebaseConfig` dari langkah 1 + VAPID key dari langkah 2 ke
+   **DUA tempat** (harus persis sama di keduanya — cari komentar
+   `GANTI_DENGAN_...` di masing-masing file):
+   - `frontend/src/lib/push/webPush.ts`
+   - `frontend/public/sw.js`
+4. Build & deploy ulang web-nya seperti biasa (`npm run build`, lalu
+   deploy ke Vercel dsb — lihat `vercel.json`). Tidak perlu redeploy Edge
+   Function atau bikin Database Webhook baru — `send-push` yang sudah ada
+   otomatis mengirim ke token web juga (tabel `push_tokens`-nya sama,
+   cuma dibedakan `data.platform: 'web'`).
+
+Catatan:
+- Web Push HARUS lewat HTTPS (kecuali `localhost` waktu development) —
+  browser menolak `Notification.requestPermission()`/service worker di
+  HTTP biasa. Vercel sudah otomatis HTTPS, jadi ini aman kalau deploy ke
+  sana.
+- Di iPhone/iPad, notifikasi web **cuma jalan kalau situsnya di-"Add to
+  Home Screen"** dulu (dibuka sebagai app, bukan tab Safari biasa) — ini
+  batasan dari Apple/WebKit, bukan bug di kode.
+- Kalau user pernah pencet "Block" di prompt izin notifikasi browser,
+  kode tidak bisa minta izin ulang secara otomatis — user harus buka
+  ulang lewat pengaturan situs di browser-nya (ikon gembok/info di address
+  bar) baru refresh halaman.
+
 ## Menambah jenis notif baru
 
 Semua logic "kejadian apa -> notif apa" ada di satu tempat:

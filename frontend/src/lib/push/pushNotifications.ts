@@ -10,9 +10,15 @@ import { supabase } from '../supabase';
 let initialized = false;
 
 /**
- * Menyiapkan push notification (Firebase Cloud Messaging) di app Android.
+ * Menyiapkan push notification — di app Android/iOS asli (Capacitor + FCM
+ * native) MAUPUN di browser biasa/PWA (Firebase JS SDK + service worker,
+ * lihat webPush.ts). Keduanya menyimpan token ke tabel Supabase
+ * `push_tokens` YANG SAMA (dibedakan lewat `data.platform`:
+ * 'android' | 'ios' | 'web'), jadi backend/supabase/functions/send-push
+ * TIDAK PERLU tahu/berubah sama sekali soal platform mana yang dipakai —
+ * dia kirim ke semua token yang cocok role-nya, apa pun platform-nya.
  *
- * Alurnya:
+ * Alurnya (native — Android/iOS, lewat Capacitor):
  *  1. Minta izin notifikasi ke user (wajib mulai Android 13 / API 33).
  *  2. Daftarkan device ini ke FCM lewat plugin Capacitor.
  *  3. Begitu dapat token FCM dari Google, simpan ke tabel Supabase
@@ -20,15 +26,20 @@ let initialized = false;
  *     tahu ke device mana notif harus dikirim saat ada transaksi baru,
  *     stok menipis, dll (lihat backend/supabase/functions/send-push).
  *
- * PENTING: ini cuma jalan di build Android/iOS asli (Capacitor). Saat
- * dibuka di browser biasa (`npm run dev`) fungsi ini otomatis tidak
- * melakukan apa-apa, jadi aman dipanggil dari mana saja.
+ * Alurnya (web — browser/PWA): didelegasikan ke `initWebPush()` di
+ * `./webPush.ts` lewat dynamic import (supaya Firebase JS SDK-nya tidak
+ * ikut ke-bundle di APK Android/iOS, yang tidak pernah lewat jalur ini).
+ * Logic-nya beda (Firebase JS SDK + service worker, bukan plugin
+ * Capacitor), tapi hasil akhirnya sama: token ke Supabase, event yang sama
+ * ('tokku:push-received') buat menampilkan toast lewat PushToastListener.
  *
- * Juga PENTING: ini butuh `google-services.json` (dari Firebase Console,
+ * PENTING (native): butuh `google-services.json` (dari Firebase Console,
  * project Firebase Anda sendiri) diletakkan di `frontend/android/app/`.
  * Tanpa file itu, `PushNotifications.register()` akan gagal diam-diam.
+ * PENTING (web): butuh Firebase Web config + VAPID key diisi di
+ * `webPush.ts` (dan `public/sw.js`) — lihat komentar di file itu.
  * Lihat backend/supabase/functions/send-push/README.md untuk instruksi
- * lengkap.
+ * setup lengkap keduanya.
  *
  * @param deviceLabel Nama yang ditampilkan untuk device ini (biasanya nama
  *   staff yang login), cuma buat label — tidak dipakai untuk filter.
@@ -40,8 +51,15 @@ let initialized = false;
  */
 export async function initPushNotifications(deviceLabel?: string, role?: string): Promise<void> {
   if (initialized) return;
-  if (!Capacitor.isNativePlatform()) return;
   initialized = true;
+
+  if (!Capacitor.isNativePlatform()) {
+    // Browser (desktop/HP) atau PWA — logic-nya beda total dari Capacitor,
+    // lihat webPush.ts.
+    const { initWebPush } = await import('./webPush');
+    await initWebPush(deviceLabel, role);
+    return;
+  }
 
   try {
     let permStatus = await PushNotifications.checkPermissions();
