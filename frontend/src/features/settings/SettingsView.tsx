@@ -39,7 +39,7 @@ interface SettingsViewProps {
   onUpdateBranches: (updatedBranches: Branch[]) => void;
   skuLocations: SkuLocation[];
   onUpdateSkuLocations: (updatedLocations: SkuLocation[]) => void;
-  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
   currentUser?: CurrentUser;
 }
 
@@ -242,6 +242,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     const confirmed = await dialog.confirm(`Hapus cabang "${branchName}"?`);
     if (confirmed) {
       onUpdateBranches(branches.filter((b) => b.name !== branchName));
+      onAddActivity('Cabang Dihapus', branchName, 0, 'overdue');
       triggerToast(`Cabang "${branchName}" telah dihapus.`);
     }
   };
@@ -322,6 +323,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     if (confirmed) {
       const updated = staffList.filter((_, idx) => idx !== idxToDelete);
       setStaffList(updated);
+      onAddActivity('Akun Staf Dihapus', staffName, 0, 'overdue');
       triggerToast(`Akun Staf "${staffName}" telah dihapus.`);
     }
   };
@@ -356,6 +358,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     if (confirmed) {
       const updated = skuLocations.filter(l => l.id !== idToDelete);
       onUpdateSkuLocations(updated);
+      onAddActivity('Lokasi SKU Dihapus', loc.name, 0, 'overdue');
       triggerToast(`Lokasi SKU "${loc.name}" telah dihapus.`);
     }
   };
@@ -377,14 +380,17 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     };
     const updated = [...bankAccounts, account];
     setBankAccounts(updated);
+    onAddActivity('Rekening Pembayaran Baru', `${account.name} (${account.type})`, 0, 'quote');
     setNewBankAccount({ name: '', type: 'Bank', accountNumber: '', holderName: '', notes: '', qrisImageUrl: '' });
     setQrisImageUploadError(null);
     triggerToast(`Rekening "${account.name}" berhasil ditambahkan.`);
   };
 
   const handleDeleteBankAccount = (id: string) => {
+    const account = bankAccounts.find((a) => a.id === id);
     const updated = bankAccounts.filter((account) => account.id !== id);
     setBankAccounts(updated);
+    onAddActivity('Rekening Pembayaran Dihapus', account?.name || id, 0, 'overdue');
     triggerToast('Rekening berhasil dihapus.');
   };
 
@@ -452,6 +458,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     }
     const newPrinter: Printer = { id: `printer-${Date.now()}`, name: newPrinterName.trim(), connectionType: newPrinterType };
     setPrinters([...printers, newPrinter]);
+    onAddActivity('Printer Baru Ditambahkan', newPrinter.name, 0, 'quote');
     triggerToast(`Printer "${newPrinter.name}" ditambahkan — klik "Sambungkan" untuk memasangkannya.`);
     setNewPrinterName('');
     setNewPrinterType('bluetooth');
@@ -462,6 +469,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     if (!(await dialog.confirm(`Apakah Anda yakin ingin menghapus printer ${printer.name}?`))) return;
     if (printerConnections.has(printer.id)) handleDisconnectPrinter(printer);
     setPrinters(printers.filter((p) => p.id !== printer.id));
+    onAddActivity('Printer Dihapus', printer.name, 0, 'overdue');
     triggerToast(`Printer dihapus: ${printer.name}`);
   };
 
@@ -469,6 +477,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     const confirmed = await dialog.confirm("PERINGATAN KRITIS: Aktifkan Protokol Lockdown Darurat?\nTindakan ini akan memutuskan seluruh mesin kasir POS aktif dan mengenkripsi database.");
     if (confirmed) {
       setLockdownActive(true);
+      onAddActivity('Protokol Lockdown Diaktifkan', `Diaktifkan oleh ${currentUser?.name || 'Owner'}`, 0, 'overdue');
     }
   };
 

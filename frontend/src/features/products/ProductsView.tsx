@@ -14,7 +14,9 @@ import {
   Edit3,
   Trash2,
   Upload,
-  Loader2
+  Loader2,
+  ScanLine,
+  RefreshCw
 } from 'lucide-react';
 import { Product } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -23,11 +25,13 @@ import { uploadProductImage } from '../../lib/uploadProductImage';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
+import BarcodeScannerModal from '../../components/shared/BarcodeScannerModal';
+import { generateSkuCode } from '../../lib/generateSku';
 
 interface ProductsViewProps {
   products: Product[];
   onUpdateProducts: (updatedProducts: Product[]) => void;
-  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
   currentUserName?: string;
   currentUser?: CurrentUser;
 }
@@ -82,6 +86,9 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const [adjustType, setAdjustType] = useState<'add' | 'remove'>('add');
   const [adjustNotes, setAdjustNotes] = useState('');
   const [adjustDirectApply, setAdjustDirectApply] = useState(false);
+
+  // Scan kamera untuk isi field Kode SKU langsung (dipakai form Tambah Produk).
+  const [showSkuScanner, setShowSkuScanner] = useState(false);
 
   const [opnameSubmissions, setOpnameSubmissions] = useSupabaseTable<any>('opname_submissions', [], (s) => s.id);
 
@@ -302,7 +309,8 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
         `Pengajuan Opname Baru`,
         `SKU ${prod.sku} diajukan ${adjustType === 'add' ? '+' : '-'}${adjustValue} unit oleh Staff`,
         0,
-        'quote'
+        'quote',
+        'approvers'
       );
 
       dialog.alert(`Pengajuan Stock Opname "${prod.name}" berhasil dikirim ke manajer! Status: MENUNGGU PERSETUJUAN (ID: ${nextId})`);
@@ -416,7 +424,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
 
   const openCreateProductModal = () => {
     setFormName('');
-    setFormSku(`SKU-${Math.floor(100000 + Math.random() * 900000)}`);
+    setFormSku(generateSkuCode());
     setFormCategory('Cement & Mortar');
     setFormUnit('Sack');
     setFormRetailPrice(50000);
@@ -1055,14 +1063,32 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Kode SKU</label>
-                    <input 
-                      type="text"
-                      required
-                      placeholder="SKU-XXXXXX"
-                      value={formSku}
-                      onChange={(e) => setFormSku(e.target.value)}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-mono font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
-                    />
+                    <div className="flex gap-1.5">
+                      <input 
+                        type="text"
+                        required
+                        placeholder="SKU-XXXXXX"
+                        value={formSku}
+                        onChange={(e) => setFormSku(e.target.value)}
+                        className="flex-1 min-w-0 bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-mono font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
+                      />
+                      <button
+                        type="button"
+                        title="Generate kode SKU acak"
+                        onClick={() => setFormSku(generateSkuCode())}
+                        className="px-2.5 bg-gray-900 hover:bg-black text-white rounded-lg cursor-pointer shrink-0"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        title="Scan kode SKU/barcode dengan kamera"
+                        onClick={() => setShowSkuScanner(true)}
+                        className="px-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer shrink-0"
+                      >
+                        <ScanLine className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -1386,6 +1412,17 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
           </div>
         )}
       </AnimatePresence>
+
+      {showSkuScanner && (
+        <BarcodeScannerModal
+          title="Scan Kode SKU"
+          onClose={() => setShowSkuScanner(false)}
+          onDetected={(code) => {
+            setFormSku(code);
+            setShowSkuScanner(false);
+          }}
+        />
+      )}
     </div>
   );
 }

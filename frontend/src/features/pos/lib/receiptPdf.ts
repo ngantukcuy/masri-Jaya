@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { SalesInvoice } from '../../../types';
+import { savePdfDoc } from '../../../lib/savePdf';
 
 interface StoreProfileLite {
   storeName: string;
@@ -15,7 +16,7 @@ interface StoreProfileFull extends StoreProfileLite {
 
 // Kept loose (any) to match the shape POSView builds lastOrderDetails in —
 // see executeFinalCheckout in POSView.tsx.
-export function generateReceiptPDF(orderDetails: any, storeProfile: StoreProfileLite | undefined, cashierName: string | undefined) {
+export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreProfileLite | undefined, cashierName: string | undefined) {
   const storeName = storeProfile?.storeName || 'Toko Saya';
   const pageWidth = 80; // mm — matches common 80mm thermal paper width
   const marginX = 5;
@@ -120,7 +121,7 @@ export function generateReceiptPDF(orderDetails: any, storeProfile: StoreProfile
   center(storeProfile?.receiptNote || `Terima kasih telah berbelanja di ${storeName}!`, 7);
   center(`Kasir: ${cashierName || 'Staff Aktif'}`, 7);
 
-  doc.save(`Struk_${orderDetails.invoice}.pdf`);
+  await savePdfDoc(doc, `Struk_${orderDetails.invoice}.pdf`);
 }
 
 // ---------------------------------------------------------------------------
@@ -134,7 +135,7 @@ export function generateReceiptPDF(orderDetails: any, storeProfile: StoreProfile
 // ---------------------------------------------------------------------------
 
 /** Struk Pembelian (purchase receipt) re-printed from a saved SalesInvoice. */
-export function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProfile: StoreProfileFull | undefined, cashierName: string | undefined) {
+export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProfile: StoreProfileFull | undefined, cashierName: string | undefined) {
   const storeName = storeProfile?.storeName || 'Toko Saya';
   const pageWidth = 80;
   const marginX = 5;
@@ -226,12 +227,11 @@ export function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProfile: S
   center(`Kasir: ${cashierName || 'Staff Aktif'}`, 7);
   center('(Cetak ulang dari Riwayat Transaksi)', 6.5);
 
-  doc.save(`Struk_${invoice.invoiceNumber}.pdf`);
+  await savePdfDoc(doc, `Struk_${invoice.invoiceNumber}.pdf`);
 }
 
 /** Struk Surat Jalan (delivery note) — no prices, includes signature boxes. */
-export function generateDeliveryNotePDF(invoice: SalesInvoice, storeProfile: StoreProfileFull | undefined, itemsOverride?: SalesInvoice['items']) {
-  const deliveryItems = itemsOverride && itemsOverride.length > 0 ? itemsOverride : invoice.items;
+export async function generateDeliveryNotePDF(invoice: SalesInvoice, storeProfile: StoreProfileFull | undefined) {
   const storeName = storeProfile?.storeName || 'Toko Saya';
   const doc = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'landscape' });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -308,7 +308,7 @@ export function generateDeliveryNotePDF(invoice: SalesInvoice, storeProfile: Sto
   y += 5;
 
   setFont(8.5);
-  deliveryItems.forEach((item, idx) => {
+  invoice.items.forEach((item, idx) => {
     const nameLines = doc.splitTextToSize(item.name, col.qty - col.name - 20);
     doc.text(String(idx + 1), col.no, y);
     doc.text(nameLines, col.name, y);
@@ -337,5 +337,5 @@ export function generateDeliveryNotePDF(invoice: SalesInvoice, storeProfile: Sto
   doc.text('( Nama & Tanggal )', marginX, y);
   doc.text('( Nama & Tanggal )', marginX + boxWidth + 8, y);
 
-  doc.save(`SuratJalan_${invoice.invoiceNumber}.pdf`);
+  await savePdfDoc(doc, `SuratJalan_${invoice.invoiceNumber}.pdf`);
 }

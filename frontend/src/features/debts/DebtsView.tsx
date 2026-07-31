@@ -30,7 +30,7 @@ interface DebtsStoreProfileLite {
 interface DebtsViewProps {
   customers: Customer[];
   onUpdateCustomers: (updatedCustomers: Customer[]) => void;
-  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
   storeProfile?: DebtsStoreProfileLite;
 }
 

@@ -38,4 +38,6 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Wajib di Android 13+ (API 33) supaya notifikasi push (FCM) bisa muncul. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

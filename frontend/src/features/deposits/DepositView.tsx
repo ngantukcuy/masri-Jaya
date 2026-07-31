@@ -9,7 +9,7 @@ import NumberInput from '../../components/shared/NumberInput';
 interface DepositViewProps {
   customers: Customer[];
   onUpdateCustomers: (updatedCustomers: Customer[]) => void;
-  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
 }
 
 export default function DepositView({ customers, onUpdateCustomers, onAddActivity }: DepositViewProps) {

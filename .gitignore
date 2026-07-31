@@ -1,0 +1,25 @@
+node_modules/
+dist/
+build/
+coverage/
+.DS_Store
+*.log
+.env
+.env.local
+.env.*.local
+
+# Kredensial — JANGAN PERNAH commit file-file ini
+*firebase-adminsdk*.json
+google-services.json
+*.pem
+*.key
+
+# Build output Android (Capacitor)
+frontend/android/app/build/
+frontend/android/build/
+frontend/android/.gradle/
+frontend/android/app/google-services.json
+
+# Supabase CLI local state (cache link project, bukan source code)
+supabase/.temp/
+**/supabase/.temp/

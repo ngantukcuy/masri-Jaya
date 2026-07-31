@@ -27,7 +27,7 @@ interface TokoDigitalViewProps {
   onUpdateDigitalOrders: (updatedOrders: DigitalOrder[]) => void;
   banners: Banner[];
   onUpdateBanners: (updatedBanners: Banner[]) => void;
-  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
 }
 
 export default function TokoDigitalView({
@@ -85,12 +85,15 @@ export default function TokoDigitalView({
       active: true
     };
     onUpdateBanners([banner, ...banners]);
+    onAddActivity('Banner Toko Digital Baru', banner.title, 0, 'quote');
     setNewBannerTitle('');
     setNewBannerUrl('');
   };
 
   const handleRemoveBanner = (id: string) => {
+    const banner = banners.find(b => b.id === id);
     onUpdateBanners(banners.filter(b => b.id !== id));
+    onAddActivity('Banner Toko Digital Dihapus', banner?.title || id, 0, 'overdue');
   };
 
   // Demo helper: simulate an incoming customer order from the digital storefront
@@ -113,6 +116,7 @@ export default function TokoDigitalView({
       createdAt: new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     };
     onUpdateDigitalOrders([order, ...digitalOrders]);
+    onAddActivity('Pesanan Toko Digital Baru', `${order.buyerName} · Rp ${order.total.toLocaleString('id-ID')}`, order.total, 'sale');
   };
 
   const handleProcessOrder = async (order: DigitalOrder) => {

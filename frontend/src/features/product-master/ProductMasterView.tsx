@@ -22,6 +22,7 @@ import BarcodeScannerModal from '../../components/shared/BarcodeScannerModal';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
+import { generateSkuCode } from '../../lib/generateSku';
 
 interface CategoryEntry {
   id: string;
@@ -36,7 +37,7 @@ interface SimpleEntry {
 
 interface ProductMasterViewProps {
   products: Product[];
-  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
   onUpdateProducts?: (updatedProducts: Product[]) => void;
   skuLocations?: SkuLocation[];
   initialTab?: 'sku-master' | 'kategori' | 'brand' | 'unit' | 'bundle';
@@ -161,7 +162,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     }
     if (!onUpdateProducts) return;
 
-    const sku = `SKU-${Math.floor(100000 + Math.random() * 900000)}`;
+    const sku = generateSkuCode();
     const locationName = skuLocations.find(l => l.id === skuForm.skuLocationId)?.name || '';
 
     const newProduct: Product = {
@@ -213,7 +214,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     }
     if (!onUpdateProducts) return;
 
-    const sku = `SKU-${Math.floor(100000 + Math.random() * 900000)}`;
+    const sku = generateSkuCode();
     const locationName = skuLocations.find(l => l.id === eceranForm.skuLocationId)?.name || '';
 
     const newProduct: Product = {
@@ -253,8 +254,12 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
   const handleDeleteSkuProduct = async (sku: string) => {
     if (!onUpdateProducts) return;
+    const prod = products.find(p => p.sku === sku);
     const ok = await dialog.confirm('Hapus produk ini dari Sku Master?');
-    if (ok) onUpdateProducts(products.filter(p => p.sku !== sku));
+    if (ok) {
+      onUpdateProducts(products.filter(p => p.sku !== sku));
+      onAddActivity('Produk SKU Dihapus', prod ? `${prod.name} (${sku})` : sku, 0, 'overdue');
+    }
   };
 
   const handleAddCategory = (e: React.FormEvent) => {
@@ -277,6 +282,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     }
     const entry: SimpleEntry = { id: `BRD-${Math.floor(100 + Math.random() * 900)}`, name: newBrandName.trim() };
     persistBrands([...brands, entry]);
+    onAddActivity('Brand Baru Ditambahkan', entry.name, 0, 'quote');
     setNewBrandName('');
   };
 
@@ -288,6 +294,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     }
     const entry: SimpleEntry = { id: `UNT-${Math.floor(100 + Math.random() * 900)}`, name: newUnitName.trim() };
     persistUnits([...units, entry]);
+    onAddActivity('Satuan Baru Ditambahkan', entry.name, 0, 'quote');
     setNewUnitName('');
   };
 
@@ -339,7 +346,10 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     const b = bundles.find(x => x.id === id);
     if (!b) return;
     const ok = await dialog.confirm(`Hapus paket "${b.name}"?`);
-    if (ok) persistBundles(bundles.filter(x => x.id !== id));
+    if (ok) {
+      persistBundles(bundles.filter(x => x.id !== id));
+      onAddActivity('Paket Barang Dihapus', b.name, 0, 'overdue');
+    }
   };
 
   const levelLabel: Record<number, string> = { 1: 'Kategori 1 (Umum)', 2: 'Kategori 2', 3: 'Kategori 3 (Spesifik)' };

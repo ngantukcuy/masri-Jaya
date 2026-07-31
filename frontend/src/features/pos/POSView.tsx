@@ -25,18 +25,15 @@ import {
   Package,
   SlidersHorizontal
 } from 'lucide-react';
-import { Product, Customer, SalesInvoice, Printer, BankAccount } from '../../types';
+import { Product, Customer, SalesInvoice, Printer } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import ScannerModal from './components/ScannerModal';
 import QRISModal from './components/QRISModal';
-import CashPaymentModal from './components/CashPaymentModal';
-import SplitPaymentModal from './components/SplitPaymentModal';
 import ReceiptModal from './components/ReceiptModal';
 import AddProductModal from './components/AddProductModal';
 import AddCustomerModal from './components/AddCustomerModal';
 import { recordSale } from '../../lib/cashSession';
 import { getSupabaseTableCache } from '../../lib/supabaseCache';
-import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import { playBeep, playPrintSound } from './lib/posAudio';
 import { generateReceiptPDF } from './lib/receiptPdf';
 import {
@@ -60,17 +57,6 @@ const getCartItemPrice = (item: CartItem) => {
          item.product.projectPrice;
 };
 
-interface CheckoutPaymentDetails {
-  /** Cash payments: physical amount tendered by the customer. */
-  cashReceived?: number;
-  /** Cash payments: change handed back (cashReceived - total). */
-  changeAmount?: number;
-  /** Split payments: amount paid at checkout time. */
-  splitPaidAmount?: number;
-  /** Split payments: remainder recorded as the customer's piutang. */
-  splitRemainingDebt?: number;
-}
-
 interface StoreProfileLite {
   storeName: string;
   address?: string;
@@ -84,7 +70,7 @@ interface POSViewProps {
   customers: Customer[];
   onUpdateProducts: (updatedProducts: Product[]) => void;
   onUpdateCustomers: (updatedCustomers: Customer[]) => void;
-  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
   onAddSaleToKPIs: (salesAmount: number) => void;
   onRecordSale?: (invoice: SalesInvoice) => void;
   cashierName?: string;
@@ -129,13 +115,6 @@ export default function POSView({
   const [showCheckoutReceipt, setShowCheckoutReceipt] = useState(false);
   const [lastOrderDetails, setLastOrderDetails] = useState<any>(null);
   const [showQRISModal, setShowQRISModal] = useState(false);
-  const [showCashModal, setShowCashModal] = useState(false);
-  const [showSplitModal, setShowSplitModal] = useState(false);
-  // Store's saved bank/e-wallet/QRIS accounts (managed in Pengaturan > Daftar
-  // Rekening) — read here only to pull the QRIS code image for the payment
-  // modal, never written from the POS screen.
-  const [bankAccounts] = useSupabaseTable<BankAccount>('bank_accounts', [], (b) => b.id);
-  const qrisImageUrl = bankAccounts.find((acc) => acc.type === 'QRIS' && acc.qrisImageUrl)?.qrisImageUrl;
   const [mobileActiveSubTab, setMobileActiveSubTab] = useState<'products' | 'cart'>('products');
   
   // Audio & scanner simulation states
@@ -458,36 +437,10 @@ export default function POSView({
       return;
     }
 
-    if (paymentMethod === 'Cash') {
-      setShowCashModal(true);
-      return;
-    }
-
-    if (paymentMethod === 'Split') {
-      setShowSplitModal(true);
-      return;
-    }
-
     executeFinalCheckout();
   };
 
-  // Called after the cashier confirms the amount of physical cash received
-  // in CashPaymentModal. Change is derived (never negative — the modal
-  // already blocks confirming an insufficient amount).
-  const handleConfirmCashPayment = (cashReceived: number) => {
-    setShowCashModal(false);
-    executeFinalCheckout({ cashReceived, changeAmount: cashReceived - totalAmount });
-  };
-
-  // Called after the cashier confirms a partial ("DP") payment in
-  // SplitPaymentModal. The unpaid remainder is added to the customer's
-  // piutang (currentDebt) inside executeFinalCheckout.
-  const handleConfirmSplitPayment = (paidNow: number) => {
-    setShowSplitModal(false);
-    executeFinalCheckout({ splitPaidAmount: paidNow, splitRemainingDebt: totalAmount - paidNow });
-  };
-
-  const executeFinalCheckout = (paymentDetails?: CheckoutPaymentDetails) => {
+  const executeFinalCheckout = () => {
     // Generate Invoice ID
     const invNumber = `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
@@ -512,50 +465,24 @@ export default function POSView({
 
     // Increment customer loyalty points (1 point per Rp 10.000 spent)
     const pointsEarned = Math.floor(totalAmount / 10000);
-    const splitRemainingDebt = paymentMethod === 'Split' ? Math.max(0, paymentDetails?.splitRemainingDebt || 0) : 0;
     const updatedCustomers = customers.map((cust) => {
       if (cust.id === selectedCustomer.id) {
         const currentDeposit = cust.depositBalance || 0;
         const nextDeposit = paymentMethod === 'Deposit' ? Math.max(0, currentDeposit - totalAmount) : currentDeposit;
-        const nextDebt = (cust.currentDebt || 0) + splitRemainingDebt;
-
-        // Auto-schedule the piutang due date from this customer's tempo
-        // terms (defaults to 30 hari when unset). If they already have an
-        // earlier outstanding due date, keep that one — a new split
-        // shouldn't push an older, more urgent debt's deadline back.
-        let nextDueDate = cust.nextDueDate;
-        if (splitRemainingDebt > 0) {
-          const dueDate = new Date();
-          dueDate.setDate(dueDate.getDate() + (cust.tempoDays || 30));
-          const computedDueDate = dueDate.toISOString().split('T')[0];
-          nextDueDate = cust.nextDueDate && cust.nextDueDate < computedDueDate ? cust.nextDueDate : computedDueDate;
-        }
-
         return {
           ...cust,
           points: cust.points + pointsEarned,
           totalPurchases: cust.totalPurchases + totalAmount,
-          depositBalance: nextDeposit,
-          currentDebt: nextDebt,
-          debtStatus: splitRemainingDebt > 0 ? 'Pending' : cust.debtStatus,
-          nextDueDate
+          depositBalance: nextDeposit
         };
       }
       return cust;
     });
     onUpdateCustomers(updatedCustomers);
 
-    // Also link to Kas Harian session — only the physical cash actually
-    // received moves the drawer: the full total for a Cash sale, or just
-    // the amount paid now for a Split/DP sale (the remainder is piutang,
-    // not cash in hand).
+    // Also link to Kas Harian session (only cash payments move the physical drawer)
     const stockQtySold = cart.reduce((acc, i) => acc + i.quantity, 0);
-    const cashDrawerAmount = paymentMethod === 'Cash'
-      ? totalAmount
-      : paymentMethod === 'Split'
-        ? (paymentDetails?.splitPaidAmount || 0)
-        : 0;
-    recordSale(paymentMethod === 'Cash' || (paymentMethod === 'Split' && cashDrawerAmount > 0), cashDrawerAmount, stockQtySold, invNumber);
+    recordSale(paymentMethod === 'Cash', totalAmount, stockQtySold, invNumber);
 
     // Register this invoice so it can be looked up later from the Retur module
     if (onRecordSale) {
@@ -579,11 +506,7 @@ export default function POSView({
         discountType: discountMode,
         discountValue,
         fulfillmentMethod,
-        deliveryAddress: fulfillmentMethod === 'Delivery' ? deliveryAddress : undefined,
-        cashReceived: paymentMethod === 'Cash' ? paymentDetails?.cashReceived : undefined,
-        changeAmount: paymentMethod === 'Cash' ? paymentDetails?.changeAmount : undefined,
-        splitPaidAmount: paymentMethod === 'Split' ? paymentDetails?.splitPaidAmount : undefined,
-        splitRemainingDebt: paymentMethod === 'Split' ? splitRemainingDebt : undefined
+        deliveryAddress: fulfillmentMethod === 'Delivery' ? deliveryAddress : undefined
       });
     }
 
@@ -601,10 +524,6 @@ export default function POSView({
       total: totalAmount,
       pointsEarned,
       paymentMethod,
-      cashReceived: paymentMethod === 'Cash' ? paymentDetails?.cashReceived : undefined,
-      changeAmount: paymentMethod === 'Cash' ? paymentDetails?.changeAmount : undefined,
-      splitPaidAmount: paymentMethod === 'Split' ? paymentDetails?.splitPaidAmount : undefined,
-      splitRemainingDebt: paymentMethod === 'Split' ? splitRemainingDebt : undefined,
       date: new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     };
 
@@ -659,12 +578,13 @@ export default function POSView({
   // Generates and downloads an actual PDF file of the receipt — separate
   // from handlePrintReceiptSim, which opens the browser print dialog aimed
   // at a physical thermal printer.
-  const handlePrintPDF = () => {
+  const handlePrintPDF = async () => {
     if (!lastOrderDetails) return;
     setIsGeneratingPDF(true);
     try {
-      generateReceiptPDF(lastOrderDetails, storeProfile, cashierName);
+      await generateReceiptPDF(lastOrderDetails, storeProfile, cashierName);
     } catch (err) {
+      console.error('[POSView] Gagal membuat/membagikan PDF struk:', err);
       dialog.alert('Gagal membuat PDF struk. Silakan coba lagi.');
     } finally {
       setIsGeneratingPDF(false);
@@ -1212,7 +1132,7 @@ export default function POSView({
               }`}
             >
               <CreditCard className="w-3.5 h-3.5" />
-              <span>Bayar Sebagian</span>
+              <span>Kartu / Cicil</span>
             </button>
 
             <button
@@ -1282,24 +1202,6 @@ export default function POSView({
             onClose={() => setShowQRISModal(false)}
             onConfirm={executeFinalCheckout}
             totalAmount={totalAmount}
-            qrisImageUrl={qrisImageUrl}
-          />
-        )}
-
-        {showCashModal && (
-          <CashPaymentModal
-            onClose={() => setShowCashModal(false)}
-            onConfirm={handleConfirmCashPayment}
-            totalAmount={totalAmount}
-          />
-        )}
-
-        {showSplitModal && (
-          <SplitPaymentModal
-            onClose={() => setShowSplitModal(false)}
-            onConfirm={handleConfirmSplitPayment}
-            totalAmount={totalAmount}
-            customer={selectedCustomer}
           />
         )}
 

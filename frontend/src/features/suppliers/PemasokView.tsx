@@ -21,7 +21,7 @@ import NumberInput from '../../components/shared/NumberInput';
 interface PemasokViewProps {
   suppliers: Supplier[];
   onUpdateSuppliers: (updatedSuppliers: Supplier[]) => void;
-  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
   currentUser?: CurrentUser;
 }
 

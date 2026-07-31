@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { History, Search, Receipt, X, Printer, Truck, CornerUpLeft } from 'lucide-react';
+import { History, Search, Receipt, X, Printer, Truck, CornerUpLeft, CalendarRange } from 'lucide-react';
 import { SalesInvoice, ReturnRecord } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import InvoicePrintModal from './components/InvoicePrintModal';
@@ -31,9 +31,34 @@ const returStatusLabel: Record<ReturnRecord['status'], string> = {
   Rejected: 'Retur Ditolak',
 };
 
+// Nama bulan versi Indonesia -> index (0-11), dipakai buat parsing
+// fallback kalau invoice lama gak punya field `createdAt` (ISO timestamp)
+// dan cuma punya `date` dalam bentuk teks "31 Juli 2026".
+const INDO_MONTHS: Record<string, number> = {
+  januari: 0, februari: 1, maret: 2, april: 3, mei: 4, juni: 5,
+  juli: 6, agustus: 7, september: 8, oktober: 9, november: 10, desember: 11,
+};
+
+function parseInvoiceDate(inv: SalesInvoice): Date | null {
+  if (inv.createdAt) {
+    const d = new Date(inv.createdAt);
+    if (!isNaN(d.getTime())) return d;
+  }
+  const match = inv.date.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
+  if (match) {
+    const day = parseInt(match[1], 10);
+    const month = INDO_MONTHS[match[2].toLowerCase()];
+    const year = parseInt(match[3], 10);
+    if (month !== undefined && !isNaN(day) && !isNaN(year)) return new Date(year, month, day);
+  }
+  return null;
+}
+
 export default function TransactionHistoryView({ salesInvoices, returns = [], storeProfile, cashierName }: TransactionHistoryViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selected, setSelected] = useState<SalesInvoice | null>(null);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   // Which invoice + document type is currently being (re-)printed. Lets a
   // cashier who forgot to print in POS catch up straight from history,
   // for either the struk pembelian (purchase receipt) or struk surat jalan
@@ -55,12 +80,23 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], st
     return map;
   }, [returns]);
 
-  const filtered = salesInvoices.filter(inv =>
-    inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    inv.customerName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filtered = salesInvoices.filter(inv => {
+    const matchesSearch =
+      inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      inv.customerName.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
 
-  const totalOmzet = salesInvoices.reduce((acc, inv) => acc + inv.total, 0);
+    if (dateFrom || dateTo) {
+      const invDate = parseInvoiceDate(inv);
+      if (!invDate) return false;
+      if (dateFrom && invDate < new Date(`${dateFrom}T00:00:00`)) return false;
+      if (dateTo && invDate > new Date(`${dateTo}T23:59:59`)) return false;
+    }
+    return true;
+  });
+
+  const isFiltered = Boolean(dateFrom || dateTo || searchQuery);
+  const totalOmzet = filtered.reduce((acc, inv) => acc + inv.total, 0);
   const selectedReturns = selected ? (returnsByInvoice.get(selected.invoiceNumber) || []) : [];
 
   return (
@@ -75,24 +111,59 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], st
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-xl">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p className="text-[10px] text-gray-400 font-bold uppercase">Jumlah Invoice</p>
-          <p className="text-lg font-black text-gray-900">{salesInvoices.length}</p>
+          <p className="text-[10px] text-gray-400 font-bold uppercase">{isFiltered ? 'Invoice Sesuai Filter' : 'Jumlah Invoice'}</p>
+          <p className="text-lg font-black text-gray-900">{filtered.length}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p className="text-[10px] text-gray-400 font-bold uppercase">Total Omzet</p>
+          <p className="text-[10px] text-gray-400 font-bold uppercase">{isFiltered ? 'Omzet Sesuai Filter' : 'Total Omzet'}</p>
           <p className="text-lg font-black text-emerald-600">Rp {totalOmzet.toLocaleString('id-ID')}</p>
         </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Cari no. invoice atau nama pelanggan..."
-          className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-blue-500"
-        />
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="relative max-w-sm w-full sm:w-64">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Cari no. invoice atau nama pelanggan..."
+            className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-blue-500"
+          />
+        </div>
+
+        <div className="flex items-end gap-2">
+          <div>
+            <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1 flex items-center gap-1">
+              <CalendarRange className="w-3 h-3" /> Dari Tanggal
+            </label>
+            <input
+              type="date"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Sampai Tanggal</label>
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-blue-500"
+            />
+          </div>
+          {(dateFrom || dateTo) && (
+            <button
+              onClick={() => { setDateFrom(''); setDateTo(''); }}
+              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-xl text-xs font-bold cursor-pointer"
+            >
+              Reset
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">
@@ -110,7 +181,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], st
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filtered.length === 0 ? (
-              <tr><td colSpan={7} className="p-6 text-center text-gray-400">Belum ada transaksi tercatat.</td></tr>
+              <tr><td colSpan={7} className="p-6 text-center text-gray-400">{isFiltered ? 'Tidak ada transaksi yang cocok dengan pencarian/filter tanggal.' : 'Belum ada transaksi tercatat.'}</td></tr>
             ) : (
               filtered.map((inv) => (
                 <tr key={inv.invoiceNumber} className="hover:bg-gray-50">

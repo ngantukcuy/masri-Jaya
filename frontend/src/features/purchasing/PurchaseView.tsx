@@ -21,7 +21,7 @@ interface PurchaseViewProps {
   products: Product[];
   onUpdatePOs: (updatedPOs: PO[]) => void;
   onUpdateProducts: (updatedProducts: Product[]) => void;
-  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
   onUpdateSuppliers: (updatedSuppliers: Supplier[]) => void;
   currentUser?: CurrentUser | null;
 }
@@ -168,7 +168,8 @@ export default function PurchaseView({
       `Draft PO Dibuat: ${nextPoNum}`,
       `Menunggu persetujuan owner untuk supplier ${newPOSupplier}`,
       newPO.total,
-      'quote'
+      'quote',
+      'approvers'
     );
 
     // Reset forms

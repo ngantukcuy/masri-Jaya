@@ -22,7 +22,7 @@ interface ReturViewProps {
   pos: PO[];
   returns: ReturnRecord[];
   onUpdateReturns: (updatedReturns: ReturnRecord[]) => void;
-  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
   onNavigateToPOS?: () => void;
   currentUser?: CurrentUser | null;
 }
@@ -136,7 +136,8 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
       `Pengajuan Retur ${record.type}`,
       `${record.refNumber} · ${record.partyName}`,
       totalRefund,
-      'quote'
+      'quote',
+      'approvers'
     );
     dialog.alert(`Pengajuan retur ${record.refNumber} berhasil dibuat dan menunggu persetujuan.`);
     resetForm();
@@ -206,6 +207,7 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
     if (!ok) return;
     const updatedReturns = returns.map(r => r.id === id ? { ...r, status: 'Rejected' as const } : r);
     onUpdateReturns(updatedReturns);
+    onAddActivity(`Retur ${record.type} Ditolak`, record.refNumber, 0, 'quote');
   };
 
   const pendingReturns = returns.filter(r => r.status === 'Pending');

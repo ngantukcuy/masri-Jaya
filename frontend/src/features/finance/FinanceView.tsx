@@ -17,7 +17,7 @@ import NumberInput from '../../components/shared/NumberInput';
 interface FinanceViewProps {
   expenses: Expense[];
   onUpdateExpenses: (updatedExpenses: Expense[]) => void;
-  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
   currentUser?: CurrentUser | null;
 }
 
@@ -107,6 +107,12 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
       return;
     }
     setPendingClaims(pendingClaims.filter(c => c.id !== claim.id));
+    onAddActivity(
+      `Klaim Ditolak: ${claim.id}`,
+      `Klaim reimbursement ${claim.item} milik ${claim.submittedBy} ditolak`,
+      0,
+      'quote'
+    );
     dialog.alert(`Klaim reimbursement ${claim.id} yang diajukan oleh ${claim.submittedBy} telah ditolak.`);
   };
 

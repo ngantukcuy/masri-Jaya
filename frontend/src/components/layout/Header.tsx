@@ -3,6 +3,7 @@ import { Search, MapPin, RotateCw, Bell, Menu, LogOut, Clock, Coins, Shield, X, 
 import { getCurrentSession, getMutationTotals } from '../../lib/cashSession';
 import { useTheme } from '../../lib/ThemeContext';
 import InstallAppButton from '../shared/InstallAppButton';
+import { CurrentUser, canSeeApproverNotifications } from '../../lib/permissions';
 
 interface SearchResultItem {
   id: string;
@@ -32,12 +33,15 @@ interface HeaderActivityLite {
   subtitle: string;
   time: string;
   type: 'sale' | 'arrival' | 'overdue' | 'quote';
+  audience?: 'all' | 'approvers';
 }
 
 interface HeaderNotification {
   id: string;
   text: string;
   level: 'warning' | 'error' | 'success' | 'info';
+  /** True = this is a "waiting for approval" notification (owner/admin-only audience). Shown with a distinct badge. */
+  pending?: boolean;
 }
 
 interface HeaderProps {
@@ -49,7 +53,7 @@ interface HeaderProps {
   onTabChange: (tab: string) => void;
   searchPlaceholder?: string;
   onSync: () => void;
-  currentUser: { name: string; role: string } | null;
+  currentUser: CurrentUser | null;
   onMenuToggle?: () => void;
   onLogout?: () => void;
   storeName?: string;
@@ -166,9 +170,11 @@ export default function Header({
   const notifications = useMemo<HeaderNotification[]>(() => {
     const list: HeaderNotification[] = [];
 
+    // Stock/debt alerts reflect current business state (not an ever-growing
+    // log), so there's no need to cap these — a shop rarely has dozens of
+    // simultaneously low-stock SKUs or overdue customers at once.
     products
       .filter((p) => p.stockStatus !== 'Healthy')
-      .slice(0, 3)
       .forEach((p) => {
         list.push({
           id: `stock-${p.sku}`,
@@ -181,7 +187,6 @@ export default function Header({
 
     customers
       .filter((c) => c.debtStatus === 'Overdue')
-      .slice(0, 3)
       .forEach((c) => {
         list.push({
           id: `debt-${c.id}`,
@@ -192,22 +197,37 @@ export default function Header({
         });
       });
 
-    activities.slice(0, 3).forEach((a) => {
-      list.push({
-        id: `activity-${a.id}`,
-        level: a.type === 'overdue' ? 'error' : 'success',
-        text: `${a.title} — ${a.subtitle}`,
+    // Every recorded activity becomes a notification — CRUD or otherwise —
+    // except entries tagged 'approvers' (a retur/PO/opname submission, a
+    // reimbursement claim) which only show up for accounts that actually
+    // hold an approve permission; everyone else sees it once it's resolved
+    // (the approve/reject action logs its own 'all'-audience activity).
+    // Capped to the most recent 30 since, unlike stock/debt above, this log
+    // grows forever — 30 is generous for a notification dropdown while
+    // keeping it from rendering the store's entire history at once.
+    const canSeeApprovals = canSeeApproverNotifications(currentUser);
+    activities
+      .filter((a) => a.audience !== 'approvers' || canSeeApprovals)
+      .slice(0, 30)
+      .forEach((a) => {
+        const isPending = a.audience === 'approvers';
+        list.push({
+          id: `activity-${a.id}`,
+          level: isPending ? 'warning' : (a.type === 'overdue' ? 'error' : 'success'),
+          text: `${a.title} — ${a.subtitle}`,
+          pending: isPending,
+        });
       });
-    });
 
-    return list.slice(0, 8);
-  }, [products, customers, activities]);
+    return list;
+  }, [products, customers, activities, currentUser]);
 
   const defaultPlaceholder = "Cari pesanan, stok bahan, atau pemasok...";
   const actualPlaceholder = searchPlaceholder || defaultPlaceholder;
 
-  const notifIcon = (level: HeaderNotification['level']) => {
-    switch (level) {
+  const notifIcon = (notif: HeaderNotification) => {
+    if (notif.pending) return <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />;
+    switch (notif.level) {
       case 'error': return <PackageX className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" />;
       case 'warning': return <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />;
       default: return <ShoppingBag className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />;
@@ -350,14 +370,21 @@ export default function Header({
                   <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{notifications.length} Aktif</span>
                 )}
               </div>
-              <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+              <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
                 {notifications.length === 0 ? (
                   <p className="px-4 py-6 text-[10px] text-slate-400 text-center uppercase tracking-wide">Tidak ada notifikasi baru</p>
                 ) : (
                   notifications.map((notif) => (
                     <div key={notif.id} className="p-3 text-xs text-slate-600 hover:bg-slate-50/50 transition-colors flex gap-2">
-                      {notifIcon(notif.level)}
-                      <p className="tracking-wide text-[10px] leading-relaxed">{notif.text}</p>
+                      {notifIcon(notif)}
+                      <div className="min-w-0 flex-1">
+                        <p className="tracking-wide text-[10px] leading-relaxed">{notif.text}</p>
+                        {notif.pending && (
+                          <span className="inline-block mt-1 text-[8px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                            Menunggu Persetujuan
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}

@@ -26,7 +26,7 @@ import { useDialog } from '../../components/shared/DialogProvider';
 import NumberInput from '../../components/shared/NumberInput';
 
 interface KasHarianViewProps {
-  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote') => void;
+  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
 }
 
 export default function KasHarianView({ onAddActivity }: KasHarianViewProps) {

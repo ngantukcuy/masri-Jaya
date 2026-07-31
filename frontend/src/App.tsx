@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
@@ -11,6 +11,8 @@ import { useSupabaseTable } from './lib/useSupabaseTable';
 import { useSupabaseReady } from './lib/useSupabaseReady';
 import { useDialog } from './components/shared/DialogProvider';
 import { CurrentUser, canAccessTab, firstAccessibleTab } from './lib/permissions';
+import { initPushNotifications } from './lib/push/pushNotifications';
+import PushToastListener from './components/shared/PushToastListener';
 
 // Feature views are only needed once a user is authenticated, and only one
 // is ever visible at a time — code-split each into its own chunk so the
@@ -116,6 +118,14 @@ function Dashboard({
     setCurrentTabState(canAccessTab(currentUser, tab) ? tab : firstAccessibleTab(currentUser));
   };
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+
+  // Daftarkan device ini ke push notification (FCM) begitu user login.
+  // Aman dipanggil berkali-kali — initPushNotifications menjaga diri
+  // sendiri supaya cuma jalan sekali, dan otomatis no-op di browser biasa.
+  useEffect(() => {
+    initPushNotifications(currentUser.name, currentUser.role);
+  }, [currentUser.name, currentUser.role]);
+
   const [registeredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string; address?: string; phone?: string; receiptNote?: string; taxId?: string } | null>('store_owner', null);
   const [products, setProducts] = useSupabaseTable<Product>('products', [], (p) => p.sku);
   const [pos, setPOs] = useSupabaseTable<PO>('purchase_orders', [], (po) => po.poNumber);
@@ -138,12 +148,15 @@ function Dashboard({
   // Search filter
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Add activities dynamically
+  // Add activities dynamically. `audience` defaults to 'all' — pass
+  // 'approvers' only for "submitted, waiting for approval" events so they
+  // stay hidden from Kasir/Stoker until resolved (see lib/permissions.ts).
   const handleAddActivity = (
     title: string,
     subtitle: string,
     amount: number,
-    type: 'sale' | 'arrival' | 'overdue' | 'quote'
+    type: 'sale' | 'arrival' | 'overdue' | 'quote',
+    audience: 'all' | 'approvers' = 'all'
   ) => {
     const nextAct: Activity = {
       id: `ACT-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -152,10 +165,24 @@ function Dashboard({
       amount,
       time: "Baru saja",
       createdAt: new Date().toISOString(),
-      type
+      type,
+      audience
     };
     setActivities([nextAct, ...activities]);
   };
+
+  // `activities` isn't reliably newest-first: a fresh page load comes back
+  // ascending (oldest first) from Supabase, while activities added locally
+  // this session get unshifted onto the front — so raw array order mixes
+  // both. Anything that displays "recent activity" (notification bell,
+  // dashboard log) should read from this instead, sorted by real
+  // timestamp, so it's consistently newest-first regardless of when each
+  // entry was fetched vs. just added.
+  const sortedActivities = [...activities].sort((a, b) => {
+    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return tb - ta;
+  });
 
   const handleAddSaleToKPIs = (salesAmount: number) => {
     setTotalSales((prev) => prev + salesAmount);
@@ -220,7 +247,7 @@ function Dashboard({
                   return (
                     <DashboardView
                       products={products}
-                      activities={activities}
+                      activities={sortedActivities}
                       salesInvoices={salesInvoices}
                       customers={customers}
                       totalSales={totalSales}
@@ -492,6 +519,7 @@ function Dashboard({
 
   return (
     <div className="flex min-h-screen font-sans antialiased text-gray-900 select-none">
+      <PushToastListener />
       {/* Sidebar - Desktop */}
       <div className="hidden md:flex">
         <Sidebar
@@ -556,7 +584,7 @@ function Dashboard({
           loginAt={loginAt ?? undefined}
           products={products}
           customers={customers}
-          activities={activities}
+          activities={sortedActivities}
         />
 
         {/* Dashboard inner canvas - padded for mobile bottom navbar */}

@@ -32,32 +32,9 @@ export default function InvoicePrintModal({ invoice, docType, onClose, storeProf
   const [activePrinterName, setActivePrinterName] = useState('');
   const storeName = storeProfile?.storeName || 'Toko Saya';
 
-  // Which items are included in the surat jalan. Only relevant for
-  // docType === 'delivery' — a delivery note doesn't always cover every
-  // item on the invoice (e.g. part of the order is picked up in-store,
-  // the rest delivered later), so the cashier can uncheck what isn't
-  // going out with this particular shipment. Defaults to everything
-  // checked so behavior is unchanged unless the cashier deselects items.
-  const [selectedItems, setSelectedItems] = useState<boolean[]>(() => invoice.items.map(() => true));
-
-  const toggleItem = (idx: number) => {
-    setSelectedItems((prev) => prev.map((checked, i) => (i === idx ? !checked : checked)));
-  };
-
-  const toggleAllItems = (checked: boolean) => {
-    setSelectedItems(invoice.items.map(() => checked));
-  };
-
-  // The items actually shown/printed on a surat jalan — only the checked
-  // ones. A struk pembelian always shows the full invoice as-is.
-  const deliveryItems = invoice.items.filter((_, idx) => selectedItems[idx]);
-  const displayItems = docType === 'delivery' ? deliveryItems : invoice.items;
-  const noItemsSelected = docType === 'delivery' && deliveryItems.length === 0;
-
   const subtotal = invoice.subtotal ?? invoice.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
 
   const handlePrintThermal = () => {
-    if (noItemsSelected) return;
     const registeredPrinters = getSupabaseTableCache<PrinterLite>('printers');
     const connectedPrinterName = registeredPrinters[0]?.name || 'Printer Kasir';
     setIsPrintingAnim(true);
@@ -68,15 +45,17 @@ export default function InvoicePrintModal({ invoice, docType, onClose, storeProf
     }, 1400);
   };
 
-  const handlePrintPDF = () => {
-    if (noItemsSelected) return;
+  const handlePrintPDF = async () => {
     setIsGeneratingPDF(true);
     try {
       if (docType === 'invoice') {
-        generateInvoiceReceiptPDF(invoice, storeProfile, cashierName);
+        await generateInvoiceReceiptPDF(invoice, storeProfile, cashierName);
       } else {
-        generateDeliveryNotePDF(invoice, storeProfile, deliveryItems);
+        await generateDeliveryNotePDF(invoice, storeProfile);
       }
+    } catch (err) {
+      console.error('[InvoicePrintModal] Gagal membuat/membagikan PDF:', err);
+      window.alert('Gagal membuat PDF. Silakan coba lagi.');
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -136,46 +115,9 @@ export default function InvoicePrintModal({ invoice, docType, onClose, storeProf
             )}
           </div>
 
-          {/* Item picker — surat jalan only. Lets the cashier uncheck items
-              that aren't part of this particular shipment; hidden entirely
-              when printing since it's just a control, not document content. */}
-          {docType === 'delivery' && (
-            <div className="pt-3 pb-1 print:hidden">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">Pilih Barang yang Diantar</span>
-                <div className="flex items-center gap-2 text-[9px] font-bold">
-                  <button type="button" onClick={() => toggleAllItems(true)} className="text-blue-600 hover:underline cursor-pointer">
-                    Semua
-                  </button>
-                  <button type="button" onClick={() => toggleAllItems(false)} className="text-gray-400 hover:underline cursor-pointer">
-                    Tidak Ada
-                  </button>
-                </div>
-              </div>
-              <div className="max-h-32 overflow-y-auto space-y-1 border border-gray-100 rounded-lg p-2 bg-gray-50/60">
-                {invoice.items.map((item, idx) => (
-                  <label key={idx} className="flex items-center gap-2 text-[11px] cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={!!selectedItems[idx]}
-                      onChange={() => toggleItem(idx)}
-                      className="w-3.5 h-3.5 accent-blue-600 cursor-pointer shrink-0"
-                    />
-                    <span className={selectedItems[idx] ? 'text-gray-800' : 'text-gray-400 line-through'}>
-                      {item.name} <span className="text-gray-400">x{item.quantity}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-              {noItemsSelected && (
-                <p className="text-[9px] font-bold text-red-600 mt-1.5">Pilih minimal 1 barang untuk dicetak.</p>
-              )}
-            </div>
-          )}
-
           {/* Items list — struk pembelian shows harga, surat jalan only shows jumlah barang */}
           <div className="border-t border-b border-dashed border-gray-300 py-3 space-y-2">
-            {displayItems.map((item, idx) => (
+            {invoice.items.map((item, idx) => (
               <div key={idx} className="flex justify-between text-[11px]">
                 <div className="flex-1 min-w-0 pr-2">
                   <p className="font-bold text-gray-900 truncate">{item.name}</p>
@@ -245,7 +187,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, storeProf
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={handlePrintThermal}
-              disabled={isPrintingAnim || noItemsSelected}
+              disabled={isPrintingAnim}
               className="w-full flex items-center justify-center gap-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50"
             >
               <Printer className="w-4 h-4" />
@@ -253,7 +195,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, storeProf
             </button>
             <button
               onClick={handlePrintPDF}
-              disabled={isGeneratingPDF || noItemsSelected}
+              disabled={isGeneratingPDF}
               className="w-full flex items-center justify-center gap-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50"
             >
               <FileDown className="w-4 h-4" />

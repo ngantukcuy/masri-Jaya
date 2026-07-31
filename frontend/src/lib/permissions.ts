@@ -126,6 +126,32 @@ export function canAccessTab(user: CurrentUser | null | undefined, tabId: string
 }
 
 /**
+ * The 4 permission keys that gate approving a pending request somewhere in
+ * the app (retur, reimbursement claims, stock opname, purchase orders).
+ * Owner always has all of them (see hasPermission); Admin has them all by
+ * default (see ROLE_DEFAULT_PERMISSIONS); Kasir/Stoker only if a specific
+ * one was custom-granted via Pengaturan > Staf.
+ */
+export const APPROVAL_PERMISSION_KEYS = [
+  'manage_retur_approve',
+  'manage_finance_approve',
+  'manage_opname_approve',
+  'manage_purchase_approve',
+] as const;
+
+/**
+ * True if this account should see "menunggu persetujuan" notifications —
+ * i.e. it holds at least one of the approve-type permissions above. Used to
+ * hide Activity entries tagged `audience: 'approvers'` from the
+ * notification bell for accounts that can't act on them anyway (by default
+ * Kasir/Stoker); the resolved outcome (approved/rejected) is logged
+ * separately as visible to everyone once it happens.
+ */
+export function canSeeApproverNotifications(user: CurrentUser | null | undefined): boolean {
+  return APPROVAL_PERMISSION_KEYS.some((key) => hasPermission(user, key));
+}
+
+/**
  * First tab (in TAB_DEFS order) the user is allowed to open — used as a
  * safe fallback/redirect target. Returns the 'no-access' sentinel (never
  * 'dashboard') when the account has no tab permissions at all, so a staff

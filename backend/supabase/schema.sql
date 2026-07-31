@@ -46,6 +46,8 @@
 --   product_brands      -> id
 --   product_units       -> id
 --   product_bundles     -> id
+--   push_tokens          -> token FCM device itu sendiri (lihat
+--                            backend/supabase/functions/send-push)
 --
 -- Data yang BUKAN daftar/list (cuma satu nilai tunggal per toko: profil
 -- owner yang lagi login, username e-commerce, counter total penjualan, sesi
@@ -78,7 +80,7 @@ declare
     'activities', 'branches', 'sales_invoices', 'returns', 'digital_orders',
     'banners', 'sku_locations', 'staff_list', 'bank_accounts', 'printers',
     'opname_submissions', 'product_categories', 'product_brands',
-    'product_units', 'product_bundles'
+    'product_units', 'product_bundles', 'push_tokens'
   ];
   t text;
 begin
