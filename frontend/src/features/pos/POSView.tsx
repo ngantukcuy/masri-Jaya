@@ -2,9 +2,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   User, 
   Trash2, 
-  CreditCard, 
-  QrCode, 
-  Coins, 
   Plus, 
   Minus, 
   Printer as PrinterIcon, 
@@ -21,7 +18,6 @@ import {
   Camera,
   Play,
   X,
-  Wallet,
   Package,
   SlidersHorizontal
 } from 'lucide-react';
@@ -32,6 +28,9 @@ import QRISModal from './components/QRISModal';
 import ReceiptModal from './components/ReceiptModal';
 import AddProductModal from './components/AddProductModal';
 import AddCustomerModal from './components/AddCustomerModal';
+import PaymentMethodModal from './components/PaymentMethodModal';
+import CashPaymentModal from './components/CashPaymentModal';
+import SplitPaymentModal from './components/SplitPaymentModal';
 import { recordSale } from '../../lib/cashSession';
 import { getSupabaseTableCache } from '../../lib/supabaseCache';
 import { playBeep, playPrintSound } from './lib/posAudio';
@@ -115,6 +114,9 @@ export default function POSView({
   const [showCheckoutReceipt, setShowCheckoutReceipt] = useState(false);
   const [lastOrderDetails, setLastOrderDetails] = useState<any>(null);
   const [showQRISModal, setShowQRISModal] = useState(false);
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+  const [showCashPaymentModal, setShowCashPaymentModal] = useState(false);
+  const [showSplitPaymentModal, setShowSplitPaymentModal] = useState(false);
   const [mobileActiveSubTab, setMobileActiveSubTab] = useState<'products' | 'cart'>('products');
   
   // Audio & scanner simulation states
@@ -417,30 +419,59 @@ export default function POSView({
     : subtotal * (Math.min(100, Math.max(0, discountValue)) / 100);
   const totalAmount = subtotal - discountAmount;
 
-  // Checkout Execution
+  // Checkout Execution — klik "Bayar & Cetak Struk" cuma membuka pemilihan
+  // metode pembayaran dulu; alur per-metode (nominal tunai, QRIS, cicil)
+  // baru jalan setelah kasir memilih salah satunya di handleSelectPaymentMethod.
   const handleCheckout = () => {
     if (cart.length === 0) {
       dialog.alert("Keranjang belanja kosong.");
       return;
     }
 
-    if (paymentMethod === 'Deposit') {
+    setShowPaymentMethodModal(true);
+  };
+
+  const handleSelectPaymentMethod = (method: 'Cash' | 'QRIS' | 'Split' | 'Deposit') => {
+    setPaymentMethod(method);
+    setShowPaymentMethodModal(false);
+
+    if (method === 'Deposit') {
       const depositBal = selectedCustomer.depositBalance || 0;
       if (depositBal < totalAmount) {
         dialog.alert(`Saldo deposit tidak mencukupi!\nSaldo saat ini: Rp ${depositBal.toLocaleString('id-ID')}\nTotal belanja: Rp ${totalAmount.toLocaleString('id-ID')}`);
         return;
       }
+      executeFinalCheckout(method, {});
+      return;
     }
 
-    if (paymentMethod === 'QRIS') {
+    if (method === 'QRIS') {
       setShowQRISModal(true);
       return;
     }
 
-    executeFinalCheckout();
+    if (method === 'Cash') {
+      setShowCashPaymentModal(true);
+      return;
+    }
+
+    // 'Split' — bayar sebagian (DP), sisanya jadi piutang/cicilan.
+    setShowSplitPaymentModal(true);
   };
 
-  const executeFinalCheckout = () => {
+  /** Detail spesifik metode yang baru terkumpul dari CashPaymentModal /
+   * SplitPaymentModal, sebelum transaksi benar-benar disimpan. */
+  type PaymentExecutionDetails = {
+    cashReceived?: number;
+    changeAmount?: number;
+    splitPaidAmount?: number;
+    splitRemainingDebt?: number;
+  };
+
+  const executeFinalCheckout = (
+    methodUsed: 'Cash' | 'QRIS' | 'Split' | 'Deposit' = paymentMethod,
+    paymentDetails: PaymentExecutionDetails = {}
+  ) => {
     // Generate Invoice ID
     const invNumber = `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
@@ -463,12 +494,39 @@ export default function POSView({
     });
     onUpdateProducts(updatedProducts);
 
-    // Increment customer loyalty points (1 point per Rp 10.000 spent)
+    // Increment customer loyalty points (1 point per Rp 10.000 spent).
+    // For 'Split' (cicil/DP), the unpaid remainder is added to the
+    // customer's piutang — same pattern as "Tambah Hutang" in Utang &
+    // Piutang (DebtsView.submitAddDebt): bump currentDebt, mark status
+    // Pending, log a transaction line, and push nextDueDate out to
+    // today + tempoDays (unless an earlier due date is already open).
     const pointsEarned = Math.floor(totalAmount / 10000);
+    const splitRemainingDebt = methodUsed === 'Split' ? Math.max(0, paymentDetails.splitRemainingDebt || 0) : 0;
     const updatedCustomers = customers.map((cust) => {
       if (cust.id === selectedCustomer.id) {
         const currentDeposit = cust.depositBalance || 0;
-        const nextDeposit = paymentMethod === 'Deposit' ? Math.max(0, currentDeposit - totalAmount) : currentDeposit;
+        const nextDeposit = methodUsed === 'Deposit' ? Math.max(0, currentDeposit - totalAmount) : currentDeposit;
+
+        if (methodUsed === 'Split' && splitRemainingDebt > 0) {
+          const dueDate = new Date();
+          dueDate.setDate(dueDate.getDate() + (cust.tempoDays || 30));
+          const debtDueDate = dueDate.toISOString().split('T')[0];
+          return {
+            ...cust,
+            points: cust.points + pointsEarned,
+            totalPurchases: cust.totalPurchases + totalAmount,
+            depositBalance: nextDeposit,
+            currentDebt: cust.currentDebt + splitRemainingDebt,
+            debtStatus: 'Pending' as const,
+            pendingAmount: (cust.pendingAmount || 0) + splitRemainingDebt,
+            lastTransactions: [
+              { orderName: `Penjualan POS (Cicil): ${invNumber}`, date: new Date().toISOString().split('T')[0], amount: splitRemainingDebt },
+              ...cust.lastTransactions
+            ],
+            nextDueDate: cust.nextDueDate && cust.nextDueDate < debtDueDate ? cust.nextDueDate : debtDueDate
+          };
+        }
+
         return {
           ...cust,
           points: cust.points + pointsEarned,
@@ -482,7 +540,7 @@ export default function POSView({
 
     // Also link to Kas Harian session (only cash payments move the physical drawer)
     const stockQtySold = cart.reduce((acc, i) => acc + i.quantity, 0);
-    recordSale(paymentMethod === 'Cash', totalAmount, stockQtySold, invNumber);
+    recordSale(methodUsed === 'Cash', totalAmount, stockQtySold, invNumber);
 
     // Register this invoice so it can be looked up later from the Retur module
     if (onRecordSale) {
@@ -500,13 +558,17 @@ export default function POSView({
           unit: item.product.unit
         })),
         total: totalAmount,
-        paymentMethod,
+        paymentMethod: methodUsed,
         subtotal,
         discountAmount,
         discountType: discountMode,
         discountValue,
         fulfillmentMethod,
-        deliveryAddress: fulfillmentMethod === 'Delivery' ? deliveryAddress : undefined
+        deliveryAddress: fulfillmentMethod === 'Delivery' ? deliveryAddress : undefined,
+        cashReceived: methodUsed === 'Cash' ? paymentDetails.cashReceived : undefined,
+        changeAmount: methodUsed === 'Cash' ? paymentDetails.changeAmount : undefined,
+        splitPaidAmount: methodUsed === 'Split' ? paymentDetails.splitPaidAmount : undefined,
+        splitRemainingDebt: methodUsed === 'Split' ? splitRemainingDebt : undefined
       });
     }
 
@@ -523,7 +585,11 @@ export default function POSView({
       deliveryAddress,
       total: totalAmount,
       pointsEarned,
-      paymentMethod,
+      paymentMethod: methodUsed,
+      cashReceived: methodUsed === 'Cash' ? paymentDetails.cashReceived : undefined,
+      changeAmount: methodUsed === 'Cash' ? paymentDetails.changeAmount : undefined,
+      splitPaidAmount: methodUsed === 'Split' ? paymentDetails.splitPaidAmount : undefined,
+      splitRemainingDebt: methodUsed === 'Split' ? splitRemainingDebt : undefined,
       date: new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     };
 
@@ -546,6 +612,8 @@ export default function POSView({
     setFulfillmentMethod('Pickup');
     setDeliveryAddress('');
     setShowQRISModal(false);
+    setShowCashPaymentModal(false);
+    setShowSplitPaymentModal(false);
     setMobileActiveSubTab('products');
   };
 
@@ -1103,51 +1171,9 @@ export default function POSView({
             )}
           </div>
 
-          {/* Payment Toggle methods */}
-          <div className="grid grid-cols-4 gap-1.5">
-            <button
-              onClick={() => setPaymentMethod('Cash')}
-              className={`py-2 px-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer text-center flex flex-col items-center justify-center gap-1.5 ${
-                paymentMethod === 'Cash' ? 'bg-blue-50 border-blue-600 text-blue-600 font-black' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
-              }`}
-            >
-              <Coins className="w-3.5 h-3.5" />
-              <span>Tunai</span>
-            </button>
-
-            <button
-              onClick={() => setPaymentMethod('QRIS')}
-              className={`py-2 px-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer text-center flex flex-col items-center justify-center gap-1.5 ${
-                paymentMethod === 'QRIS' ? 'bg-blue-50 border-blue-600 text-blue-600 font-black' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
-              }`}
-            >
-              <QrCode className="w-3.5 h-3.5" />
-              <span>QRIS</span>
-            </button>
-
-            <button
-              onClick={() => setPaymentMethod('Split')}
-              className={`py-2 px-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer text-center flex flex-col items-center justify-center gap-1.5 ${
-                paymentMethod === 'Split' ? 'bg-blue-50 border-blue-600 text-blue-600 font-black' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
-              }`}
-            >
-              <CreditCard className="w-3.5 h-3.5" />
-              <span>Kartu / Cicil</span>
-            </button>
-
-            <button
-              onClick={() => setPaymentMethod('Deposit')}
-              className={`py-2 px-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer text-center flex flex-col items-center justify-center gap-1.5 ${
-                paymentMethod === 'Deposit' ? 'bg-blue-50 border-blue-600 text-blue-600 font-black' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
-              }`}
-              title={`Saldo Deposit: Rp ${(selectedCustomer?.depositBalance || 0).toLocaleString('id-ID')}`}
-            >
-              <Wallet className="w-3.5 h-3.5" />
-              <span>Deposit</span>
-            </button>
-          </div>
-
-          {/* Checkout Button CTA */}
+          {/* Checkout Button CTA — memilih metode pembayaran terjadi di
+              PaymentMethodModal setelah tombol ini diklik, bukan lewat
+              toggle yang selalu tampil di sini. */}
           <button 
             onClick={handleCheckout}
             className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-md shadow-blue-500/15 cursor-pointer transition-colors"
@@ -1197,10 +1223,42 @@ export default function POSView({
           />
         )}
 
+        {showPaymentMethodModal && (
+          <PaymentMethodModal
+            onClose={() => setShowPaymentMethodModal(false)}
+            onSelect={handleSelectPaymentMethod}
+            totalAmount={totalAmount}
+            customer={selectedCustomer}
+          />
+        )}
+
+        {showCashPaymentModal && (
+          <CashPaymentModal
+            onClose={() => setShowCashPaymentModal(false)}
+            onConfirm={(cashReceived) => {
+              setShowCashPaymentModal(false);
+              executeFinalCheckout('Cash', { cashReceived, changeAmount: cashReceived - totalAmount });
+            }}
+            totalAmount={totalAmount}
+          />
+        )}
+
+        {showSplitPaymentModal && (
+          <SplitPaymentModal
+            onClose={() => setShowSplitPaymentModal(false)}
+            onConfirm={(paidNow) => {
+              setShowSplitPaymentModal(false);
+              executeFinalCheckout('Split', { splitPaidAmount: paidNow, splitRemainingDebt: totalAmount - paidNow });
+            }}
+            totalAmount={totalAmount}
+            customer={selectedCustomer}
+          />
+        )}
+
         {showQRISModal && (
           <QRISModal
             onClose={() => setShowQRISModal(false)}
-            onConfirm={executeFinalCheckout}
+            onConfirm={() => executeFinalCheckout('QRIS', {})}
             totalAmount={totalAmount}
           />
         )}
