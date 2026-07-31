@@ -253,7 +253,12 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
 }
 
 /** Struk Surat Jalan (delivery note) — no prices, includes signature boxes. */
-export async function generateDeliveryNotePDF(invoice: SalesInvoice, storeProfile: StoreProfileFull | undefined) {
+export async function generateDeliveryNotePDF(
+  invoice: SalesInvoice,
+  storeProfile: StoreProfileFull | undefined,
+  itemsOverride?: SalesInvoice['items'],
+) {
+  const deliveryItems = itemsOverride && itemsOverride.length > 0 ? itemsOverride : invoice.items;
   const storeName = storeProfile?.storeName || 'Toko Saya';
   const doc = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'landscape' });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -330,7 +335,7 @@ export async function generateDeliveryNotePDF(invoice: SalesInvoice, storeProfil
   y += 5;
 
   setFont(8.5);
-  invoice.items.forEach((item, idx) => {
+  deliveryItems.forEach((item, idx) => {
     const nameLines = doc.splitTextToSize(item.name, col.qty - col.name - 20);
     doc.text(String(idx + 1), col.no, y);
     doc.text(nameLines, col.name, y);

@@ -124,11 +124,45 @@ berhasil ditambahkan`,
         }
     };
 }
+// Field-field "identitas" pelanggan — perubahan di sini layak dinotifikasi
+// (mis. Admin mengedit nama/telepon/alamat lewat halaman Pelanggan).
+// SENGAJA tidak termasuk field finansial rutin (points, totalPurchases,
+// currentDebt, debtStatus, pendingAmount, overdueAmount, depositBalance,
+// nextDueDate, lastTransactions) — field-field itu selalu ikut ter-update
+// otomatis tiap ada transaksi POS/setor deposit/tambah-bayar hutang. Dulu
+// SETIAP transaksi = 1 notif "Transaksi Baru" (dari sales_invoices) DITAMBAH
+// 1 notif "Pelanggan diperbarui" (dari customers) yang isinya cuma bilang
+// "berhasil diperbarui" tanpa detail apa yang berubah — jadi terasa spam
+// padahal cuma 1 transaksi. Sekarang update customers cuma dinotif kalau
+// benar-benar ada perubahan data identitas pelanggannya.
+const CUSTOMER_IDENTITY_FIELDS = [
+    "name",
+    "phone",
+    "address",
+    "customerType",
+    "paymentTerms",
+    "tempoDays",
+    "creditLimit",
+    "loyaltyTier"
+];
+function customerIdentityChanged(oldData:any,newData:any):boolean{
+    return CUSTOMER_IDENTITY_FIELDS.some(
+        (field)=>JSON.stringify(oldData?.[field])!==JSON.stringify(newData?.[field])
+    );
+}
 function buildUpdate(
     table:string,
     oldData:any,
     newData:any
-):PushPayload{
+):PushPayload|null{
+    if(table==="customers"){
+        // Bukan perubahan identitas (cuma bump poin/piutang/deposit/riwayat
+        // dari transaksi) — jangan kirim notif terpisah, sudah terwakili
+        // oleh notif transaksinya sendiri (kalau ada).
+        if(!customerIdentityChanged(oldData,newData)){
+            return null;
+        }
+    }
     if(table==="products"){
         if(
             oldData.stockStatus!==

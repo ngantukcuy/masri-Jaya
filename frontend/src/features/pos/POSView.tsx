@@ -67,6 +67,12 @@ interface StoreProfileLite {
 interface POSViewProps {
   products: Product[];
   customers: Customer[];
+  /** ID pelanggan default yang diatur di Pengaturan (lihat SettingsView).
+   * Kalau null/belum diatur atau pelanggannya sudah tidak ada, POS jatuh
+   * balik ke pelanggan umum "Customer" — BUKAN customers[0] (urutan
+   * pertama di database), supaya default-nya konsisten walau ada banyak
+   * data pelanggan lain. */
+  defaultCustomerId?: string | null;
   onUpdateProducts: (updatedProducts: Product[]) => void;
   onUpdateCustomers: (updatedCustomers: Customer[]) => void;
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
@@ -80,6 +86,7 @@ interface POSViewProps {
 export default function POSView({ 
   products, 
   customers, 
+  defaultCustomerId,
   onUpdateProducts, 
   onUpdateCustomers, 
   onAddActivity,
@@ -93,7 +100,7 @@ export default function POSView({
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua Kategori');
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer>(customers[0] || {
+  const genericWalkInCustomer = (): Customer => ({
     id: 'CUST-01',
     name: 'Customer',
     loyaltyTier: 'Pelanggan Retail',
@@ -104,6 +111,25 @@ export default function POSView({
     logoLetters: 'PU',
     lastTransactions: []
   });
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer>(genericWalkInCustomer());
+  // Terapkan defaultCustomerId dari Pengaturan sekali begitu daftar
+  // customers selesai dimuat. Kalau tidak diset (atau pelanggannya sudah
+  // tidak ada), tetap pakai pelanggan umum "Customer" di atas — bukan
+  // customers[0] yang urutannya bisa berubah-ubah.
+  const appliedDefaultCustomerRef = useRef(false);
+  useEffect(() => {
+    if (appliedDefaultCustomerRef.current) return;
+    if (!defaultCustomerId) {
+      appliedDefaultCustomerRef.current = true;
+      return;
+    }
+    const match = customers.find((c) => c.id === defaultCustomerId);
+    if (match) {
+      setSelectedCustomer(match);
+      appliedDefaultCustomerRef.current = true;
+    }
+  }, [customers, defaultCustomerId]);
+
   const [cart, setCart] = useState<CartItem[]>([]);
   const [discountMode, setDiscountMode] = useState<'percent' | 'fixed'>('percent');
   const [discountValue, setDiscountValue] = useState<number>(0);

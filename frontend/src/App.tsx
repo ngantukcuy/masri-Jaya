@@ -140,6 +140,13 @@ function Dashboard({
   const [banners, setBanners] = useSupabaseTable<Banner>('banners', [], (b) => b.id);
   const [skuLocations, setSkuLocations] = useSupabaseTable<SkuLocation>('sku_locations', [], (s) => s.id);
   const [ecommerceUsername, setEcommerceUsername] = useSupabaseState<string>('ecommerce_username', '');
+  // ID pelanggan yang jadi default terpilih tiap buka POS. Disimpan
+  // terpisah dari daftar customers itu sendiri supaya defaultnya tetap
+  // konsisten (dan bisa diganti Owner/Admin lewat Pengaturan) walaupun
+  // ada banyak data pelanggan lain — sebelumnya POS selalu asal ambil
+  // customers[0] (urutan pertama di database), bukan benar-benar "Customer"
+  // (pelanggan umum/walk-in) yang stabil.
+  const [defaultCustomerId, setDefaultCustomerId] = useSupabaseState<string | null>('default_customer_id', null);
 
   // Dynamic metrics added from POS checkout
   const [totalSales, setTotalSales] = useSupabaseState<number>('total_sales', 0);
@@ -261,6 +268,7 @@ function Dashboard({
                     <POSView
                       products={products}
                       customers={customers}
+                      defaultCustomerId={defaultCustomerId}
                       onUpdateProducts={setProducts}
                       onUpdateCustomers={setCustomers}
                       onAddActivity={handleAddActivity}
@@ -421,6 +429,9 @@ function Dashboard({
                       onUpdateSkuLocations={setSkuLocations}
                       onAddActivity={handleAddActivity}
                       currentUser={currentUser}
+                      customers={customers}
+                      defaultCustomerId={defaultCustomerId}
+                      onUpdateDefaultCustomerId={setDefaultCustomerId}
                     />
                   );
                 default:

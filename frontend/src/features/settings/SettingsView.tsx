@@ -17,7 +17,7 @@ import {
   Usb,
   Loader2,
 } from 'lucide-react';
-import { Branch, StoreProfile, StaffMember, BankAccount, SkuLocation, Printer } from '../../types';
+import { Branch, StoreProfile, StaffMember, BankAccount, SkuLocation, Printer, Customer } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSupabaseState } from '../../lib/useSupabaseState';
 import { useSupabaseTable } from '../../lib/useSupabaseTable';
@@ -41,6 +41,11 @@ interface SettingsViewProps {
   onUpdateSkuLocations: (updatedLocations: SkuLocation[]) => void;
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
   currentUser?: CurrentUser;
+  /** Daftar pelanggan, dipakai buat dropdown pemilihan pelanggan default POS. */
+  customers?: Customer[];
+  /** ID pelanggan default POS saat ini (null = pakai "Customer" umum/walk-in). */
+  defaultCustomerId?: string | null;
+  onUpdateDefaultCustomerId?: (customerId: string | null) => void;
 }
 
 // Checkbox catalog used by the "Tambah Staff" form — "Akses Menu" gates
@@ -49,7 +54,7 @@ interface SettingsViewProps {
 // feature view read the exact same keys that get checked here.
 const PERMISSION_DEFS = FEATURE_PERMISSION_DEFS;
 
-export default function SettingsView({ branches, onUpdateBranches, skuLocations, onUpdateSkuLocations, onAddActivity, currentUser }: SettingsViewProps) {
+export default function SettingsView({ branches, onUpdateBranches, skuLocations, onUpdateSkuLocations, onAddActivity, currentUser, customers = [], defaultCustomerId = null, onUpdateDefaultCustomerId }: SettingsViewProps) {
   const dialog = useDialog();
   const can = (key: string) => hasPermission(currentUser, key);
   const [activeTab, setActiveTab] = useState<'profile' | 'branches' | 'locations' | 'printers' | 'security' | 'accounts'>('profile');
@@ -646,6 +651,24 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                 onChange={(e) => setStoreProfile((prev) => ({ ...prev, receiptNote: e.target.value }))}
                 className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none text-gray-700 focus:ring-2 focus:ring-blue-600/15"
               />
+            </div>
+
+            <div className="pt-2 border-t border-gray-100">
+              <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Pelanggan Default di POS</label>
+              <p className="text-[10px] text-gray-400 mb-1.5">
+                Pelanggan yang otomatis terpilih tiap buka halaman POS. Kalau dikosongkan, POS pakai pelanggan umum "Customer".
+              </p>
+              <select
+                value={defaultCustomerId || ''}
+                onChange={(e) => onUpdateDefaultCustomerId?.(e.target.value || null)}
+                disabled={!onUpdateDefaultCustomerId}
+                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none font-bold text-gray-700 focus:ring-2 focus:ring-blue-600/15 disabled:opacity-50"
+              >
+                <option value="">Customer (Pelanggan Umum)</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
             </div>
 
             {/* Account/login field — kept separate since it's used for signing in, not printed on the receipt */}

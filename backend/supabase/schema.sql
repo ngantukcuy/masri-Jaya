@@ -156,12 +156,14 @@ grant usage on schema public to authenticated;
 --      cashSessionCurrent   -> cash_session_current
 --      cashSessionHistory   -> cash_session_history
 --      posCartState         -> pos_cart_state
+--      defaultCustomerId    -> default_customer_id
 -- -----------------------------------------------------------------------------
 do $$
 declare
   singleton_tables text[] := array[
     'store_owner', 'ecommerce_username', 'total_sales', 'total_orders_count',
-    'cash_session_current', 'cash_session_history', 'pos_cart_state'
+    'cash_session_current', 'cash_session_history', 'pos_cart_state',
+    'default_customer_id'
   ];
   t text;
 begin
