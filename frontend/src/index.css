@@ -20,6 +20,35 @@
   --color-gray-700: #334155;
   --color-gray-800: #1e293b;
   --color-gray-900: #0f172a;
+
+  /* ---- shadcn/ui semantic tokens ----
+     Dipetakan ke palet biru/slate yang sudah dipakai di seluruh app ini,
+     supaya komponen shadcn (Button, Card, Dialog, dst) otomatis nyambung
+     sama tema yang ada, termasuk dark mode di bawah. */
+  --color-background: var(--color-white);
+  --color-foreground: var(--color-gray-900);
+  --color-card: var(--color-white);
+  --color-card-foreground: var(--color-gray-900);
+  --color-popover: var(--color-white);
+  --color-popover-foreground: var(--color-gray-900);
+  --color-primary: #2563eb;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--color-gray-100);
+  --color-secondary-foreground: var(--color-gray-900);
+  --color-muted: var(--color-gray-100);
+  --color-muted-foreground: var(--color-gray-500);
+  --color-accent: var(--color-gray-100);
+  --color-accent-foreground: var(--color-gray-900);
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--color-gray-200);
+  --color-input: var(--color-gray-200);
+  --color-ring: #2563eb;
+  --radius: 0.75rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 /* ==========================================================================
@@ -62,6 +91,27 @@
   --color-slate-700: #f1f5f9;
   --color-slate-800: #f8fafc;
   --color-slate-900: #ffffff;
+
+  /* shadcn/ui tokens — ikut skema inversi yang sama dengan gray-* di atas */
+  --color-background: var(--color-white);
+  --color-foreground: var(--color-gray-900);
+  --color-card: var(--color-gray-50);
+  --color-card-foreground: var(--color-gray-900);
+  --color-popover: var(--color-gray-50);
+  --color-popover-foreground: var(--color-gray-900);
+  --color-primary: #3b82f6;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--color-gray-100);
+  --color-secondary-foreground: var(--color-gray-900);
+  --color-muted: var(--color-gray-100);
+  --color-muted-foreground: var(--color-gray-500);
+  --color-accent: var(--color-gray-100);
+  --color-accent-foreground: var(--color-gray-900);
+  --color-destructive: #f87171;
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--color-gray-200);
+  --color-input: var(--color-gray-200);
+  --color-ring: #3b82f6;
 }
 
 /* Base Body settings: modern luxury background gradient */
