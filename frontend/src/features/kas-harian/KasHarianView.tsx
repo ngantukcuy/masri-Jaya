@@ -13,7 +13,7 @@ import {
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CashSession } from '../../types';
+import { CashSession, SalesInvoice, ReturnRecord } from '../../types';
 import {
   getCurrentSession,
   getSessionHistory,
@@ -24,12 +24,16 @@ import {
 } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
 import NumberInput from '../../components/shared/NumberInput';
+import KasHarianDetailModal from './KasHarianDetailModal';
 
 interface KasHarianViewProps {
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
+  salesInvoices?: SalesInvoice[];
+  returns?: ReturnRecord[];
+  currentUserName?: string;
 }
 
-export default function KasHarianView({ onAddActivity }: KasHarianViewProps) {
+export default function KasHarianView({ onAddActivity, salesInvoices = [], returns = [], currentUserName }: KasHarianViewProps) {
   const dialog = useDialog();
   const [session, setSession] = useState<CashSession | null>(null);
   const [history, setHistory] = useState<CashSession[]>([]);
@@ -46,6 +50,7 @@ export default function KasHarianView({ onAddActivity }: KasHarianViewProps) {
   const [actualCashInput, setActualCashInput] = useState<number>(0);
 
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const [detailSession, setDetailSession] = useState<CashSession | null>(null);
 
   const refresh = () => {
     setSession(getCurrentSession());
@@ -61,7 +66,7 @@ export default function KasHarianView({ onAddActivity }: KasHarianViewProps) {
       dialog.alert('Jumlah kas awal tidak boleh negatif.');
       return;
     }
-    const newSession = openSession(openingInput);
+    const newSession = openSession(openingInput, currentUserName);
     onAddActivity(
       'Kas Harian Dibuka',
       `Kas awal Rp ${openingInput.toLocaleString('id-ID')} disiapkan di laci`,
@@ -112,7 +117,7 @@ export default function KasHarianView({ onAddActivity }: KasHarianViewProps) {
   const selisih = showCloseModal && totals ? actualCashInput - totals.systemTotal : 0;
 
   const inCategories = ['Kas Tambahan', 'Top Up Deposit', 'Pembayaran Piutang', 'Retur Pembelian', 'Penjualan Tunai Lainnya'];
-  const outCategories = ['Kembalian', 'Retur Penjualan', 'Pembayaran Lainnya', 'Pembelian Stok', 'Transaksi Dibatalkan', 'Pembayaran Hutang', 'Withdraw Deposit'];
+  const outCategories = ['Kembalian', 'Retur Penjualan', 'Pembayaran Lainnya', 'Pembelian Stok Lokasi SKU', 'Pembelian Stok Pemasok', 'Transaksi Dibatalkan', 'Pembayaran Hutang', 'Withdraw Deposit'];
 
   return (
     <div className="space-y-6">
@@ -210,6 +215,12 @@ export default function KasHarianView({ onAddActivity }: KasHarianViewProps) {
                   <MinusCircle className="w-4 h-4" /> Catat Kas Keluar
                 </button>
                 <button
+                  onClick={() => setDetailSession(session)}
+                  className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  Lihat Ringkasan Lengkap
+                </button>
+                <button
                   onClick={() => { setShowCloseModal(true); setActualCashInput(totals?.systemTotal || 0); }}
                   className="ml-auto flex items-center gap-1.5 px-4 py-2.5 bg-gray-900 hover:bg-black text-white rounded-xl text-xs font-bold cursor-pointer"
                 >
@@ -289,6 +300,12 @@ export default function KasHarianView({ onAddActivity }: KasHarianViewProps) {
 
                     {isExpanded && (
                       <div className="mt-3 space-y-3">
+                        <button
+                          onClick={() => setDetailSession(h)}
+                          className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-[10px] font-bold uppercase cursor-pointer"
+                        >
+                          Lihat Ringkasan Lengkap
+                        </button>
                         <div className="grid grid-cols-3 gap-2 text-center">
                           <div className="bg-gray-50 rounded-lg p-2">
                             <p className="text-[9px] text-gray-400 font-bold uppercase">Kas Awal</p>
@@ -449,6 +466,15 @@ export default function KasHarianView({ onAddActivity }: KasHarianViewProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {detailSession && (
+        <KasHarianDetailModal
+          session={detailSession}
+          salesInvoices={salesInvoices}
+          returns={returns}
+          onClose={() => setDetailSession(null)}
+        />
+      )}
     </div>
   );
 }

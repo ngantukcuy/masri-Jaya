@@ -289,6 +289,9 @@ function Dashboard({
                   return (
                     <KasHarianView
                       onAddActivity={handleAddActivity}
+                      salesInvoices={salesInvoices}
+                      returns={returns}
+                      currentUserName={currentUser?.name}
                     />
                   );
                 case 'retur':
@@ -371,6 +374,10 @@ function Dashboard({
                       onAddActivity={handleAddActivity}
                       currentUserName={currentUser?.name}
                       currentUser={currentUser}
+                      skuLocations={skuLocations}
+                      suppliers={suppliers}
+                      pos={pos}
+                      salesInvoices={salesInvoices}
                     />
                   );
                 case 'purchase':

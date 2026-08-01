@@ -135,10 +135,12 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
   const kategori2List = categories.filter(c => c.level === 2);
   const kategori3List = categories.filter(c => c.level === 3);
 
-  // Satu-satunya tombol generate yang dipakai di form ini (baik Induk
-  // maupun Eceran): formatnya "SKU-" diikuti angka acak, contoh "SKU-482913".
+  // Barcode digenerate dengan awalan "SKU-" + angka acak (bukan lagi ambil
+  // dari kode SKU produknya — field Kode SKU-nya sendiri sengaja tidak
+  // ditampilkan di form supaya nggak ada 2 field yang keliatan sama-sama
+  // "generate kode" dan bikin bingung).
   const generateBarcode = () => {
-    const randomDigits = String(Math.floor(100000 + Math.random() * 900000));
+    const randomDigits = String(Math.floor(100000000 + Math.random() * 900000000));
     return `SKU-${randomDigits}`;
   };
 
@@ -473,11 +475,6 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               </div>
 
               <div>
-                <label className={labelCls}><BarcodeIcon className="inline w-3 h-3 mr-1" />Kode SKU (otomatis)</label>
-                <input type="text" readOnly value={skuForm.sku} className={`${inputCls} bg-gray-100 text-gray-500 cursor-not-allowed`} />
-              </div>
-
-              <div>
                 <label className={labelCls}>Nama Produk</label>
                 <input type="text" required value={skuForm.name} onChange={(e) => setSkuForm({ ...skuForm, name: e.target.value })} placeholder="Contoh: Semen Portland 50kg" className={inputCls} />
               </div>
@@ -689,11 +686,6 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center gap-2 text-blue-700 font-bold">
                 <Scale className="w-4 h-4 shrink-0" />
                 Jumlah produk pecahan / 1 produk = {eceranForm.conversionValue || 0} {eceranForm.unit}
-              </div>
-
-              <div>
-                <label className={labelCls}><BarcodeIcon className="inline w-3 h-3 mr-1" />Kode SKU (otomatis)</label>
-                <input type="text" readOnly value={eceranForm.sku} className={`${inputCls} bg-gray-100 text-gray-500 cursor-not-allowed`} />
               </div>
 
               <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-3 border border-gray-100">

@@ -14,12 +14,14 @@ export function getSessionHistory(): CashSession[] {
   return getSupabaseCache<CashSession[]>(HISTORY_KEY, []);
 }
 
-export function openSession(openingBalance: number): CashSession {
+export function openSession(openingBalance: number, cashierName?: string): CashSession {
   const now = new Date();
   const session: CashSession = {
     id: `KAS-${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}-${Math.floor(100 + Math.random() * 900)}`,
     date: now.toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }),
     openedAt: now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+    openedAtISO: now.toISOString(),
+    cashierName,
     status: 'Open',
     openingBalance,
     mutations: [],
@@ -78,6 +80,7 @@ export function closeSession(actualCash: number): CashSession | null {
   const now = new Date();
   session.status = 'Closed';
   session.closedAt = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  session.closedAtISO = now.toISOString();
   session.closingActual = actualCash;
 
   const history = getSessionHistory();

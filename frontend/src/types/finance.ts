@@ -37,6 +37,13 @@ export interface CashSession {
   date: string;
   openedAt: string;
   closedAt?: string;
+  /** ISO timestamp versi lengkap dari openedAt/closedAt, dipakai untuk
+   * mencocokkan invoice penjualan & retur yang terjadi selama sesi ini
+   * (lihat KasHarianDetailModal). */
+  openedAtISO?: string;
+  closedAtISO?: string;
+  /** Nama kasir yang membuka sesi (diambil dari user yang sedang login). */
+  cashierName?: string;
   status: 'Open' | 'Closed';
   openingBalance: number;
   mutations: CashMutation[];

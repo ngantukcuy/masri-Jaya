@@ -28,16 +28,6 @@ import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
 import BarcodeScannerModal from '../../components/shared/BarcodeScannerModal';
 import { generateSkuCode } from '../../lib/generateSku';
-import { Button } from '../../components/ui/button';
-import { Card } from '../../components/ui/card';
-import { Badge } from '../../components/ui/badge';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { Textarea } from '../../components/ui/textarea';
-import { Checkbox } from '../../components/ui/checkbox';
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 
 interface ProductsViewProps {
   products: Product[];
@@ -654,252 +644,279 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-black text-foreground tracking-tight">Stok</h2>
-          <p className="text-muted-foreground text-sm">Kelola lokasi stok, opname, transfer, dan pantau stok yang perlu perhatian.</p>
+          <h2 className="text-2xl font-black text-gray-900 tracking-tight">Stok</h2>
+          <p className="text-gray-500 text-sm">Kelola lokasi stok, opname, transfer, dan pantau stok yang perlu perhatian.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left: Pengaturan Stok */}
           <div className="lg:col-span-5 space-y-5">
             <div>
-              <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider mb-3">Pengaturan Stok</h3>
+              <h3 className="text-xs font-extrabold text-gray-400 uppercase tracking-wider mb-3">Pengaturan Stok</h3>
               <div className="space-y-3">
-                <Card
+                <button
                   onClick={() => setStokView('list')}
-                  className="flex-row items-center gap-4 p-4 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all"
+                  className="w-full flex items-center gap-4 bg-white border border-gray-200 rounded-2xl p-4 text-left hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer"
                 >
                   <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
                     <Warehouse className="w-5 h-5 text-amber-600" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-extrabold text-sm text-foreground">Stok Lokasi SKU</p>
-                    <p className="text-xs text-muted-foreground">Stok yang ada di lokasi SKU secara keseluruhan</p>
+                    <p className="font-extrabold text-sm text-gray-900">Stok Lokasi SKU</p>
+                    <p className="text-xs text-gray-400">Stok yang ada di lokasi SKU secara keseluruhan</p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto shrink-0" />
-                </Card>
+                  <ChevronRight className="w-4 h-4 text-gray-300 ml-auto shrink-0" />
+                </button>
 
-                <Card
+                <button
                   onClick={() => setStokView('pemasok')}
-                  className="flex-row items-center gap-4 p-4 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all"
+                  className="w-full flex items-center gap-4 bg-white border border-gray-200 rounded-2xl p-4 text-left hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer"
                 >
                   <div className="w-11 h-11 rounded-xl bg-pink-50 flex items-center justify-center shrink-0">
                     <Boxes className="w-5 h-5 text-pink-600" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-extrabold text-sm text-foreground">Stok Pemasok</p>
-                    <p className="text-xs text-muted-foreground">Stok yang ada pada pemasok (PO belum diterima)</p>
+                    <p className="font-extrabold text-sm text-gray-900">Stok Pemasok</p>
+                    <p className="text-xs text-gray-400">Stok yang ada pada pemasok (PO belum diterima)</p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto shrink-0" />
-                </Card>
+                  <ChevronRight className="w-4 h-4 text-gray-300 ml-auto shrink-0" />
+                </button>
 
-                <Card
+                <button
                   onClick={() => can('manage_product_update') ? setShowAdjustmentModal(true) : dialog.alert('Anda tidak memiliki izin untuk mengajukan Stock Opname.')}
-                  className="flex-row items-center gap-4 p-4 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all"
+                  className="w-full flex items-center gap-4 bg-white border border-gray-200 rounded-2xl p-4 text-left hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer"
                 >
                   <div className="w-11 h-11 rounded-xl bg-sky-50 flex items-center justify-center shrink-0">
                     <SlidersHorizontal className="w-5 h-5 text-sky-600" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-extrabold text-sm text-foreground">Stok Opname ({pendingOpnameCount})</p>
-                    <p className="text-xs text-muted-foreground">Stok ketersediaan yang disimpan perusahaan.</p>
+                    <p className="font-extrabold text-sm text-gray-900">Stok Opname ({pendingOpnameCount})</p>
+                    <p className="text-xs text-gray-400">Stok ketersediaan yang disimpan perusahaan.</p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto shrink-0" />
-                </Card>
+                  <ChevronRight className="w-4 h-4 text-gray-300 ml-auto shrink-0" />
+                </button>
 
-                <Card
+                <button
                   onClick={() => setStokView('transfer')}
-                  className="flex-row items-center gap-4 p-4 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all"
+                  className="w-full flex items-center gap-4 bg-white border border-gray-200 rounded-2xl p-4 text-left hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer"
                 >
                   <div className="w-11 h-11 rounded-xl bg-cyan-50 flex items-center justify-center shrink-0">
                     <ChevronRight className="w-5 h-5 text-cyan-600 rotate-45" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-extrabold text-sm text-foreground">Transfer Stok</p>
-                    <p className="text-xs text-muted-foreground">Transfer stok dari lokasi SKU satu ke lokasi SKU lain.</p>
+                    <p className="font-extrabold text-sm text-gray-900">Transfer Stok</p>
+                    <p className="text-xs text-gray-400">Transfer stok dari lokasi SKU satu ke lokasi SKU lain.</p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto shrink-0" />
-                </Card>
+                  <ChevronRight className="w-4 h-4 text-gray-300 ml-auto shrink-0" />
+                </button>
               </div>
             </div>
 
             {pendingOpnameCount > 0 && (
               <div>
-                <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider mb-3">Menunggu Persetujuan</h3>
-                <Card
+                <h3 className="text-xs font-extrabold text-gray-400 uppercase tracking-wider mb-3">Menunggu Persetujuan</h3>
+                <button
                   onClick={() => setStokView('list')}
-                  className="flex-row items-center gap-4 p-4 cursor-pointer border-amber-200 hover:shadow-sm transition-all"
+                  className="w-full flex items-center gap-4 bg-white border border-amber-200 rounded-2xl p-4 text-left hover:shadow-sm transition-all cursor-pointer"
                 >
                   <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
                     <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-extrabold text-sm text-foreground">Persetujuan Stok Opname</p>
-                    <p className="text-xs text-muted-foreground">Persetujuan atas perubahan stok</p>
+                    <p className="font-extrabold text-sm text-gray-900">Persetujuan Stok Opname</p>
+                    <p className="text-xs text-gray-400">Persetujuan atas perubahan stok</p>
                   </div>
-                  <Badge variant="warning" className="ml-auto shrink-0">{pendingOpnameCount} Pending</Badge>
-                </Card>
+                  <span className="ml-auto shrink-0 text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{pendingOpnameCount} Pending</span>
+                </button>
               </div>
             )}
           </div>
 
           {/* Right: Tabs list */}
-          <Card className="lg:col-span-7 p-0 overflow-hidden gap-0">
-            <Tabs value={rightPanelTab} onValueChange={(v) => setRightPanelTab(v as any)}>
-              <TabsList className="px-4 pt-3 bg-transparent rounded-none h-auto">
-                <TabsTrigger value="menipis">Stok Menipis</TabsTrigger>
-                <TabsTrigger value="opname">Sedang Stok Opname</TabsTrigger>
-                <TabsTrigger value="terlaris">Terlaris di Bulan Ini</TabsTrigger>
-              </TabsList>
+          <div className="lg:col-span-7 bg-white border border-gray-200 rounded-2xl overflow-hidden">
+            <div className="flex border-b border-gray-100 px-4 pt-3 gap-5">
+              {[
+                { id: 'menipis', label: 'Stok Menipis' },
+                { id: 'opname', label: 'Sedang Stok Opname' },
+                { id: 'terlaris', label: 'Terlaris di Bulan Ini' },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setRightPanelTab(t.id as any)}
+                  className={`pb-3 text-xs font-bold cursor-pointer border-b-2 transition-colors ${rightPanelTab === t.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
 
-              <TabsContent value="menipis" className="mt-0">
-                <div className="divide-y divide-border max-h-[560px] overflow-y-auto">
-                  {lowStockList.length === 0 ? (
-                    <p className="p-6 text-center text-xs text-muted-foreground">Tidak ada produk dengan stok menipis/habis.</p>
-                  ) : (
-                    lowStockList.map((p) => (
-                      <div key={p.sku} className="flex items-center gap-3 p-4">
-                        <div className="w-11 h-11 rounded-lg bg-muted border border-border flex items-center justify-center shrink-0 overflow-hidden">
-                          {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-cover" /> : <Boxes className="w-5 h-5 text-muted-foreground" />}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <Badge variant="destructive" className="mb-1">{p.stock <= 0 ? 'Stok Habis' : 'Stok Menipis'}</Badge>
-                          <p className="font-extrabold text-xs text-foreground truncate">{p.name}</p>
-                          <p className="text-[10px] text-muted-foreground">Tersisa {p.stock} {p.unit} &middot; {p.warehouseLocation || '-'}</p>
-                        </div>
-                        <p className="font-black text-xs text-foreground shrink-0">Rp {p.retailPrice.toLocaleString('id-ID')}</p>
+            <div className="divide-y divide-gray-100 max-h-[560px] overflow-y-auto">
+              {rightPanelTab === 'menipis' && (
+                lowStockList.length === 0 ? (
+                  <p className="p-6 text-center text-xs text-gray-400">Tidak ada produk dengan stok menipis/habis.</p>
+                ) : (
+                  lowStockList.map((p) => (
+                    <div key={p.sku} className="flex items-center gap-3 p-4">
+                      <div className="w-11 h-11 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+                        {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-cover" /> : <Boxes className="w-5 h-5 text-gray-300" />}
                       </div>
-                    ))
-                  )}
-                </div>
-              </TabsContent>
+                      <div className="min-w-0 flex-1">
+                        <span className="inline-block mb-1 px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase bg-red-500 text-white">
+                          {p.stock <= 0 ? 'Stok Habis' : 'Stok Menipis'}
+                        </span>
+                        <p className="font-extrabold text-xs text-gray-900 truncate">{p.name}</p>
+                        <p className="text-[10px] text-gray-400">Tersisa {p.stock} {p.unit} &middot; {p.warehouseLocation || '-'}</p>
+                      </div>
+                      <p className="font-black text-xs text-gray-900 shrink-0">Rp {p.retailPrice.toLocaleString('id-ID')}</p>
+                    </div>
+                  ))
+                )
+              )}
 
-              <TabsContent value="opname" className="mt-0">
-                <div className="divide-y divide-border max-h-[560px] overflow-y-auto">
-                  {sedangOpnameList.length === 0 ? (
-                    <p className="p-6 text-center text-xs text-muted-foreground">Tidak ada produk yang sedang diajukan Stock Opname.</p>
-                  ) : (
-                    sedangOpnameList.map((p) => (
-                      <div key={p.sku} className="flex items-center gap-3 p-4">
-                        <div className="w-11 h-11 rounded-lg bg-muted border border-border flex items-center justify-center shrink-0 overflow-hidden">
-                          {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-cover" /> : <Boxes className="w-5 h-5 text-muted-foreground" />}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <Badge className="mb-1 bg-sky-500">Menunggu Persetujuan</Badge>
-                          <p className="font-extrabold text-xs text-foreground truncate">{p.name}</p>
-                          <p className="text-[10px] text-muted-foreground">Stok saat ini {p.stock} {p.unit} &middot; {p.warehouseLocation || '-'}</p>
-                        </div>
+              {rightPanelTab === 'opname' && (
+                sedangOpnameList.length === 0 ? (
+                  <p className="p-6 text-center text-xs text-gray-400">Tidak ada produk yang sedang diajukan Stock Opname.</p>
+                ) : (
+                  sedangOpnameList.map((p) => (
+                    <div key={p.sku} className="flex items-center gap-3 p-4">
+                      <div className="w-11 h-11 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+                        {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-cover" /> : <Boxes className="w-5 h-5 text-gray-300" />}
                       </div>
-                    ))
-                  )}
-                </div>
-              </TabsContent>
+                      <div className="min-w-0 flex-1">
+                        <span className="inline-block mb-1 px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase bg-sky-500 text-white">Menunggu Persetujuan</span>
+                        <p className="font-extrabold text-xs text-gray-900 truncate">{p.name}</p>
+                        <p className="text-[10px] text-gray-400">Stok saat ini {p.stock} {p.unit} &middot; {p.warehouseLocation || '-'}</p>
+                      </div>
+                    </div>
+                  ))
+                )
+              )}
 
-              <TabsContent value="terlaris" className="mt-0">
-                <div className="divide-y divide-border max-h-[560px] overflow-y-auto">
-                  {terlarisList.length === 0 ? (
-                    <p className="p-6 text-center text-xs text-muted-foreground">Belum ada data penjualan bulan ini.</p>
-                  ) : (
-                    terlarisList.map(({ product: p, qty }) => (
-                      <div key={p.sku} className="flex items-center gap-3 p-4">
-                        <div className="w-11 h-11 rounded-lg bg-muted border border-border flex items-center justify-center shrink-0 overflow-hidden">
-                          {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-cover" /> : <Boxes className="w-5 h-5 text-muted-foreground" />}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-extrabold text-xs text-foreground truncate">{p.name}</p>
-                          <p className="text-[10px] text-muted-foreground">Terjual {qty} {p.unit} bulan ini</p>
-                        </div>
-                        <p className="font-black text-xs text-foreground shrink-0">Rp {p.retailPrice.toLocaleString('id-ID')}</p>
+              {rightPanelTab === 'terlaris' && (
+                terlarisList.length === 0 ? (
+                  <p className="p-6 text-center text-xs text-gray-400">Belum ada data penjualan bulan ini.</p>
+                ) : (
+                  terlarisList.map(({ product: p, qty }) => (
+                    <div key={p.sku} className="flex items-center gap-3 p-4">
+                      <div className="w-11 h-11 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+                        {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-cover" /> : <Boxes className="w-5 h-5 text-gray-300" />}
                       </div>
-                    ))
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
-          </Card>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-extrabold text-xs text-gray-900 truncate">{p.name}</p>
+                        <p className="text-[10px] text-gray-400">Terjual {qty} {p.unit} bulan ini</p>
+                      </div>
+                      <p className="font-black text-xs text-gray-900 shrink-0">Rp {p.retailPrice.toLocaleString('id-ID')}</p>
+                    </div>
+                  ))
+                )
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Adjustment / Stock Opname Modal (dipakai dari kartu "Stok Opname") */}
-        <Dialog open={showAdjustmentModal} onOpenChange={setShowAdjustmentModal}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                <SlidersHorizontal className="w-4 h-4" /> PENYESUAIAN STOK MANUAL GUDANG
-              </DialogTitle>
-            </DialogHeader>
-
-            <form onSubmit={handleExecuteAdjustment} className="space-y-4 text-xs">
-              <div>
-                <Label>Pilih Bahan Bangunan (SKU)</Label>
-                <Select value={adjustProductSku} onValueChange={setAdjustProductSku}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {products.map(p => (
-                      <SelectItem key={p.sku} value={p.sku}>{p.name} ({p.sku})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Tipe Penyesuaian</Label>
-                  <Select value={adjustType} onValueChange={(v) => setAdjustType(v as any)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="add">Tambah Stok (+)</SelectItem>
-                      <SelectItem value="remove">Kurangi Stok (-)</SelectItem>
-                    </SelectContent>
-                  </Select>
+        <AnimatePresence>
+          {showAdjustmentModal && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-[150] p-4">
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-white rounded-2xl max-w-md w-full p-6 border border-gray-200 shadow-2xl max-h-[85vh] overflow-y-auto space-y-4"
+              >
+                <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                  <span className="font-black text-xs uppercase tracking-widest text-blue-600 flex items-center gap-1.5">
+                    <SlidersHorizontal className="w-4 h-4" /> PENYESUAIAN STOK MANUAL GUDANG
+                  </span>
+                  <button onClick={() => setShowAdjustmentModal(false)} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 cursor-pointer">✕</button>
                 </div>
 
-                <div>
-                  <Label>Jumlah Unit</Label>
-                  <NumberInput
-                    min={1}
-                    value={adjustValue}
-                    onChange={setAdjustValue}
-                    placeholder="0"
-                    className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
-                  />
-                </div>
-              </div>
+                <form onSubmit={handleExecuteAdjustment} className="space-y-4 text-xs">
+                  <div>
+                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Pilih Bahan Bangunan (SKU)</label>
+                    <select
+                      value={adjustProductSku}
+                      onChange={(e) => setAdjustProductSku(e.target.value)}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-semibold text-gray-700 outline-none"
+                    >
+                      {products.map(p => (
+                        <option key={p.sku} value={p.sku}>{p.name} ({p.sku})</option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div>
-                <Label>Catatan (opsional)</Label>
-                <Textarea
-                  rows={2}
-                  value={adjustNotes}
-                  onChange={(e) => setAdjustNotes(e.target.value)}
-                  placeholder="Contoh: sack semen rusak saat bongkar muat"
-                />
-              </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Tipe Penyesuaian</label>
+                      <select
+                        value={adjustType}
+                        onChange={(e) => setAdjustType(e.target.value as any)}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-semibold text-gray-700 outline-none"
+                      >
+                        <option value="add">Tambah Stok (+)</option>
+                        <option value="remove">Kurangi Stok (-)</option>
+                      </select>
+                    </div>
 
-              <label className="flex items-start gap-2 rounded-lg border border-border bg-muted p-2.5 text-[10px] font-bold text-foreground cursor-pointer">
-                <Checkbox
-                  checked={adjustDirectApply}
-                  onCheckedChange={(v) => setAdjustDirectApply(v === true)}
-                  className="mt-0.5"
-                />
-                <span>
-                  Terapkan Langsung (Mode Manajer) — stok langsung berubah tanpa perlu persetujuan. Jika tidak dicentang, pengajuan akan masuk ke daftar Stock Opname untuk disetujui manajer.
-                </span>
-              </label>
+                    <div>
+                      <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Jumlah Unit</label>
+                      <NumberInput
+                        min={1}
+                        value={adjustValue}
+                        onChange={setAdjustValue}
+                        placeholder="0"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-700 outline-none"
+                      />
+                    </div>
+                  </div>
 
-              <p className="text-[10px] text-muted-foreground leading-relaxed bg-primary/5 p-3 rounded-lg border border-primary/10">
-                Operasi penyesuaian stok ini akan langsung memengaruhi saldo fisik material di gudang utama. Log aktivitas penyesuaian akan dicatat atas nama operator aktif.
-              </p>
+                  <div>
+                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Catatan (opsional)</label>
+                    <textarea
+                      rows={2}
+                      value={adjustNotes}
+                      onChange={(e) => setAdjustNotes(e.target.value)}
+                      placeholder="Contoh: sack semen rusak saat bongkar muat"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-semibold text-gray-700 outline-none"
+                    />
+                  </div>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" className="w-full" onClick={() => setShowAdjustmentModal(false)}>
-                  Batal
-                </Button>
-                <Button type="submit" className="w-full">
-                  Terapkan Penyesuaian
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                  <label className="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2.5 text-[10px] font-bold text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={adjustDirectApply}
+                      onChange={(e) => setAdjustDirectApply(e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      Terapkan Langsung (Mode Manajer) — stok langsung berubah tanpa perlu persetujuan. Jika tidak dicentang, pengajuan akan masuk ke daftar Stock Opname untuk disetujui manajer.
+                    </span>
+                  </label>
+
+                  <p className="text-[10px] text-gray-400 leading-relaxed bg-blue-50/40 p-3 rounded-lg border border-blue-100">
+                    Operasi penyesuaian stok ini akan langsung memengaruhi saldo fisik material di gudang utama. Log aktivitas penyesuaian akan dicatat atas nama operator aktif.
+                  </p>
+
+                  <div className="pt-3 border-t border-gray-100 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAdjustmentModal(false)}
+                      className="w-full py-2.5 border border-gray-200 rounded-xl font-bold hover:bg-gray-50 cursor-pointer"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md shadow-blue-500/15 cursor-pointer"
+                    >
+                      Terapkan Penyesuaian
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -907,37 +924,37 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   if (stokView === 'pemasok') {
     return (
       <div className="space-y-6">
-        <Button variant="ghost" size="sm" onClick={() => setStokView('hub')} className="text-muted-foreground -ml-2">
+        <button onClick={() => setStokView('hub')} className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-gray-800 cursor-pointer">
           <ChevronRight className="w-3.5 h-3.5 rotate-180" /> Kembali ke Stok
-        </Button>
+        </button>
         <div>
-          <h2 className="text-2xl font-black text-foreground tracking-tight">Stok Pemasok</h2>
-          <p className="text-muted-foreground text-sm">Barang yang sudah dipesan (PO) tapi belum diterima ke gudang &mdash; masih tercatat sebagai stok di pemasok.</p>
+          <h2 className="text-2xl font-black text-gray-900 tracking-tight">Stok Pemasok</h2>
+          <p className="text-gray-500 text-sm">Barang yang sudah dipesan (PO) tapi belum diterima ke gudang &mdash; masih tercatat sebagai stok di pemasok.</p>
         </div>
         {pemasokStockRecap.length === 0 ? (
-          <Card className="p-10 text-center text-xs text-muted-foreground">
+          <div className="bg-white border border-gray-200 rounded-2xl p-10 text-center text-xs text-gray-400">
             Tidak ada purchase order yang masih berstatus belum diterima dari pemasok.
-          </Card>
+          </div>
         ) : (
           <div className="space-y-3">
             {pemasokStockRecap.map(({ supplier: s, openPOs, totalValue, totalItems }) => (
-              <Card key={s.name} className="p-4">
+              <div key={s.name} className="bg-white border border-gray-200 rounded-2xl p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="font-extrabold text-sm text-foreground">{s.name}</p>
-                  <p className="text-xs font-bold text-muted-foreground">{totalItems} unit &middot; Rp {totalValue.toLocaleString('id-ID')}</p>
+                  <p className="font-extrabold text-sm text-gray-900">{s.name}</p>
+                  <p className="text-xs font-bold text-gray-500">{totalItems} unit &middot; Rp {totalValue.toLocaleString('id-ID')}</p>
                 </div>
-                <div className="divide-y divide-border border-t border-border">
+                <div className="divide-y divide-gray-100 border-t border-gray-100">
                   {openPOs.map((po) => (
                     <div key={po.poNumber} className="flex items-center justify-between py-2 text-xs">
                       <div>
-                        <p className="font-bold text-foreground/80">{po.poNumber}</p>
-                        <p className="text-muted-foreground">{po.status} &middot; {po.createdDate}</p>
+                        <p className="font-bold text-gray-700">{po.poNumber}</p>
+                        <p className="text-gray-400">{po.status} &middot; {po.createdDate}</p>
                       </div>
-                      <p className="font-bold text-foreground">Rp {po.total.toLocaleString('id-ID')}</p>
+                      <p className="font-bold text-gray-800">Rp {po.total.toLocaleString('id-ID')}</p>
                     </div>
                   ))}
                 </div>
-              </Card>
+              </div>
             ))}
           </div>
         )}
@@ -949,46 +966,52 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     const currentProd = products.find((p) => p.sku === transferSku);
     return (
       <div className="space-y-6">
-        <Button variant="ghost" size="sm" onClick={() => setStokView('hub')} className="text-muted-foreground -ml-2">
+        <button onClick={() => setStokView('hub')} className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-gray-800 cursor-pointer">
           <ChevronRight className="w-3.5 h-3.5 rotate-180" /> Kembali ke Stok
-        </Button>
+        </button>
         <div>
-          <h2 className="text-2xl font-black text-foreground tracking-tight">Transfer Stok</h2>
-          <p className="text-muted-foreground text-sm">Pindahkan produk dari satu lokasi SKU ke lokasi SKU lainnya.</p>
+          <h2 className="text-2xl font-black text-gray-900 tracking-tight">Transfer Stok</h2>
+          <p className="text-gray-500 text-sm">Pindahkan produk dari satu lokasi SKU ke lokasi SKU lainnya.</p>
         </div>
-        <Card className="p-5 max-w-md space-y-4">
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 max-w-md space-y-4">
           <div>
-            <Label>Pilih Produk</Label>
-            <Select value={transferSku} onValueChange={setTransferSku}>
-              <SelectTrigger><SelectValue placeholder="Pilih produk..." /></SelectTrigger>
-              <SelectContent>
-                {products.map((p) => <SelectItem key={p.sku} value={p.sku}>{p.name} ({p.sku})</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Pilih Produk</label>
+            <select
+              value={transferSku}
+              onChange={(e) => setTransferSku(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
+            >
+              <option value="">Pilih produk...</option>
+              {products.map((p) => <option key={p.sku} value={p.sku}>{p.name} ({p.sku})</option>)}
+            </select>
           </div>
           {currentProd && (
-            <p className="text-xs text-muted-foreground">Lokasi saat ini: <span className="font-bold text-foreground/80">{currentProd.warehouseLocation || '-'}</span> &middot; Stok: <span className="font-bold text-foreground/80">{currentProd.stock} {currentProd.unit}</span></p>
+            <p className="text-xs text-gray-500">Lokasi saat ini: <span className="font-bold text-gray-700">{currentProd.warehouseLocation || '-'}</span> &middot; Stok: <span className="font-bold text-gray-700">{currentProd.stock} {currentProd.unit}</span></p>
           )}
           <div>
-            <Label>Lokasi Tujuan</Label>
-            <Select value={transferTargetLocationId} onValueChange={setTransferTargetLocationId}>
-              <SelectTrigger><SelectValue placeholder="Pilih lokasi tujuan..." /></SelectTrigger>
-              <SelectContent>
-                {skuLocations.map((l) => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Lokasi Tujuan</label>
+            <select
+              value={transferTargetLocationId}
+              onChange={(e) => setTransferTargetLocationId(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
+            >
+              <option value="">Pilih lokasi tujuan...</option>
+              {skuLocations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
             {skuLocations.length === 0 && (
               <p className="text-[10px] text-amber-600 mt-1">Belum ada data Lokasi SKU. Tambahkan dulu di menu Products &gt; Sku Master.</p>
             )}
           </div>
-          <Button onClick={handleTransferStock} className="w-full" size="lg">
+          <button
+            onClick={handleTransferStock}
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold cursor-pointer"
+          >
             Transfer Stok
-          </Button>
-        </Card>
+          </button>
+        </div>
       </div>
     );
   }
-
 
   return (
     <div className="space-y-6">
