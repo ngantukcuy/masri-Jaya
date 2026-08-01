@@ -14,7 +14,6 @@ import {
   Upload,
   ScanLine,
   Loader2,
-  RefreshCw,
   ArrowRight,
   PackageOpen
 } from 'lucide-react';
@@ -136,14 +135,11 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
   const kategori2List = categories.filter(c => c.level === 2);
   const kategori3List = categories.filter(c => c.level === 3);
 
-  // Barcode sekarang SENGAJA dibangun dari kode SKU produknya (awalan),
-  // bukan 13 digit murni acak yang nggak ada hubungannya sama sekali —
-  // supaya begitu lihat barcode-nya, kelihatan itu barcode punya SKU yang
-  // mana. Contoh: SKU "SKU-7K2F9A" -> barcode "SKU7K2F9A482913".
-  const generateBarcode = (sku: string) => {
-    const skuPart = (sku || 'SKU').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  // Satu-satunya tombol generate yang dipakai di form ini (baik Induk
+  // maupun Eceran): formatnya "SKU-" diikuti angka acak, contoh "SKU-482913".
+  const generateBarcode = () => {
     const randomDigits = String(Math.floor(100000 + Math.random() * 900000));
-    return `${skuPart}${randomDigits}`;
+    return `SKU-${randomDigits}`;
   };
 
   // ---- Scan barcode langsung pakai kamera (mengisi form induk/eceran) ----
@@ -478,17 +474,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
               <div>
                 <label className={labelCls}><BarcodeIcon className="inline w-3 h-3 mr-1" />Kode SKU (otomatis)</label>
-                <div className="flex gap-2">
-                  <input type="text" readOnly value={skuForm.sku} className={`${inputCls} bg-gray-100 text-gray-500 cursor-not-allowed`} />
-                  <button
-                    type="button"
-                    title="Acak ulang kode SKU"
-                    onClick={() => setSkuForm({ ...skuForm, sku: generateSkuCode() })}
-                    className="px-3 bg-gray-900 hover:bg-black text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer whitespace-nowrap"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                <input type="text" readOnly value={skuForm.sku} className={`${inputCls} bg-gray-100 text-gray-500 cursor-not-allowed`} />
               </div>
 
               <div>
@@ -561,7 +547,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                   <button type="button" onClick={() => setScannerTarget('induk')} className="px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer whitespace-nowrap flex items-center gap-1">
                     <ScanLine className="w-3 h-3" /> Scan
                   </button>
-                  <button type="button" onClick={() => setSkuForm({ ...skuForm, barcode: generateBarcode(skuForm.sku) })} className="px-3 bg-gray-900 hover:bg-black text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer whitespace-nowrap">
+                  <button type="button" onClick={() => setSkuForm({ ...skuForm, barcode: generateBarcode() })} className="px-3 bg-gray-900 hover:bg-black text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer whitespace-nowrap">
                     Generate
                   </button>
                 </div>
@@ -707,17 +693,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
               <div>
                 <label className={labelCls}><BarcodeIcon className="inline w-3 h-3 mr-1" />Kode SKU (otomatis)</label>
-                <div className="flex gap-2">
-                  <input type="text" readOnly value={eceranForm.sku} className={`${inputCls} bg-gray-100 text-gray-500 cursor-not-allowed`} />
-                  <button
-                    type="button"
-                    title="Acak ulang kode SKU"
-                    onClick={() => setEceranForm({ ...eceranForm, sku: generateSkuCode() })}
-                    className="px-3 bg-gray-900 hover:bg-black text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer whitespace-nowrap"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                <input type="text" readOnly value={eceranForm.sku} className={`${inputCls} bg-gray-100 text-gray-500 cursor-not-allowed`} />
               </div>
 
               <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-3 border border-gray-100">
@@ -754,7 +730,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                   <button type="button" onClick={() => setScannerTarget('eceran')} className="px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer whitespace-nowrap flex items-center gap-1">
                     <ScanLine className="w-3 h-3" /> Scan
                   </button>
-                  <button type="button" onClick={() => setEceranForm({ ...eceranForm, barcode: generateBarcode(eceranForm.sku) })} className="px-3 bg-gray-900 hover:bg-black text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer whitespace-nowrap">
+                  <button type="button" onClick={() => setEceranForm({ ...eceranForm, barcode: generateBarcode() })} className="px-3 bg-gray-900 hover:bg-black text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer whitespace-nowrap">
                     Generate
                   </button>
                 </div>

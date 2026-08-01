@@ -28,6 +28,7 @@ import QRISModal from './components/QRISModal';
 import ReceiptModal from './components/ReceiptModal';
 import AddProductModal from './components/AddProductModal';
 import AddCustomerModal from './components/AddCustomerModal';
+import SelectCustomerModal from './components/SelectCustomerModal';
 import PaymentMethodModal from './components/PaymentMethodModal';
 import CashPaymentModal from './components/CashPaymentModal';
 import SplitPaymentModal from './components/SplitPaymentModal';
@@ -168,6 +169,7 @@ export default function POSView({
 
   // New Custom Add Customer states
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [showSelectCustomerModal, setShowSelectCustomerModal] = useState(false);
 
   // New Product quick add states
   const [showAddProductModal, setShowAddProductModal] = useState(false);
@@ -1021,25 +1023,14 @@ export default function POSView({
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1">
               <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">PILIH PELANGGAN</label>
-              <select 
-                value={selectedCustomer.id}
-                onChange={(e) => {
-                  const match = customers.find(c => c.id === e.target.value);
-                  if (match) setSelectedCustomer(match);
-                }}
-                className="w-full bg-white border border-gray-200 rounded-lg p-2 font-bold text-xs text-gray-800 outline-none focus:ring-2 focus:ring-blue-600/15"
+              <button
+                type="button"
+                onClick={() => setShowSelectCustomerModal(true)}
+                className="w-full flex items-center justify-between bg-white border border-gray-200 rounded-lg p-2 font-bold text-xs text-gray-800 outline-none focus:ring-2 focus:ring-blue-600/15 cursor-pointer hover:bg-gray-50"
               >
-                {/* selectedCustomer bisa berupa pelanggan umum "Customer" (fallback,
-                    bukan baris asli di tabel customers) — kalau tidak ditambahkan
-                    sebagai <option> sendiri, <select> tidak akan menemukan opsi yang
-                    cocok dengan value-nya dan browser otomatis menampilkan opsi
-                    pertama di daftar (nama pelanggan lain), padahal yang benar-benar
-                    terpilih tetap "Customer". */}
-                {!customers.some(c => c.id === selectedCustomer.id) && (
-                  <option value={selectedCustomer.id}>{selectedCustomer.name}</option>
-                )}
-                {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+                <span className="truncate">{selectedCustomer.name}</span>
+                <span className="text-gray-400 font-semibold text-[9px] uppercase shrink-0 ml-2">Ganti</span>
+              </button>
             </div>
             <button 
               onClick={() => setShowAddCustomerModal(true)}
@@ -1348,6 +1339,23 @@ export default function POSView({
           <AddCustomerModal
             onClose={() => setShowAddCustomerModal(false)}
             onSubmit={handleAddCustomer}
+          />
+        )}
+
+        {showSelectCustomerModal && (
+          <SelectCustomerModal
+            customers={customers}
+            selectedCustomerId={selectedCustomer.id}
+            genericCustomer={genericWalkInCustomer()}
+            onClose={() => setShowSelectCustomerModal(false)}
+            onSelect={(c) => {
+              setSelectedCustomer(c);
+              setShowSelectCustomerModal(false);
+            }}
+            onAddNew={() => {
+              setShowSelectCustomerModal(false);
+              setShowAddCustomerModal(true);
+            }}
           />
         )}
       </AnimatePresence>
