@@ -236,6 +236,30 @@ export default function InvoicePrintModal({ invoice, docType, onClose, storeProf
                 <span>TOTAL AKHIR:</span>
                 <span>Rp {printableInvoice.total.toLocaleString('id-ID')}</span>
               </div>
+              {printableInvoice.paymentMethod === 'Cash' && typeof printableInvoice.cashReceived === 'number' && (
+                <>
+                  <div className="flex justify-between pt-1">
+                    <span>TUNAI DITERIMA:</span>
+                    <span>Rp {printableInvoice.cashReceived.toLocaleString('id-ID')}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-emerald-600">
+                    <span>KEMBALIAN:</span>
+                    <span>Rp {(printableInvoice.changeAmount || 0).toLocaleString('id-ID')}</span>
+                  </div>
+                </>
+              )}
+              {printableInvoice.paymentMethod === 'Split' && typeof printableInvoice.splitPaidAmount === 'number' && (
+                <>
+                  <div className="flex justify-between pt-1">
+                    <span>DIBAYAR SEKARANG:</span>
+                    <span>Rp {printableInvoice.splitPaidAmount.toLocaleString('id-ID')}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-amber-600">
+                    <span>SISA (PIUTANG):</span>
+                    <span>Rp {(printableInvoice.splitRemainingDebt || 0).toLocaleString('id-ID')}</span>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="py-4 space-y-3 text-[10px] text-gray-600">

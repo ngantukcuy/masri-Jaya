@@ -40,4 +40,14 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Wajib di Android 13+ (API 33) supaya notifikasi push (FCM) bisa muncul. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Tanpa ini, fitur scan barcode di POS (pakai getUserMedia() lewat kamera)
+         SELALU gagal/ditolak di APK Android — beda dengan browser biasa, WebView
+         di dalam APK tidak akan pernah bisa dapat izin kamera kalau permission-nya
+         tidak dideklarasikan di sini, walaupun user pencet "Izinkan" di dialog
+         yang muncul (dialognya bahkan mungkin tidak akan muncul sama sekali). -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- required="false" supaya app tetap bisa diinstall di device tanpa kamera
+         (Play Store tidak akan menyembunyikan app dari device tanpa kamera). -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 </manifest>

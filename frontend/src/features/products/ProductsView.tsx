@@ -423,16 +423,23 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   };
 
   const openCreateProductModal = () => {
+    // Sebelumnya field-field di sini diisi data CONTOH (harga Rp50.000,
+    // stok 100, lokasi "Section B - Row 01", foto placeholder) — kelihatan
+    // kaya form udah keisi otomatis padahal itu cuma angka bawaan demo,
+    // bukan data produk yang mau ditambahkan. Kalau admin nggak sadar dan
+    // nggak ganti semua field, produk baru malah kesimpen dengan harga/
+    // stok/lokasi ngasal. Sekarang beneran kosong/nol, cuma Kode SKU yang
+    // di-generate otomatis (karena itu memang harus unik per produk).
     setFormName('');
     setFormSku(generateSkuCode());
     setFormCategory('Cement & Mortar');
     setFormUnit('Sack');
-    setFormRetailPrice(50000);
-    setFormWholesalePrice(48000);
-    setFormProjectPrice(45000);
-    setFormStock(100);
-    setFormLocation('Section B - Row 01');
-    setFormImage('https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=150');
+    setFormRetailPrice(0);
+    setFormWholesalePrice(0);
+    setFormProjectPrice(0);
+    setFormStock(0);
+    setFormLocation('');
+    setFormImage('');
     setShowCreateModal(true);
   };
 

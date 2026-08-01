@@ -13,7 +13,10 @@ import {
   ImagePlus,
   Upload,
   ScanLine,
-  Loader2
+  Loader2,
+  RefreshCw,
+  ArrowRight,
+  PackageOpen
 } from 'lucide-react';
 import { Product, Bundle, BundleItem, SkuLocation } from '../../types';
 import { useSupabaseTable } from '../../lib/useSupabaseTable';
@@ -83,6 +86,10 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
   const [skuMode, setSkuMode] = useState<'induk' | 'eceran'>('induk');
 
   const emptySkuForm = {
+    // Kode SKU digenerate SEKALI di sini (bukan pas submit lagi) supaya bisa
+    // ditampilkan ke admin & dipakai sebagai awalan barcode di bawah — SKU
+    // dan barcode jadi nyambung, bukan dua angka acak yang nggak berhubungan.
+    sku: generateSkuCode(),
     image: '',
     name: '',
     alias: '',
@@ -103,10 +110,14 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
   const [skuForm, setSkuForm] = useState({ ...emptySkuForm });
 
   const emptyEceranForm = {
+    sku: generateSkuCode(),
     parentSku: '',
     conversionValue: 1,
     unit: units[0]?.name || '',
     alias: '',
+    /** Optional — kalau kosong, produk eceran ikut pakai foto produk induknya
+     * (lihat handleSubmitEceran). */
+    image: '',
     showLowStockAlert: false,
     minStockQty: 0,
     showInDeadstock: false,
@@ -120,11 +131,20 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
   const [eceranForm, setEceranForm] = useState({ ...emptyEceranForm });
 
   const indukProducts = products.filter(p => p.productType === 'Induk' || !p.productType);
+  const selectedIndukForEceran = indukProducts.find(p => p.sku === eceranForm.parentSku) || null;
   const kategori1List = categories.filter(c => c.level === 1);
   const kategori2List = categories.filter(c => c.level === 2);
   const kategori3List = categories.filter(c => c.level === 3);
 
-  const generateBarcode = () => `${Math.floor(1000000000000 + Math.random() * 8999999999999)}`;
+  // Barcode sekarang SENGAJA dibangun dari kode SKU produknya (awalan),
+  // bukan 13 digit murni acak yang nggak ada hubungannya sama sekali —
+  // supaya begitu lihat barcode-nya, kelihatan itu barcode punya SKU yang
+  // mana. Contoh: SKU "SKU-7K2F9A" -> barcode "SKU7K2F9A482913".
+  const generateBarcode = (sku: string) => {
+    const skuPart = (sku || 'SKU').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const randomDigits = String(Math.floor(100000 + Math.random() * 900000));
+    return `${skuPart}${randomDigits}`;
+  };
 
   // ---- Scan barcode langsung pakai kamera (mengisi form induk/eceran) ----
   const [scannerTarget, setScannerTarget] = useState<'induk' | 'eceran' | null>(null);
@@ -154,6 +174,27 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     }
   };
 
+  // ---- Sama seperti di atas, tapi buat foto produk Eceran sendiri (Optional
+  // — kalau tidak diisi, produk eceran ikut pakai foto produk induknya). ----
+  const [eceranImageUploading, setEceranImageUploading] = useState(false);
+  const [eceranImageUploadError, setEceranImageUploadError] = useState<string | null>(null);
+  const eceranImageFileInputRef = useRef<HTMLInputElement>(null);
+  const handleEceranImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setEceranImageUploadError(null);
+    setEceranImageUploading(true);
+    try {
+      const url = await uploadProductImage(file);
+      setEceranForm((prev) => ({ ...prev, image: url }));
+    } catch (err) {
+      setEceranImageUploadError(err instanceof Error ? err.message : 'Gagal mengunggah gambar.');
+    } finally {
+      setEceranImageUploading(false);
+    }
+  };
+
   const handleSubmitInduk = (e: React.FormEvent) => {
     e.preventDefault();
     if (!skuForm.name.trim()) {
@@ -162,7 +203,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     }
     if (!onUpdateProducts) return;
 
-    const sku = generateSkuCode();
+    const sku = skuForm.sku || generateSkuCode();
     const locationName = skuLocations.find(l => l.id === skuForm.skuLocationId)?.name || '';
 
     const newProduct: Product = {
@@ -197,7 +238,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
     onUpdateProducts([newProduct, ...products]);
     onAddActivity('Produk Induk Baru', `${newProduct.name} (${sku})`, 0, 'quote');
-    setSkuForm({ ...emptySkuForm, unit: units[0]?.name || '', skuLocationId: skuLocations[0]?.id || '' });
+    setSkuForm({ ...emptySkuForm, sku: generateSkuCode(), unit: units[0]?.name || '', skuLocationId: skuLocations[0]?.id || '' });
     dialog.alert(`Produk induk "${newProduct.name}" berhasil disimpan dengan SKU ${sku}.`);
   };
 
@@ -214,7 +255,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     }
     if (!onUpdateProducts) return;
 
-    const sku = generateSkuCode();
+    const sku = eceranForm.sku || generateSkuCode();
     const locationName = skuLocations.find(l => l.id === eceranForm.skuLocationId)?.name || '';
 
     const newProduct: Product = {
@@ -230,7 +271,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
       lastRestock: new Date().toISOString().slice(0, 10),
       leadTime: '-',
       warehouseLocation: locationName,
-      image: parent.image,
+      image: eceranForm.image || parent.image,
       productType: 'Eceran',
       alias: eceranForm.alias,
       parentSku: parent.sku,
@@ -248,7 +289,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
     onUpdateProducts([newProduct, ...products]);
     onAddActivity('Produk Eceran Baru', `${newProduct.name} - konversi 1 : ${eceranForm.conversionValue} ${eceranForm.unit}`, 0, 'quote');
-    setEceranForm({ ...emptyEceranForm, unit: units[0]?.name || '', skuLocationId: skuLocations[0]?.id || '' });
+    setEceranForm({ ...emptyEceranForm, sku: generateSkuCode(), unit: units[0]?.name || '', skuLocationId: skuLocations[0]?.id || '' });
     dialog.alert(`Produk eceran "${newProduct.name}" berhasil disimpan dengan SKU ${sku}.`);
   };
 
@@ -436,6 +477,21 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               </div>
 
               <div>
+                <label className={labelCls}><BarcodeIcon className="inline w-3 h-3 mr-1" />Kode SKU (otomatis)</label>
+                <div className="flex gap-2">
+                  <input type="text" readOnly value={skuForm.sku} className={`${inputCls} bg-gray-100 text-gray-500 cursor-not-allowed`} />
+                  <button
+                    type="button"
+                    title="Acak ulang kode SKU"
+                    onClick={() => setSkuForm({ ...skuForm, sku: generateSkuCode() })}
+                    className="px-3 bg-gray-900 hover:bg-black text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer whitespace-nowrap"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div>
                 <label className={labelCls}>Nama Produk</label>
                 <input type="text" required value={skuForm.name} onChange={(e) => setSkuForm({ ...skuForm, name: e.target.value })} placeholder="Contoh: Semen Portland 50kg" className={inputCls} />
               </div>
@@ -505,7 +561,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                   <button type="button" onClick={() => setScannerTarget('induk')} className="px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer whitespace-nowrap flex items-center gap-1">
                     <ScanLine className="w-3 h-3" /> Scan
                   </button>
-                  <button type="button" onClick={() => setSkuForm({ ...skuForm, barcode: generateBarcode() })} className="px-3 bg-gray-900 hover:bg-black text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer whitespace-nowrap">
+                  <button type="button" onClick={() => setSkuForm({ ...skuForm, barcode: generateBarcode(skuForm.sku) })} className="px-3 bg-gray-900 hover:bg-black text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer whitespace-nowrap">
                     Generate
                   </button>
                 </div>
@@ -544,29 +600,102 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
           {skuMode === 'eceran' && can('manage_product_add') && (
             <form onSubmit={handleSubmitEceran} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4 max-w-2xl text-xs">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-start">
+                {/* --- Kolom kiri: Produk Induk --- */}
                 <div className="border border-gray-200 rounded-xl p-3 space-y-2">
-                  <p className="font-black text-[10px] uppercase text-gray-400">Produk Induk</p>
-                  <select value={eceranForm.parentSku} onChange={(e) => setEceranForm({ ...eceranForm, parentSku: e.target.value })} className={inputCls}>
-                    <option value="">Pilih produk induk...</option>
-                    {indukProducts.map(p => <option key={p.sku} value={p.sku}>{p.name} ({p.unit})</option>)}
-                  </select>
+                  <p className="font-black text-[10px] uppercase text-gray-400 text-center">Produk Induk</p>
                   <div>
-                    <label className={labelCls}>Nilai Konversi</label>
-                    <NumberInput min={1} value={eceranForm.conversionValue} onChange={(v) => setEceranForm({ ...eceranForm, conversionValue: v })} className={inputCls} placeholder="Contoh: 40" />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Pilih Satuan Eceran</label>
-                    <select value={eceranForm.unit} onChange={(e) => setEceranForm({ ...eceranForm, unit: e.target.value })} className={inputCls}>
-                      {units.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                    <label className={labelCls}>Pilih produk induk <span className="text-red-500">*</span></label>
+                    <select value={eceranForm.parentSku} onChange={(e) => setEceranForm({ ...eceranForm, parentSku: e.target.value })} className={inputCls}>
+                      <option value="">Pilih produk induk...</option>
+                      {indukProducts.map(p => <option key={p.sku} value={p.sku}>{p.name} ({p.unit})</option>)}
                     </select>
                   </div>
+                  {/* Preview produk induk yang lagi dipilih — buat konfirmasi visual
+                      sebelum lanjut isi nilai konversi, sama kayak referensi desain. */}
+                  <div className="border border-gray-100 rounded-lg p-2.5 space-y-1.5 bg-gray-50/60">
+                    <div className="w-full aspect-square bg-white border border-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                      {selectedIndukForEceran?.image ? (
+                        <img src={selectedIndukForEceran.image} alt={selectedIndukForEceran.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <PackageOpen className="w-10 h-10 text-gray-300" />
+                      )}
+                    </div>
+                    <div>
+                      <p className={labelCls}>Satuan</p>
+                      <p className="font-bold text-gray-700">{selectedIndukForEceran?.unit || '-'}</p>
+                    </div>
+                    <div>
+                      <p className={labelCls}>Spesifikasi</p>
+                      <p className="font-bold text-gray-700">{selectedIndukForEceran?.category1 || '-'}</p>
+                    </div>
+                    <div>
+                      <p className={labelCls}>Nama Alias</p>
+                      <p className="font-bold text-gray-700">{selectedIndukForEceran?.alias || selectedIndukForEceran?.name || '-'}</p>
+                    </div>
+                  </div>
                 </div>
+
+                {/* --- Panah penghubung --- */}
+                <div className="flex items-center justify-center h-full pt-16">
+                  <div className="w-8 h-8 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-400 shrink-0">
+                    <ArrowRight className="w-4 h-4" />
+                  </div>
+                </div>
+
+                {/* --- Kolom kanan: Produk Eceran --- */}
                 <div className="border border-gray-200 rounded-xl p-3 space-y-2">
-                  <p className="font-black text-[10px] uppercase text-gray-400">Produk Eceran</p>
+                  <p className="font-black text-[10px] uppercase text-gray-400 text-center">Produk Eceran</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className={labelCls}>Nilai konversi</label>
+                      <NumberInput min={1} value={eceranForm.conversionValue} onChange={(v) => setEceranForm({ ...eceranForm, conversionValue: v })} className={inputCls} placeholder="Contoh: 40" />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Pilih Satuan <span className="text-red-500">*</span></label>
+                      <select value={eceranForm.unit} onChange={(e) => setEceranForm({ ...eceranForm, unit: e.target.value })} className={inputCls}>
+                        {units.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Foto produk eceran — opsional, kalau tidak diisi ikut pakai
+                      foto produk induknya (lihat handleSubmitEceran). */}
                   <div>
-                    <label className={labelCls}>Nama Alias Produk Eceran</label>
-                    <input type="text" value={eceranForm.alias} onChange={(e) => setEceranForm({ ...eceranForm, alias: e.target.value })} placeholder="Contoh: Semen Ecer per Kg" className={inputCls} />
+                    <label className={labelCls}>Foto Produk Eceran</label>
+                    <button
+                      type="button"
+                      onClick={() => eceranImageFileInputRef.current?.click()}
+                      disabled={eceranImageUploading}
+                      className="w-full border-2 border-dashed border-gray-200 rounded-xl py-4 flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-blue-400 hover:text-blue-500 cursor-pointer transition-colors disabled:opacity-60"
+                    >
+                      {eceranImageUploading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : eceranForm.image ? (
+                        <img src={eceranForm.image} alt="Preview produk eceran" className="w-12 h-12 object-cover rounded-lg border border-gray-200" />
+                      ) : (
+                        <Upload className="w-5 h-5" />
+                      )}
+                      <span className="text-[10px] font-bold">
+                        {eceranForm.image ? 'Ganti Foto' : 'Upload Foto (Optional)'}
+                      </span>
+                      <span className="text-[9px] text-gray-400">Ukuran maksimal foto 5MB</span>
+                    </button>
+                    <input ref={eceranImageFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleEceranImageFileSelect} />
+                    {eceranImageUploadError && <p className="text-[9px] text-red-500 font-bold mt-1">{eceranImageUploadError}</p>}
+                    {!eceranForm.image && (
+                      <p className="text-[9px] text-gray-400 mt-1">Kosongkan untuk pakai foto produk induk.</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className={labelCls}>Satuan</p>
+                    <p className="font-bold text-gray-700">{eceranForm.unit || '-'}</p>
+                  </div>
+
+                  <div>
+                    <label className={labelCls}>Nama Alias <span className="text-red-500">*</span></label>
+                    <input type="text" required value={eceranForm.alias} onChange={(e) => setEceranForm({ ...eceranForm, alias: e.target.value })} placeholder="Isi nama alias di sini" className={inputCls} />
                   </div>
                 </div>
               </div>
@@ -574,6 +703,21 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-center gap-2 text-blue-700 font-bold">
                 <Scale className="w-4 h-4 shrink-0" />
                 Jumlah produk pecahan / 1 produk = {eceranForm.conversionValue || 0} {eceranForm.unit}
+              </div>
+
+              <div>
+                <label className={labelCls}><BarcodeIcon className="inline w-3 h-3 mr-1" />Kode SKU (otomatis)</label>
+                <div className="flex gap-2">
+                  <input type="text" readOnly value={eceranForm.sku} className={`${inputCls} bg-gray-100 text-gray-500 cursor-not-allowed`} />
+                  <button
+                    type="button"
+                    title="Acak ulang kode SKU"
+                    onClick={() => setEceranForm({ ...eceranForm, sku: generateSkuCode() })}
+                    className="px-3 bg-gray-900 hover:bg-black text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer whitespace-nowrap"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-3 border border-gray-100">
@@ -610,7 +754,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                   <button type="button" onClick={() => setScannerTarget('eceran')} className="px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer whitespace-nowrap flex items-center gap-1">
                     <ScanLine className="w-3 h-3" /> Scan
                   </button>
-                  <button type="button" onClick={() => setEceranForm({ ...eceranForm, barcode: generateBarcode() })} className="px-3 bg-gray-900 hover:bg-black text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer whitespace-nowrap">
+                  <button type="button" onClick={() => setEceranForm({ ...eceranForm, barcode: generateBarcode(eceranForm.sku) })} className="px-3 bg-gray-900 hover:bg-black text-white rounded-lg text-[10px] font-bold uppercase cursor-pointer whitespace-nowrap">
                     Generate
                   </button>
                 </div>

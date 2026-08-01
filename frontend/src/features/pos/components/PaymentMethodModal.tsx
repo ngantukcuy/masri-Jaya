@@ -8,6 +8,10 @@ interface PaymentMethodModalProps {
   onSelect: (method: 'Cash' | 'QRIS' | 'Split' | 'Deposit') => void;
   totalAmount: number;
   customer: Customer;
+  /** True kalau customer yang dipilih masih pelanggan umum "Customer"
+   * (bukan baris pelanggan asli) — opsi "Split" (cicil) ditahan karena
+   * sisa hutangnya tidak ada pelanggan tujuannya. */
+  isGenericCustomer?: boolean;
 }
 
 /**
@@ -17,7 +21,7 @@ interface PaymentMethodModalProps {
  * Deposit) — menggantikan tombol toggle metode yang dulu terpisah di atas
  * tombol Bayar.
  */
-export default function PaymentMethodModal({ onClose, onSelect, totalAmount, customer }: PaymentMethodModalProps) {
+export default function PaymentMethodModal({ onClose, onSelect, totalAmount, customer, isGenericCustomer }: PaymentMethodModalProps) {
   const depositBalance = customer.depositBalance || 0;
 
   const options: {
@@ -41,7 +45,9 @@ export default function PaymentMethodModal({ onClose, onSelect, totalAmount, cus
     {
       method: 'Split',
       label: 'Kartu / Cicil',
-      desc: 'Bayar sebagian sekarang, sisanya jadi piutang',
+      desc: isGenericCustomer
+        ? 'Pilih pelanggan asli dulu — "Customer" umum tidak bisa punya piutang'
+        : 'Bayar sebagian sekarang, sisanya jadi piutang',
       icon: <CreditCard className="w-5 h-5" />,
     },
     {
@@ -73,22 +79,30 @@ export default function PaymentMethodModal({ onClose, onSelect, totalAmount, cus
         </div>
 
         <div className="space-y-2">
-          {options.map((opt) => (
-            <button
-              key={opt.method}
-              type="button"
-              onClick={() => onSelect(opt.method)}
-              className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 bg-white hover:bg-blue-50 hover:border-blue-600 cursor-pointer transition-colors text-left"
-            >
-              <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                {opt.icon}
-              </div>
-              <div className="min-w-0">
-                <p className="font-black text-xs text-gray-900">{opt.label}</p>
-                <p className="text-[10px] text-gray-400 truncate">{opt.desc}</p>
-              </div>
-            </button>
-          ))}
+          {options.map((opt) => {
+            const disabled = opt.method === 'Split' && isGenericCustomer;
+            return (
+              <button
+                key={opt.method}
+                type="button"
+                onClick={() => !disabled && onSelect(opt.method)}
+                disabled={disabled}
+                className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-colors ${
+                  disabled
+                    ? 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed'
+                    : 'border-gray-200 bg-white hover:bg-blue-50 hover:border-blue-600 cursor-pointer'
+                }`}
+              >
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${disabled ? 'bg-gray-200 text-gray-400' : 'bg-blue-50 text-blue-600'}`}>
+                  {opt.icon}
+                </div>
+                <div className="min-w-0">
+                  <p className={`font-black text-xs ${disabled ? 'text-gray-400' : 'text-gray-900'}`}>{opt.label}</p>
+                  <p className="text-[10px] text-gray-400 truncate">{opt.desc}</p>
+                </div>
+              </button>
+            );
+          })}
         </div>
 
         <button

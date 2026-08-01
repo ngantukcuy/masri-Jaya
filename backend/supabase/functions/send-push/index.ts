@@ -9,55 +9,31 @@ const supabase = createClient(
   SUPABASE_URL,
   SERVICE_ROLE_KEY
 );
-const ENTITY_NAMES: Record<string,string> = {
-  products:"Produk",
-  customers:"Pelanggan",
-  suppliers:"Supplier",
-  sales_invoices:"Transaksi",
-  purchase_orders:"Purchase Order",
-  returns:"Retur",
-  expenses:"Pengeluaran",
-  activities:"Aktivitas",
-  staff_list:"Staff",
-  branches:"Cabang",
-  banners:"Banner",
-  printers:"Printer",
-  bank_accounts:"Rekening",
-  digital_orders:"Pesanan Digital",
-  product_categories:"Kategori",
-  product_brands:"Brand",
-  product_units:"Satuan",
-  product_bundles:"Bundle",
-  sku_locations:"Lokasi SKU",
-  opname_submissions:"Stock Opname"
-};
 const rupiah=(n:number)=>
 `Rp ${Math.round(n||0).toLocaleString("id-ID")}`;
-function entity(table:string){
-    return ENTITY_NAMES[table]??table;
-}
 function getData(record:any){
     return record?.data??{};
 }
-function getIdentifier(data:any){
-    return(
-        data.invoiceNumber??
-        data.name??
-        data.customerName??
-        data.supplierName??
-        data.orderNumber??
-        data.purchaseOrderNumber??
-        data.title??
-        data.sku??
-        data.code??
-        data.id??
-        "Data"
-    );
-}
+// PENTING — daftar notif sekarang SENGAJA dibatasi (allow-list), bukan
+// "semua tabel dapat notif generik secara default" seperti sebelumnya.
+// Alasannya: kalau ada Database Webhook lain yang (sengaja/tidak sengaja)
+// dipasang di tabel selain sales_invoices/products, tabel itu akan jatuh
+// ke fallback generik "✏️/➕/🗑️ ... berhasil diperbarui/ditambahkan/
+// dihapus" — pesan yang nggak informatif dan gampang numpuk saat satu
+// transaksi POS menyentuh banyak baris (customers, products per item
+// keranjang, dst). Sekarang HANYA 2 jenis event yang benar-benar push:
+//   1) sales_invoices INSERT -> "Transaksi Baru"
+//   2) products UPDATE -> stok jadi "Low Stock" / "Out of Stock"
+// Semua INSERT/UPDATE/DELETE lain (termasuk customers, suppliers,
+// purchase_orders, expenses, dll) TIDAK lagi memicu push — tetap kelihatan
+// normal di halaman Aktivitas dalam app, cuma nggak nongol sebagai notif
+// yang muncul walau app ditutup. Mau tambah notif penting yang baru?
+// Tambahkan cabang khusus di buildInsert/buildUpdate di bawah (jangan
+// pakai fallback generik lagi).
 function buildInsert(
     table:string,
     data:any
-):PushPayload{
+):PushPayload|null{
     if(table==="sales_invoices"){
         return{
             title:"💰 Transaksi Baru",
@@ -71,127 +47,13 @@ ${rupiah(data.total)}`,
             }
         };
     }
-    if(table==="customers"){
-        return{
-            title:"👤 Customer Baru",
-            body:data.customerName??data.name,
-            data:{
-                table,
-                action:"INSERT"
-            }
-        };
-    }
-    if(table==="suppliers"){
-        return{
-            title:"🚚 Supplier Baru",
-            body:data.supplierName??data.name,
-            data:{
-                table,
-                action:"INSERT"
-            }
-        };
-    }
-    if(table==="purchase_orders"){
-        return{
-            title:"📦 Purchase Order",
-            body:getIdentifier(data),
-            data:{
-                table,
-                action:"INSERT"
-            }
-        };
-    }
-    if(table==="expenses"){
-        return{
-            title:"💸 Pengeluaran",
-            body:
-`${getIdentifier(data)}
-${rupiah(data.amount??0)}`,
-            data:{
-                table,
-                action:"INSERT"
-            }
-        };
-    }
-    return{
-        title:`➕ ${entity(table)} Baru`,
-        body:
-`${getIdentifier(data)}
-berhasil ditambahkan`,
-        data:{
-            table,
-            action:"INSERT"
-        }
-    };
-}
-// Field-field "identitas" pelanggan — perubahan di sini layak dinotifikasi
-// (mis. Admin mengedit nama/telepon/alamat lewat halaman Pelanggan).
-// SENGAJA tidak termasuk field finansial rutin (points, totalPurchases,
-// currentDebt, debtStatus, pendingAmount, overdueAmount, depositBalance,
-// nextDueDate, lastTransactions) — field-field itu selalu ikut ter-update
-// otomatis tiap ada transaksi POS/setor deposit/tambah-bayar hutang. Dulu
-// SETIAP transaksi = 1 notif "Transaksi Baru" (dari sales_invoices) DITAMBAH
-// 1 notif "Pelanggan diperbarui" (dari customers) yang isinya cuma bilang
-// "berhasil diperbarui" tanpa detail apa yang berubah — jadi terasa spam
-// padahal cuma 1 transaksi. Sekarang update customers cuma dinotif kalau
-// benar-benar ada perubahan data identitas pelanggannya.
-const CUSTOMER_IDENTITY_FIELDS = [
-    "name",
-    "phone",
-    "address",
-    "customerType",
-    "paymentTerms",
-    "tempoDays",
-    "creditLimit",
-    "loyaltyTier"
-];
-function customerIdentityChanged(oldData:any,newData:any):boolean{
-    return CUSTOMER_IDENTITY_FIELDS.some(
-        (field)=>JSON.stringify(oldData?.[field])!==JSON.stringify(newData?.[field])
-    );
-}
-// Field-field "identitas/harga" produk — perubahan di sini layak
-// dinotifikasi (mis. Admin edit harga/nama lewat halaman Produk).
-// SENGAJA tidak termasuk `stock` — field itu ikut turun otomatis tiap ada
-// transaksi POS (satu transaksi bisa mengubah banyak baris produk
-// sekaligus, satu per item di keranjang). Dulu tiap baris produk yang
-// stock-nya berkurang tapi stockStatus-nya TIDAK berubah (masih "Healthy")
-// tetap kena notif generik "Produk diperbarui" — jadi 1 transaksi dengan
-// 5 barang di keranjang = 5 notif generik + 1 notif transaksi. Penurunan
-// stok ke Low Stock/Out of Stock tetap dinotif lewat cabang khusus di
-// bawah karena itu sinyal penting buat restock.
-const PRODUCT_IDENTITY_FIELDS = [
-    "name",
-    "category",
-    "unit",
-    "retailPrice",
-    "wholesalePrice",
-    "projectPrice",
-    "warehouseLocation",
-    "costPrice",
-    "minSellPrice",
-    "standardSellPrice",
-    "alias",
-    "barcode"
-];
-function productIdentityChanged(oldData:any,newData:any):boolean{
-    return PRODUCT_IDENTITY_FIELDS.some(
-        (field)=>JSON.stringify(oldData?.[field])!==JSON.stringify(newData?.[field])
-    );
+    return null;
 }
 function buildUpdate(
     table:string,
     oldData:any,
     newData:any
 ):PushPayload|null{
-    if(table==="customers"){
-        // Bukan perubahan identitas (cuma bump poin/piutang/deposit/riwayat
-        // dari transaksi) — jangan kirim notif terpisah, sudah terwakili
-        // oleh notif transaksinya sendiri (kalau ada).
-        if(!customerIdentityChanged(oldData,newData)){
-            return null;
-        }
-    }
     if(table==="products"){
         if(
             oldData.stockStatus!==
@@ -224,38 +86,19 @@ Sisa ${newData.stock} ${newData.unit}`,
                 };
             }
         }
-        // Stock turun/naik tapi status-nya tetap sama (mis. masih "Healthy"),
-        // dan tidak ada perubahan identitas/harga — ini murni efek samping
-        // transaksi (atau opname), jangan kirim notif terpisah.
-        if(!productIdentityChanged(oldData,newData)){
-            return null;
-        }
     }
-    return{
-        title:`✏️ ${entity(table)}`,
-        body:
-`${getIdentifier(newData)}
-berhasil diperbarui`,
-        data:{
-            table,
-            action:"UPDATE"
-        }
-    };
+    // Semua UPDATE lain (customers, harga produk, dst) sengaja tidak
+    // memicu push lagi — lihat catatan besar di atas buildInsert().
+    return null;
 }
+// DELETE juga sengaja tidak memicu push lagi (bukan event mendesak yang
+// perlu nongol sebagai notif interupsi) — konsisten dengan allow-list di
+// buildInsert()/buildUpdate() di atas.
 function buildDelete(
-    table:string,
-    data:any
-):PushPayload{
-    return{
-        title:`🗑️ ${entity(table)}`,
-        body:
-`${getIdentifier(data)}
-berhasil dihapus`,
-        data:{
-            table,
-            action:"DELETE"
-        }
-    };
+    _table:string,
+    _data:any
+):PushPayload|null{
+    return null;
 }
 function buildNotificationPayload(
     webhook:any

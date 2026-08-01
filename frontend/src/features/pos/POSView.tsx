@@ -45,6 +45,13 @@ import {
 import { useDialog } from '../../components/shared/DialogProvider';
 import NumberInput from '../../components/shared/NumberInput';
 
+/** ID pelanggan umum/walk-in "Customer" (lihat genericWalkInCustomer di
+ * bawah) — bukan baris asli di tabel customers, jadi tidak punya tempat
+ * penyimpanan piutang/cicilan yang valid. Dipakai buat menahan metode
+ * bayar "Split" (bayar sebagian/cicil) supaya kasir wajib pilih pelanggan
+ * asli dulu — kalau tidak, sisa hutangnya nggak ke-track ke siapa pun. */
+const GENERIC_CUSTOMER_ID = 'CUST-01';
+
 /** Resolves the actual unit price to charge for a cart line: the cashier's
  * edited price when present, otherwise falls back to the tier derived from
  * selectedPriceType (kept for carts/invoices persisted before per-line
@@ -101,7 +108,7 @@ export default function POSView({
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const genericWalkInCustomer = (): Customer => ({
-    id: 'CUST-01',
+    id: GENERIC_CUSTOMER_ID,
     name: 'Customer',
     loyaltyTier: 'Pelanggan Retail',
     points: 0,
@@ -481,7 +488,15 @@ export default function POSView({
       return;
     }
 
-    // 'Split' — bayar sebagian (DP), sisanya jadi piutang/cicilan.
+    // 'Split' — bayar sebagian (DP), sisanya jadi piutang/cicilan. Sisa
+    // hutangnya ditulis ke data pelanggan (currentDebt) — kalau yang
+    // dipilih masih pelanggan umum "Customer" (bukan baris pelanggan asli),
+    // sisa hutang itu nggak ada tempat penyimpanannya, jadi tahan dulu di
+    // sini dan minta kasir pilih pelanggan yang sebenarnya.
+    if (selectedCustomer.id === GENERIC_CUSTOMER_ID) {
+      dialog.alert('Pelanggan "Customer" (umum) tidak bisa bayar sebagian/cicil, karena sisa hutangnya tidak ada pelanggan tujuannya. Pilih atau tambahkan data pelanggan yang sebenarnya dulu di dropdown pelanggan.');
+      return;
+    }
     setShowSplitPaymentModal(true);
   };
 
@@ -1264,6 +1279,7 @@ export default function POSView({
             onSelect={handleSelectPaymentMethod}
             totalAmount={totalAmount}
             customer={selectedCustomer}
+            isGenericCustomer={selectedCustomer.id === GENERIC_CUSTOMER_ID}
           />
         )}
 
