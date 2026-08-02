@@ -10,9 +10,7 @@ import {
   CheckCircle2,
   History,
   AlertTriangle,
-  X
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 import { CashSession, SalesInvoice, ReturnRecord } from '../../types';
 import {
   getCurrentSession,
@@ -25,6 +23,13 @@ import {
 import { useDialog } from '../../components/shared/DialogProvider';
 import NumberInput from '../../components/shared/NumberInput';
 import KasHarianDetailModal from './KasHarianDetailModal';
+import { Button } from '../../components/ui/button';
+import { Card, CardHeader, CardTitle } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 
 interface KasHarianViewProps {
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
@@ -124,118 +129,116 @@ export default function KasHarianView({ onAddActivity, salesInvoices = [], retur
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
-            <Wallet className="w-5 h-5 text-blue-600" />
+          <h2 className="text-xl font-black text-foreground flex items-center gap-2">
+            <Wallet className="w-5 h-5 text-primary" />
             Kas Harian
           </h2>
-          <p className="text-xs text-gray-500 font-medium mt-0.5">Pantau kas masuk, kas keluar, dan kesesuaian uang laci toko.</p>
+          <p className="text-xs text-muted-foreground font-medium mt-0.5">Pantau kas masuk, kas keluar, dan kesesuaian uang laci toko.</p>
         </div>
-        <div className="flex gap-2 bg-gray-100 rounded-xl p-1">
-          <button
-            onClick={() => setActiveTab('kas')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer transition-all ${activeTab === 'kas' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
-          >
-            Kas Hari Ini
-          </button>
-          <button
-            onClick={() => setActiveTab('laporan')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer transition-all ${activeTab === 'laporan' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
-          >
-            Laporan
-          </button>
-        </div>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+          <TabsList className="bg-muted rounded-xl p-1 border-none gap-0">
+            <TabsTrigger
+              value="kas"
+              className="px-4 py-2 rounded-lg border-none data-[state=active]:bg-background data-[state=active]:shadow data-[state=active]:text-primary uppercase tracking-wider"
+            >
+              Kas Hari Ini
+            </TabsTrigger>
+            <TabsTrigger
+              value="laporan"
+              className="px-4 py-2 rounded-lg border-none data-[state=active]:bg-background data-[state=active]:shadow data-[state=active]:text-primary uppercase tracking-wider"
+            >
+              Laporan
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {activeTab === 'kas' && (
         <>
           {!session ? (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 flex flex-col items-center text-center gap-4 max-w-md mx-auto">
-              <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center">
-                <Lock className="w-6 h-6 text-blue-600" />
+            <Card className="p-8 flex flex-col items-center text-center gap-4 max-w-md mx-auto">
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                <Lock className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h3 className="font-extrabold text-gray-900">Kas Harian Belum Dibuka</h3>
-                <p className="text-xs text-gray-500 mt-1">Masukkan jumlah kas awal yang sudah disiapkan di laci sebelum mulai melayani transaksi tunai.</p>
+                <h3 className="font-extrabold text-foreground">Kas Harian Belum Dibuka</h3>
+                <p className="text-xs text-muted-foreground mt-1">Masukkan jumlah kas awal yang sudah disiapkan di laci sebelum mulai melayani transaksi tunai.</p>
               </div>
               <div className="w-full">
-                <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5 text-left">Jumlah Kas Awal (IDR)</label>
+                <Label className="text-left">Jumlah Kas Awal (IDR)</Label>
                 <NumberInput
                   value={openingInput}
                   onChange={setOpeningInput}
                   placeholder="0"
-                  className="w-full border border-gray-200 rounded-xl p-3 text-center font-bold text-lg outline-none focus:border-blue-400"
+                  className="w-full border border-input rounded-xl p-3 text-center font-bold text-lg outline-none focus:border-primary"
                 />
               </div>
-              <button
-                onClick={handleOpenSession}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl cursor-pointer flex items-center justify-center gap-2"
-              >
+              <Button onClick={handleOpenSession} size="lg" className="w-full">
                 <Unlock className="w-4 h-4" />
                 Buka Kas Harian
-              </button>
-            </div>
+              </Button>
+            </Card>
           ) : (
             <>
               {/* Summary Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Kas Awal</p>
-                  <p className="text-lg font-black text-gray-900 mt-1">Rp {session.openingBalance.toLocaleString('id-ID')}</p>
-                  <p className="text-[10px] text-gray-400 mt-1">Dibuka {session.openedAt}</p>
-                </div>
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Kas Masuk</p>
+                <Card className="p-4">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Kas Awal</p>
+                  <p className="text-lg font-black text-foreground mt-1">Rp {session.openingBalance.toLocaleString('id-ID')}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Dibuka {session.openedAt}</p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Kas Masuk</p>
                   <p className="text-lg font-black text-emerald-600 mt-1">+Rp {(totals?.totalIn || 0).toLocaleString('id-ID')}</p>
-                  <p className="text-[10px] text-gray-400 mt-1">{session.totalInvoicesCash} invoice tunai</p>
-                </div>
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Kas Keluar</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{session.totalInvoicesCash} invoice tunai</p>
+                </Card>
+                <Card className="p-4">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Kas Keluar</p>
                   <p className="text-lg font-black text-red-500 mt-1">-Rp {(totals?.totalOut || 0).toLocaleString('id-ID')}</p>
-                  <p className="text-[10px] text-gray-400 mt-1">{session.mutations.filter(m => m.type === 'out').length} transaksi</p>
-                </div>
-                <div className="bg-blue-600 rounded-2xl shadow-sm p-4 text-white">
-                  <p className="text-[10px] font-bold text-blue-100 uppercase tracking-wider">Total Kas Sistem</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">{session.mutations.filter(m => m.type === 'out').length} transaksi</p>
+                </Card>
+                <Card className="p-4 bg-primary border-primary text-primary-foreground">
+                  <p className="text-[10px] font-bold text-primary-foreground/80 uppercase tracking-wider">Total Kas Sistem</p>
                   <p className="text-lg font-black mt-1">Rp {(totals?.systemTotal || 0).toLocaleString('id-ID')}</p>
-                  <p className="text-[10px] text-blue-100 mt-1">Seharusnya ada di laci</p>
-                </div>
+                  <p className="text-[10px] text-primary-foreground/80 mt-1">Seharusnya ada di laci</p>
+                </Card>
               </div>
 
               {/* Quick Actions */}
               <div className="flex flex-wrap gap-2">
-                <button
+                <Button
+                  variant="secondary"
                   onClick={() => { setShowMutationModal('in'); setMutationCategory('Kas Tambahan'); }}
-                  className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-bold cursor-pointer"
+                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
                 >
                   <PlusCircle className="w-4 h-4" /> Catat Kas Masuk
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
                   onClick={() => { setShowMutationModal('out'); setMutationCategory('Pembayaran Lainnya'); }}
-                  className="flex items-center gap-1.5 px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-xl text-xs font-bold cursor-pointer"
+                  className="bg-red-50 hover:bg-red-100 text-red-700"
                 >
                   <MinusCircle className="w-4 h-4" /> Catat Kas Keluar
-                </button>
-                <button
-                  onClick={() => setDetailSession(session)}
-                  className="flex items-center gap-1.5 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold cursor-pointer"
-                >
+                </Button>
+                <Button variant="secondary" onClick={() => setDetailSession(session)}>
                   Lihat Ringkasan Lengkap
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => { setShowCloseModal(true); setActualCashInput(totals?.systemTotal || 0); }}
-                  className="ml-auto flex items-center gap-1.5 px-4 py-2.5 bg-gray-900 hover:bg-black text-white rounded-xl text-xs font-bold cursor-pointer"
+                  className="ml-auto bg-gray-900 hover:bg-black text-white"
                 >
                   <Lock className="w-4 h-4" /> Tutup Kas Harian
-                </button>
+                </Button>
               </div>
 
               {/* Mutations List */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-gray-100">
-                  <h4 className="font-extrabold text-sm text-gray-800">Mutasi Kas Hari Ini</h4>
-                </div>
-                <div className="divide-y divide-gray-100 max-h-[420px] overflow-y-auto">
+              <Card className="p-0 gap-0 overflow-hidden">
+                <CardHeader className="p-4 border-b border-border">
+                  <CardTitle>Mutasi Kas Hari Ini</CardTitle>
+                </CardHeader>
+                <div className="divide-y divide-border max-h-[420px] overflow-y-auto">
                   {session.mutations.length === 0 ? (
-                    <p className="p-6 text-center text-xs text-gray-400">Belum ada mutasi kas tercatat hari ini.</p>
+                    <p className="p-6 text-center text-xs text-muted-foreground">Belum ada mutasi kas tercatat hari ini.</p>
                   ) : (
                     session.mutations.map((m) => (
                       <div key={m.id} className="flex items-center justify-between p-3.5 text-xs">
@@ -246,35 +249,35 @@ export default function KasHarianView({ onAddActivity, salesInvoices = [], retur
                             <ArrowDownCircle className="w-4 h-4 text-red-500 shrink-0" />
                           )}
                           <div>
-                            <p className="font-bold text-gray-800">{m.category}</p>
-                            {m.note && <p className="text-[10px] text-gray-400 mt-0.5">{m.note}</p>}
+                            <p className="font-bold text-foreground">{m.category}</p>
+                            {m.note && <p className="text-[10px] text-muted-foreground mt-0.5">{m.note}</p>}
                           </div>
                         </div>
                         <div className="text-right shrink-0 pl-3">
                           <p className={`font-extrabold ${m.type === 'in' ? 'text-emerald-600' : 'text-red-500'}`}>
                             {m.type === 'in' ? '+' : '-'}Rp {m.amount.toLocaleString('id-ID')}
                           </p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">{m.time}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{m.time}</p>
                         </div>
                       </div>
                     ))
                   )}
                 </div>
-              </div>
+              </Card>
             </>
           )}
         </>
       )}
 
       {activeTab === 'laporan' && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-gray-100 flex items-center gap-2">
-            <History className="w-4 h-4 text-gray-400" />
-            <h4 className="font-extrabold text-sm text-gray-800">Riwayat Kas Harian (Sesi Ditutup)</h4>
-          </div>
-          <div className="divide-y divide-gray-100">
+        <Card className="p-0 gap-0 overflow-hidden">
+          <CardHeader className="p-4 border-b border-border flex-row items-center gap-2 space-y-0">
+            <History className="w-4 h-4 text-muted-foreground" />
+            <CardTitle>Riwayat Kas Harian (Sesi Ditutup)</CardTitle>
+          </CardHeader>
+          <div className="divide-y divide-border">
             {history.length === 0 ? (
-              <p className="p-6 text-center text-xs text-gray-400">Belum ada sesi kas harian yang ditutup.</p>
+              <p className="p-6 text-center text-xs text-muted-foreground">Belum ada sesi kas harian yang ditutup.</p>
             ) : (
               history.map((h) => {
                 const t = getMutationTotals(h);
@@ -287,12 +290,12 @@ export default function KasHarianView({ onAddActivity, salesInvoices = [], retur
                       className="w-full flex items-center justify-between text-left cursor-pointer"
                     >
                       <div>
-                        <p className="font-extrabold text-gray-800 text-xs">{h.date}</p>
-                        <p className="text-[10px] text-gray-400 mt-0.5">{h.openedAt} – {h.closedAt} · {h.totalInvoicesCash + h.totalInvoicesNonCash} invoice ({h.totalStocksSoldCash} item terjual tunai)</p>
+                        <p className="font-extrabold text-foreground text-xs">{h.date}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{h.openedAt} – {h.closedAt} · {h.totalInvoicesCash + h.totalInvoicesNonCash} invoice ({h.totalStocksSoldCash} item terjual tunai)</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-black text-gray-900 text-sm">Rp {(h.closingActual || 0).toLocaleString('id-ID')}</p>
-                        <p className={`text-[10px] font-bold ${selisihHist === 0 ? 'text-emerald-600' : selisihHist > 0 ? 'text-blue-600' : 'text-red-500'}`}>
+                        <p className="font-black text-foreground text-sm">Rp {(h.closingActual || 0).toLocaleString('id-ID')}</p>
+                        <p className={`text-[10px] font-bold ${selisihHist === 0 ? 'text-emerald-600' : selisihHist > 0 ? 'text-primary' : 'text-red-500'}`}>
                           {selisihHist === 0 ? 'Sesuai' : selisihHist > 0 ? `Lebih Rp ${selisihHist.toLocaleString('id-ID')}` : `Kurang Rp ${Math.abs(selisihHist).toLocaleString('id-ID')}`}
                         </p>
                       </div>
@@ -300,16 +303,13 @@ export default function KasHarianView({ onAddActivity, salesInvoices = [], retur
 
                     {isExpanded && (
                       <div className="mt-3 space-y-3">
-                        <button
-                          onClick={() => setDetailSession(h)}
-                          className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-[10px] font-bold uppercase cursor-pointer"
-                        >
+                        <Button variant="secondary" size="sm" className="w-full uppercase" onClick={() => setDetailSession(h)}>
                           Lihat Ringkasan Lengkap
-                        </button>
+                        </Button>
                         <div className="grid grid-cols-3 gap-2 text-center">
-                          <div className="bg-gray-50 rounded-lg p-2">
-                            <p className="text-[9px] text-gray-400 font-bold uppercase">Kas Awal</p>
-                            <p className="font-bold text-xs text-gray-800">Rp {h.openingBalance.toLocaleString('id-ID')}</p>
+                          <div className="bg-muted rounded-lg p-2">
+                            <p className="text-[9px] text-muted-foreground font-bold uppercase">Kas Awal</p>
+                            <p className="font-bold text-xs text-foreground/80">Rp {h.openingBalance.toLocaleString('id-ID')}</p>
                           </div>
                           <div className="bg-emerald-50 rounded-lg p-2">
                             <p className="text-[9px] text-emerald-500 font-bold uppercase">Kas Masuk</p>
@@ -320,13 +320,13 @@ export default function KasHarianView({ onAddActivity, salesInvoices = [], retur
                             <p className="font-bold text-xs text-red-600">Rp {t.totalOut.toLocaleString('id-ID')}</p>
                           </div>
                         </div>
-                        <div className="border border-gray-100 rounded-lg divide-y divide-gray-100">
+                        <div className="border border-border rounded-lg divide-y divide-border">
                           {h.mutations.length === 0 ? (
-                            <p className="p-3 text-center text-[10px] text-gray-400">Tidak ada mutasi pada sesi ini.</p>
+                            <p className="p-3 text-center text-[10px] text-muted-foreground">Tidak ada mutasi pada sesi ini.</p>
                           ) : (
                             h.mutations.map((m) => (
                               <div key={m.id} className="flex justify-between p-2.5 text-[11px]">
-                                <span className="text-gray-600 font-semibold">{m.category}</span>
+                                <span className="text-foreground/80 font-semibold">{m.category}</span>
                                 <span className={`font-bold ${m.type === 'in' ? 'text-emerald-600' : 'text-red-500'}`}>
                                   {m.type === 'in' ? '+' : '-'}Rp {m.amount.toLocaleString('id-ID')}
                                 </span>
@@ -341,131 +341,98 @@ export default function KasHarianView({ onAddActivity, salesInvoices = [], retur
               })
             )}
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Mutation Modal */}
-      <AnimatePresence>
-        {showMutationModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4"
-            >
-              <div className="flex items-center justify-between">
-                <h4 className="font-extrabold text-sm text-gray-900">
-                  {showMutationModal === 'in' ? 'Catat Kas Masuk' : 'Catat Kas Keluar'}
-                </h4>
-                <button onClick={() => setShowMutationModal(null)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+      <Dialog open={!!showMutationModal} onOpenChange={(open) => !open && setShowMutationModal(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm text-foreground normal-case tracking-normal">
+              {showMutationModal === 'in' ? 'Catat Kas Masuk' : 'Catat Kas Keluar'}
+            </DialogTitle>
+          </DialogHeader>
 
-              <div>
-                <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Kategori</label>
-                <select
-                  value={mutationCategory}
-                  onChange={(e) => setMutationCategory(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg p-2.5 text-xs font-bold outline-none"
-                >
+          <div className="space-y-4">
+            <div>
+              <Label>Kategori</Label>
+              <Select value={mutationCategory} onValueChange={setMutationCategory}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
                   {(showMutationModal === 'in' ? inCategories : outCategories).map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
-                </select>
-              </div>
+                </SelectContent>
+              </Select>
+            </div>
 
-              <div>
-                <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Nominal (IDR)</label>
-                <NumberInput
-                  value={mutationAmount}
-                  onChange={setMutationAmount}
-                  className="w-full border border-gray-200 rounded-lg p-2.5 text-sm font-bold outline-none"
-                  placeholder="0"
-                />
-              </div>
+            <div>
+              <Label>Nominal (IDR)</Label>
+              <NumberInput
+                value={mutationAmount}
+                onChange={setMutationAmount}
+                className="w-full border border-input rounded-lg p-2.5 text-sm font-bold outline-none"
+                placeholder="0"
+              />
+            </div>
 
-              <div>
-                <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Catatan (opsional)</label>
-                <input
-                  type="text"
-                  value={mutationNote}
-                  onChange={(e) => setMutationNote(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg p-2.5 text-xs outline-none"
-                  placeholder="Contoh: tips supir, beli ATK, dsb."
-                />
-              </div>
+            <div>
+              <Label>Catatan (opsional)</Label>
+              <Input
+                type="text"
+                value={mutationNote}
+                onChange={(e) => setMutationNote(e.target.value)}
+                placeholder="Contoh: tips supir, beli ATK, dsb."
+              />
+            </div>
 
-              <button
-                onClick={handleSubmitMutation}
-                className={`w-full py-2.5 rounded-xl font-extrabold text-xs text-white cursor-pointer ${showMutationModal === 'in' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
-              >
-                Simpan Mutasi
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <Button
+              onClick={handleSubmitMutation}
+              className={`w-full ${showMutationModal === 'in' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
+            >
+              Simpan Mutasi
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Close Session Modal */}
-      <AnimatePresence>
-        {showCloseModal && session && totals && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4"
-            >
-              <div className="flex items-center justify-between">
-                <h4 className="font-extrabold text-sm text-gray-900">Tutup Kas Harian</h4>
-                <button onClick={() => setShowCloseModal(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+      <Dialog open={showCloseModal} onOpenChange={setShowCloseModal}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm text-foreground normal-case tracking-normal">Tutup Kas Harian</DialogTitle>
+          </DialogHeader>
 
-              <div className="bg-gray-50 rounded-xl p-3 text-xs space-y-1.5">
-                <div className="flex justify-between"><span className="text-gray-500">Total Kas Sistem</span><span className="font-bold text-gray-800">Rp {totals.systemTotal.toLocaleString('id-ID')}</span></div>
+          {session && totals && (
+            <div className="space-y-4">
+              <div className="bg-muted rounded-xl p-3 text-xs space-y-1.5">
+                <div className="flex justify-between"><span className="text-muted-foreground">Total Kas Sistem</span><span className="font-bold text-foreground/80">Rp {totals.systemTotal.toLocaleString('id-ID')}</span></div>
               </div>
 
               <div>
-                <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Jumlah Kas Aktual di Laci</label>
+                <Label>Jumlah Kas Aktual di Laci</Label>
                 <NumberInput
                   value={actualCashInput}
                   onChange={setActualCashInput}
                   placeholder="0"
-                  className="w-full border border-gray-200 rounded-lg p-3 text-center text-lg font-black outline-none"
+                  className="w-full border border-input rounded-lg p-3 text-center text-lg font-black outline-none"
                 />
               </div>
 
               {selisih !== 0 && (
-                <div className={`flex items-center gap-2 p-2.5 rounded-lg text-xs font-bold ${selisih > 0 ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-600'}`}>
+                <div className={`flex items-center gap-2 p-2.5 rounded-lg text-xs font-bold ${selisih > 0 ? 'bg-primary/10 text-primary' : 'bg-red-50 text-red-600'}`}>
                   <AlertTriangle className="w-4 h-4 shrink-0" />
                   {selisih > 0 ? `Kas lebih Rp ${selisih.toLocaleString('id-ID')}` : `Kas kurang Rp ${Math.abs(selisih).toLocaleString('id-ID')}`}
                 </div>
               )}
 
-              <button
-                onClick={handleCloseSession}
-                className="w-full py-2.5 bg-gray-900 hover:bg-black text-white rounded-xl font-extrabold text-xs cursor-pointer flex items-center justify-center gap-2"
-              >
+              <Button onClick={handleCloseSession} className="w-full bg-gray-900 hover:bg-black text-white">
                 <CheckCircle2 className="w-4 h-4" /> Konfirmasi & Tutup Kas
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {detailSession && (
         <KasHarianDetailModal
