@@ -1236,7 +1236,7 @@ export default function POSView({
 
       {/* Floating Bottom Cart Bar for mobile - ONLY shown when on 'products' tab and cart has items */}
       {cart.length > 0 && mobileActiveSubTab === 'products' && (
-        <div className="fixed bottom-[74px] left-4 right-4 z-[90] md:hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3.5 rounded-2xl flex items-center justify-between shadow-xl shadow-blue-900/30 border border-blue-500/30 animate-in fade-in slide-in-from-bottom-5 duration-200">
+        <div className="fixed bottom-[0px] left-4 right-4 z-[90] md:hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3.5 rounded-2xl flex items-center justify-between shadow-xl shadow-blue-900/30 border border-blue-500/30 animate-in fade-in slide-in-from-bottom-5 duration-200">
           <div className="flex flex-col">
             <span className="text-[9px] text-blue-100 font-extrabold uppercase tracking-widest">
               {cart.reduce((acc, item) => acc + item.quantity, 0)} Barang di Keranjang
