@@ -14,6 +14,9 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, Activity, SalesInvoice, Customer } from '../../types';
 import { timeAgo } from '../../lib/timeAgo';
+import { Button } from '../../components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 
 interface DashboardViewProps {
   products: Product[];
@@ -185,13 +188,14 @@ export default function DashboardView({
           <p className="text-slate-500 text-xs md:text-sm">Pemantauan real-time penjualan kasir, logistik semen, dan analisis profitabilitas cabang.</p>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <button 
+          <Button
             onClick={() => onTabChange('pos')}
-            className="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/15 cursor-pointer flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+            size="lg"
+            className="w-full sm:w-auto shadow-md shadow-blue-500/15 active:scale-[0.98]"
           >
             <ShoppingBag className="w-4 h-4" />
             <span>Buka Kasir POS (F12)</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -246,25 +250,23 @@ export default function DashboardView({
               <p className="text-[10px] text-slate-400 mt-0.5">Statistik finansial pendapatan dan laba bersih sepanjang tahun 2026</p>
             </div>
             
-            {/* Chart toggle buttons (Moderated Neumorphism) */}
-            <div className="flex bg-slate-100/70 p-1 rounded-xl self-start sm:self-auto border border-slate-200/40">
-              <button
-                onClick={() => setActiveChartTab('sales')}
-                className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                  activeChartTab === 'sales' ? 'bg-white text-blue-600 shadow-sm border border-slate-200/30' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                Pendapatan
-              </button>
-              <button
-                onClick={() => setActiveChartTab('profit')}
-                className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                  activeChartTab === 'profit' ? 'bg-white text-blue-600 shadow-sm border border-slate-200/30' : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                Keuntungan
-              </button>
-            </div>
+            {/* Chart toggle (shadcn Tabs, styled as a pill switcher) */}
+            <Tabs value={activeChartTab} onValueChange={(v) => setActiveChartTab(v as 'sales' | 'profit')} className="self-start sm:self-auto">
+              <TabsList className="bg-slate-100/70 p-1 rounded-xl border border-slate-200/40 gap-0">
+                <TabsTrigger
+                  value="sales"
+                  className="px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/30 text-slate-500 hover:text-slate-800"
+                >
+                  Pendapatan
+                </TabsTrigger>
+                <TabsTrigger
+                  value="profit"
+                  className="px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/30 text-slate-500 hover:text-slate-800"
+                >
+                  Keuntungan
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
 
           {/* SVG Line Canvas (Highly Responsive) */}
@@ -440,23 +442,24 @@ export default function DashboardView({
                           {criticalStockProducts.length > 0 ? `${criticalStockProducts.length} Produk Stok Rendah` : 'Stok Rendah'}
                         </p>
                       </div>
-                      <button 
+                      <Button
                         onClick={onQuickRestock}
-                        className="text-[9px] bg-emerald-400 hover:bg-emerald-500 text-slate-950 font-black uppercase tracking-widest px-2.5 py-1.5 transition-all cursor-pointer rounded-lg active:scale-95"
+                        size="sm"
+                        className="text-[9px] h-auto bg-emerald-400 hover:bg-emerald-500 text-slate-950 tracking-widest px-2.5 py-1.5 rounded-lg active:scale-95"
                       >
                         Restock Cepat
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <button 
+              <Button
                 onClick={() => setShowIntelligenceReport(true)}
-                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 hover:border-slate-600 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all cursor-pointer active:scale-[0.98]"
+                className="w-full bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 hover:border-slate-600 uppercase tracking-widest active:scale-[0.98]"
               >
                 Lihat Laporan Prediksi AI
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -493,12 +496,9 @@ export default function DashboardView({
             <h4 className="text-sm font-black text-slate-800 flex items-center gap-2">
               <ActivityIcon className="w-4 h-4 text-blue-600" /> Log Riwayat Aktivitas
             </h4>
-            <button 
-              onClick={() => onTabChange('finance')}
-              className="text-blue-600 hover:underline text-xs font-bold cursor-pointer"
-            >
+            <Button variant="link" onClick={() => onTabChange('finance')} className="h-auto p-0 text-xs">
               Lihat Log Jurnal
-            </button>
+            </Button>
           </div>
           <div className="divide-y divide-slate-100/60 max-h-80 overflow-y-auto">
             {activities.length === 0 ? (
@@ -577,80 +577,62 @@ export default function DashboardView({
       </div>
 
       {/* Full Intelligence Report Modal */}
-      <AnimatePresence>
-        {showIntelligenceReport && (
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-[100] p-4">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl max-w-xl w-full p-6 border border-slate-200 shadow-2xl max-h-[85vh] overflow-y-auto space-y-4"
-            >
-              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2 text-blue-600">
-                  <Lightbulb className="w-5 h-5" />
-                  <h3 className="font-black text-sm uppercase tracking-widest">Laporan Kecerdasan Prediktif AI</h3>
-                </div>
-                <button 
-                  onClick={() => setShowIntelligenceReport(false)}
-                  className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 cursor-pointer"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="space-y-4 text-xs text-slate-600 max-h-96 overflow-y-auto pr-1 leading-relaxed">
-                <p className="font-bold text-slate-800">Ringkasan Performa:</p>
+      <Dialog open={showIntelligenceReport} onOpenChange={setShowIntelligenceReport}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm normal-case tracking-widest">
+              <Lightbulb className="w-5 h-5" /> Laporan Kecerdasan Prediktif AI
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-xs text-slate-600 max-h-96 overflow-y-auto pr-1 leading-relaxed">
+            <p className="font-bold text-slate-800">Ringkasan Performa:</p>
+            <p>
+              Pendapatan hari ini {salesChangePct >= 0 ? 'naik' : 'turun'} {Math.abs(salesChangePct).toFixed(1)}% dibanding kemarin, dari {todayInvoices.length} transaksi kasir senilai Rp {liveTodaySales.toLocaleString('id-ID')}. Estimasi untung bersih hari ini sekitar Rp {liveNetProfit.toLocaleString('id-ID')}.
+            </p>
+            {mostCriticalProduct && (
+              <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 text-amber-900 space-y-2">
+                <p className="font-bold flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 shrink-0" /> Peringatan Kritis Stok Rendah</p>
                 <p>
-                  Pendapatan hari ini {salesChangePct >= 0 ? 'naik' : 'turun'} {Math.abs(salesChangePct).toFixed(1)}% dibanding kemarin, dari {todayInvoices.length} transaksi kasir senilai Rp {liveTodaySales.toLocaleString('id-ID')}. Estimasi untung bersih hari ini sekitar Rp {liveNetProfit.toLocaleString('id-ID')}.
+                  {mostCriticalProduct.name} tersisa {mostCriticalProduct.stock} {mostCriticalProduct.unit}
+                  {criticalStockProducts.length > 1 ? `, dan ${criticalStockProducts.length - 1} produk lain juga berstatus stok rendah/habis.` : '.'}
                 </p>
-                {mostCriticalProduct && (
-                  <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 text-amber-900 space-y-2">
-                    <p className="font-bold flex items-center gap-1.5"><AlertTriangle className="w-4 h-4 shrink-0" /> Peringatan Kritis Stok Rendah</p>
-                    <p>
-                      {mostCriticalProduct.name} tersisa {mostCriticalProduct.stock} {mostCriticalProduct.unit}
-                      {criticalStockProducts.length > 1 ? `, dan ${criticalStockProducts.length - 1} produk lain juga berstatus stok rendah/habis.` : '.'}
-                    </p>
-                  </div>
-                )}
-                <p className="font-bold text-slate-800">Rekomendasi Tindakan:</p>
-                <ul className="list-disc pl-5 space-y-2">
-                  {mostCriticalProduct && (
-                    <li>Segera buat PO (Purchase Order) untuk <span className="font-bold">{mostCriticalProduct.name}</span> sebelum stok benar-benar habis.</li>
-                  )}
-                  {overdueCustomers.length > 0 ? (
-                    <li>
-                      Tindak lanjuti {overdueCustomers.length} pelanggan dengan tagihan jatuh tempo, total senilai{' '}
-                      <span className="font-bold text-red-600">Rp {totalOverdueAmount.toLocaleString('id-ID')}</span> guna memperlancar arus kas.
-                    </li>
-                  ) : (
-                    <li>Tidak ada piutang jatuh tempo saat ini — arus kas dari penjualan kredit dalam kondisi aman.</li>
-                  )}
-                  {!mostCriticalProduct && overdueCustomers.length === 0 && (
-                    <li>Belum ada data transaksi yang cukup untuk rekomendasi tambahan. Rekomendasi akan muncul seiring bertambahnya data penjualan.</li>
-                  )}
-                </ul>
               </div>
-              <div className="pt-4 border-t border-slate-100 flex justify-end gap-2">
-                <button 
-                  onClick={() => setShowIntelligenceReport(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-50 cursor-pointer"
-                >
-                  Tutup Laporan
-                </button>
-                <button 
-                  onClick={() => {
-                    setShowIntelligenceReport(false);
-                    onQuickRestock();
-                  }}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/10 cursor-pointer transition-all"
-                >
-                  Eksekusi Restock Cepat
-                </button>
-              </div>
-            </motion.div>
+            )}
+            <p className="font-bold text-slate-800">Rekomendasi Tindakan:</p>
+            <ul className="list-disc pl-5 space-y-2">
+              {mostCriticalProduct && (
+                <li>Segera buat PO (Purchase Order) untuk <span className="font-bold">{mostCriticalProduct.name}</span> sebelum stok benar-benar habis.</li>
+              )}
+              {overdueCustomers.length > 0 ? (
+                <li>
+                  Tindak lanjuti {overdueCustomers.length} pelanggan dengan tagihan jatuh tempo, total senilai{' '}
+                  <span className="font-bold text-red-600">Rp {totalOverdueAmount.toLocaleString('id-ID')}</span> guna memperlancar arus kas.
+                </li>
+              ) : (
+                <li>Tidak ada piutang jatuh tempo saat ini — arus kas dari penjualan kredit dalam kondisi aman.</li>
+              )}
+              {!mostCriticalProduct && overdueCustomers.length === 0 && (
+                <li>Belum ada data transaksi yang cukup untuk rekomendasi tambahan. Rekomendasi akan muncul seiring bertambahnya data penjualan.</li>
+              )}
+            </ul>
           </div>
-        )}
-      </AnimatePresence>
+          <DialogFooter className="justify-end">
+            <Button type="button" variant="outline" onClick={() => setShowIntelligenceReport(false)}>
+              Tutup Laporan
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setShowIntelligenceReport(false);
+                onQuickRestock();
+              }}
+              className="shadow-md shadow-blue-500/10"
+            >
+              Eksekusi Restock Cepat
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
