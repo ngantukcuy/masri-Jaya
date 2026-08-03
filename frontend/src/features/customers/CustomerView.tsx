@@ -8,15 +8,23 @@ import {
   CheckCircle2, 
   Edit3,
   Trash2,
-  Wallet,
-  X
+  Wallet
 } from 'lucide-react';
 import { Customer } from '../../types';
-import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+
+const numberInputClass =
+  'flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-bold outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20';
 
 interface CustomerViewProps {
   customers: Customer[];
@@ -283,13 +291,10 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
           <p className="text-gray-500 text-sm">Pantau saldo piutang pembeli, tingkat loyalitas pelanggan, dan riwayat cicilan kredit kontraktor.</p>
         </div>
         {can('manage_customer_add') && (
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer transition-all"
-        >
+        <Button onClick={() => setShowAddModal(true)} className="bg-gray-900 hover:bg-gray-800 shadow-md">
           <Plus className="w-4 h-4" />
           <span>Tambah Pelanggan Baru</span>
-        </button>
+        </Button>
         )}
       </div>
 
@@ -331,29 +336,27 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
       {/* Search Filter Header */}
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white border border-gray-200 p-3 rounded-xl shadow-xs">
         <div className="relative w-full sm:max-w-xs group">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
-          <input 
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors z-10" />
+          <Input
             type="text"
             placeholder="Cari ID pembeli atau nama lengkap..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-gray-50 border-none rounded-lg pl-9 pr-4 py-2 text-xs focus:ring-2 focus:ring-blue-600/15 outline-none text-gray-900"
+            className="pl-9 bg-gray-50 border-none"
           />
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1 w-full sm:w-auto scrollbar-none">
           {['Semua', 'Platinum', 'Premium', 'General', 'Retail'].map((tier) => (
-            <button
+            <Button
               key={tier}
+              size="sm"
+              variant={selectedLoyalty === tier ? 'default' : 'secondary'}
               onClick={() => setSelectedLoyalty(tier)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                selectedLoyalty === tier 
-                  ? 'bg-blue-100 text-blue-800' 
-                  : 'bg-gray-150 text-gray-500 hover:bg-gray-200'
-              }`}
+              className={selectedLoyalty === tier ? 'bg-blue-100 text-blue-800 hover:bg-blue-100 shadow-none whitespace-nowrap' : 'whitespace-nowrap'}
             >
               {tier === 'Semua' ? 'Semua Tingkatan' : tier}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -386,22 +389,26 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
                   </span>
                   <div className="flex gap-1.5">
                     {can('manage_customer_update') && (
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleOpenEditModal(cust)}
-                        className="p-1 text-amber-600 hover:bg-amber-50 rounded transition-colors cursor-pointer"
+                        className="w-6 h-6 text-amber-600 hover:bg-amber-50"
                         title="Edit Pelanggan"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
-                      </button>
+                      </Button>
                     )}
                     {can('manage_customer_delete') && (
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleDeleteCustomer(cust)}
-                        className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors cursor-pointer"
+                        className="w-6 h-6 text-red-600 hover:bg-red-50"
                         title="Hapus Pelanggan"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -431,13 +438,15 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
                     <span className="font-black text-emerald-600">
                       Rp {(cust.depositBalance || 0).toLocaleString('id-ID')}
                     </span>
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => handleOpenDepositModal(cust)}
-                      className="p-0.5 text-emerald-600 hover:bg-emerald-50 rounded transition-colors cursor-pointer"
+                      className="w-5 h-5 text-emerald-600 hover:bg-emerald-50"
                       title="Top Up / Tarik Deposit"
                     >
                       <Wallet className="w-3.5 h-3.5" />
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 <div>
@@ -461,13 +470,14 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
                 </div>
 
                 {cust.currentDebt > 0 ? (
-                  <button
+                  <Button
+                    size="sm"
                     onClick={() => handleSettleDebt(cust)}
-                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-sm cursor-pointer transition-colors"
+                    className="bg-red-600 hover:bg-red-700 text-[10px] shadow-sm"
                   >
                     <CreditCard className="w-3.5 h-3.5" />
                     <span>Bayar Piutang</span>
-                  </button>
+                  </Button>
                 ) : (
                   <span className="text-[9px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-black flex items-center gap-1 uppercase">
                     <CheckCircle2 className="w-3 h-3" /> Lunas
@@ -480,386 +490,334 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
       </div>
 
       {/* Add Customer Modal */}
-      <AnimatePresence>
-        {showAddModal && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-[150] p-4">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl max-w-md w-full p-6 border border-gray-200 shadow-2xl max-h-[85vh] overflow-y-auto space-y-4"
-            >
-              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                <span className="font-black text-xs uppercase tracking-widest text-blue-600 flex items-center gap-1.5">
-                  <Users className="w-4 h-4" /> DAFTARKAN PELANGGAN BARU
-                </span>
-                <button onClick={() => setShowAddModal(false)} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 cursor-pointer">✕</button>
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              <Users className="w-4 h-4" /> Daftarkan Pelanggan Baru
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateCustomer} className="space-y-4 text-xs">
+            <div className="space-y-4 text-xs max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin">
+              <div>
+                <Label>Nama Lengkap Pelanggan / Kontraktor</Label>
+                <Input
+                  type="text"
+                  required
+                  placeholder="Contoh: PT Bangun Persada Utama..."
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
               </div>
 
-              <form onSubmit={handleCreateCustomer} className="space-y-4 text-xs">
-                <div className="space-y-4 text-xs max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin">
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Nama Lengkap Pelanggan / Kontraktor</label>
-                    <input 
-                      type="text"
-                      required
-                      placeholder="Contoh: PT Bangun Persada Utama..."
-                      value={newName}
-                      onChange={(e) => setNewName(e.target.value)}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Nomor Telepon</label>
-                      <input 
-                        type="text"
-                        placeholder="Contoh: 08123456789"
-                        value={newPhone}
-                        onChange={(e) => setNewPhone(e.target.value)}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Level Loyalitas</label>
-                      <select 
-                        value={newLoyalty}
-                        onChange={(e) => setNewLoyalty(e.target.value)}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-semibold text-gray-750 outline-none"
-                      >
-                        <option value="Pelanggan Retail">Pelanggan Eceran Biasa (Retail)</option>
-                        <option value="Local Retail Builder">Pembangun Retail Lokal</option>
-                        <option value="Loyal General Contractor">Kontraktor Umum Loyal</option>
-                        <option value="Premium Builder">Kontraktor Utama (Premium)</option>
-                        <option value="Platinum Member">Anggota Platinum (VIP)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Alamat Lengkap</label>
-                    <textarea 
-                      placeholder="Masukkan alamat pengiriman utama / kantor..."
-                      value={newAddress}
-                      onChange={(e) => setNewAddress(e.target.value)}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none h-16 resize-none"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Syarat Pembayaran Default</label>
-                      <select 
-                        value={newPaymentTerms}
-                        onChange={(e) => setNewPaymentTerms(e.target.value as any)}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-semibold text-gray-750 outline-none"
-                      >
-                        <option value="Tunai">Tunai Langsung</option>
-                        <option value="Kredit">Kredit Limit</option>
-                        <option value="Tempo">Tempo (TOP)</option>
-                      </select>
-                    </div>
-                    {newPaymentTerms === 'Tempo' ? (
-                      <div>
-                        <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Masa Tempo (Hari)</label>
-                        <NumberInput
-                          value={newTempoDays}
-                          onChange={setNewTempoDays}
-                          placeholder="0"
-                          className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none"
-                        />
-                      </div>
-                    ) : (
-                      <div>
-                        <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Limit Kredit (IDR)</label>
-                        <NumberInput
-                          value={newCreditLimit}
-                          onChange={setNewCreditLimit}
-                          placeholder="0"
-                          className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Setor Deposit Awal (IDR)</label>
-                      <NumberInput
-                        placeholder="0"
-                        value={newDepositBalance}
-                        onChange={setNewDepositBalance}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none"
-                      />
-                    </div>
-                  </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Nomor Telepon</Label>
+                  <Input
+                    type="text"
+                    placeholder="Contoh: 08123456789"
+                    value={newPhone}
+                    onChange={(e) => setNewPhone(e.target.value)}
+                  />
                 </div>
-
-                <p className="text-[10px] text-gray-400 leading-relaxed bg-blue-50/40 p-3 rounded-lg border border-blue-100">
-                  Pembeli baru akan otomatis mendapatkan bonus pendaftaran sebesar <b>250 poin loyalitas</b>. Poin dapat ditukarkan di masa mendatang untuk potongan diskon kasir.
-                </p>
-
-                <div className="pt-3 border-t border-gray-100 flex gap-2">
-                  <button 
-                    type="button" 
-                    onClick={() => setShowAddModal(false)}
-                    className="w-full py-2.5 border border-gray-200 rounded-xl font-bold hover:bg-gray-50 cursor-pointer"
-                  >
-                    Batal
-                  </button>
-                  <button 
-                    type="submit"
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md shadow-blue-500/15 cursor-pointer"
-                  >
-                    Simpan Pelanggan
-                  </button>
+                <div>
+                  <Label>Level Loyalitas</Label>
+                  <Select value={newLoyalty} onValueChange={setNewLoyalty}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Pelanggan Retail">Pelanggan Eceran Biasa (Retail)</SelectItem>
+                      <SelectItem value="Local Retail Builder">Pembangun Retail Lokal</SelectItem>
+                      <SelectItem value="Loyal General Contractor">Kontraktor Umum Loyal</SelectItem>
+                      <SelectItem value="Premium Builder">Kontraktor Utama (Premium)</SelectItem>
+                      <SelectItem value="Platinum Member">Anggota Platinum (VIP)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-
-        {/* Edit Customer Modal */}
-        {showEditModal && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-[150] p-4">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl max-w-md w-full p-6 border border-gray-200 shadow-2xl max-h-[85vh] overflow-y-auto space-y-4"
-            >
-              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                <span className="font-black text-xs uppercase tracking-widest text-amber-600 flex items-center gap-1.5">
-                  <Edit3 className="w-4 h-4" /> EDIT DATA PELANGGAN / KONTRAKTOR
-                </span>
-                <button onClick={() => setShowEditModal(false)} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 cursor-pointer">✕</button>
               </div>
 
-              <form onSubmit={handleEditCustomerSubmit} className="space-y-4 text-xs">
-                <div className="space-y-4 text-xs max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin">
+              <div>
+                <Label>Alamat Lengkap</Label>
+                <Textarea
+                  placeholder="Masukkan alamat pengiriman utama / kantor..."
+                  value={newAddress}
+                  onChange={(e) => setNewAddress(e.target.value)}
+                  className="h-16 resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Syarat Pembayaran Default</Label>
+                  <Select value={newPaymentTerms} onValueChange={(v) => setNewPaymentTerms(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Tunai">Tunai Langsung</SelectItem>
+                      <SelectItem value="Kredit">Kredit Limit</SelectItem>
+                      <SelectItem value="Tempo">Tempo (TOP)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {newPaymentTerms === 'Tempo' ? (
                   <div>
-                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Nama Lengkap Pelanggan / Kontraktor</label>
-                    <input 
-                      type="text"
-                      required
-                      placeholder="Contoh: PT Bangun Persada Utama..."
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
+                    <Label>Masa Tempo (Hari)</Label>
+                    <NumberInput
+                      value={newTempoDays}
+                      onChange={setNewTempoDays}
+                      placeholder="0"
+                      className={numberInputClass}
                     />
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Nomor Telepon</label>
-                      <input 
-                        type="text"
-                        placeholder="Contoh: 08123456789"
-                        value={editPhone}
-                        onChange={(e) => setEditPhone(e.target.value)}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Kategori Level Loyalitas</label>
-                      <select 
-                        value={editLoyalty}
-                        onChange={(e) => setEditLoyalty(e.target.value)}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-semibold text-gray-750 outline-none focus:bg-white focus:border-blue-500"
-                      >
-                        <option value="Pelanggan Retail">Pelanggan Eceran Biasa (Retail)</option>
-                        <option value="Local Retail Builder">Pembangun Retail Lokal</option>
-                        <option value="Loyal General Contractor">Kontraktor Umum Loyal</option>
-                        <option value="Premium Builder">Kontraktor Utama (Premium)</option>
-                        <option value="Platinum Member">Anggota Platinum (VIP)</option>
-                      </select>
-                    </div>
-                  </div>
-
+                ) : (
                   <div>
-                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Alamat Lengkap</label>
-                    <textarea 
-                      placeholder="Masukkan alamat pengiriman utama / kantor..."
-                      value={editAddress}
-                      onChange={(e) => setEditAddress(e.target.value)}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500 h-16 resize-none"
+                    <Label>Limit Kredit (IDR)</Label>
+                    <NumberInput
+                      value={newCreditLimit}
+                      onChange={setNewCreditLimit}
+                      placeholder="0"
+                      className={numberInputClass}
                     />
                   </div>
+                )}
+              </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Syarat Pembayaran Default</label>
-                      <select 
-                        value={editPaymentTerms}
-                        onChange={(e) => setEditPaymentTerms(e.target.value as any)}
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-semibold text-gray-750 outline-none focus:bg-white focus:border-blue-500"
-                      >
-                        <option value="Tunai">Tunai Langsung</option>
-                        <option value="Kredit">Kredit Limit</option>
-                        <option value="Tempo">Tempo (TOP)</option>
-                      </select>
-                    </div>
-                    {editPaymentTerms === 'Tempo' ? (
-                      <div>
-                        <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Masa Tempo (Hari)</label>
-                        <NumberInput
-                          value={editTempoDays}
-                          onChange={setEditTempoDays}
-                          placeholder="0"
-                          className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
-                        />
-                      </div>
-                    ) : (
-                      <div>
-                        <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Limit Kredit (IDR)</label>
-                        <NumberInput
-                          value={editCreditLimit}
-                          onChange={setEditCreditLimit}
-                          placeholder="0"
-                          className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
-                        />
-                      </div>
-                    )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Setor Deposit Awal (IDR)</Label>
+                  <NumberInput
+                    placeholder="0"
+                    value={newDepositBalance}
+                    onChange={setNewDepositBalance}
+                    className={numberInputClass}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-gray-400 leading-relaxed bg-blue-50/40 p-3 rounded-lg border border-blue-100">
+              Pembeli baru akan otomatis mendapatkan bonus pendaftaran sebesar <b>250 poin loyalitas</b>. Poin dapat ditukarkan di masa mendatang untuk potongan diskon kasir.
+            </p>
+
+            <div className="pt-3 border-t border-gray-100 flex gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowAddModal(false)} className="w-full">
+                Batal
+              </Button>
+              <Button type="submit" className="w-full shadow-md shadow-blue-500/15">
+                Simpan Pelanggan
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Customer Modal */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-amber-600">
+              <Edit3 className="w-4 h-4" /> Edit Data Pelanggan / Kontraktor
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleEditCustomerSubmit} className="space-y-4 text-xs">
+            <div className="space-y-4 text-xs max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin">
+              <div>
+                <Label>Nama Lengkap Pelanggan / Kontraktor</Label>
+                <Input
+                  type="text"
+                  required
+                  placeholder="Contoh: PT Bangun Persada Utama..."
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Nomor Telepon</Label>
+                  <Input
+                    type="text"
+                    placeholder="Contoh: 08123456789"
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label>Kategori Level Loyalitas</Label>
+                  <Select value={editLoyalty} onValueChange={setEditLoyalty}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Pelanggan Retail">Pelanggan Eceran Biasa (Retail)</SelectItem>
+                      <SelectItem value="Local Retail Builder">Pembangun Retail Lokal</SelectItem>
+                      <SelectItem value="Loyal General Contractor">Kontraktor Umum Loyal</SelectItem>
+                      <SelectItem value="Premium Builder">Kontraktor Utama (Premium)</SelectItem>
+                      <SelectItem value="Platinum Member">Anggota Platinum (VIP)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label>Alamat Lengkap</Label>
+                <Textarea
+                  placeholder="Masukkan alamat pengiriman utama / kantor..."
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  className="h-16 resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Syarat Pembayaran Default</Label>
+                  <Select value={editPaymentTerms} onValueChange={(v) => setEditPaymentTerms(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Tunai">Tunai Langsung</SelectItem>
+                      <SelectItem value="Kredit">Kredit Limit</SelectItem>
+                      <SelectItem value="Tempo">Tempo (TOP)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {editPaymentTerms === 'Tempo' ? (
+                  <div>
+                    <Label>Masa Tempo (Hari)</Label>
+                    <NumberInput
+                      value={editTempoDays}
+                      onChange={setEditTempoDays}
+                      placeholder="0"
+                      className={numberInputClass}
+                    />
                   </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Poin Loyalitas</label>
-                      <NumberInput
-                        required
-                        value={editPoints}
-                        onChange={setEditPoints}
-                        placeholder="0"
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-850 outline-none focus:bg-white focus:border-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Saldo Piutang (IDR)</label>
-                      <NumberInput
-                        required
-                        value={editDebt}
-                        onChange={setEditDebt}
-                        placeholder="0"
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-855 outline-none focus:bg-white focus:border-blue-500"
-                      />
-                    </div>
+                ) : (
+                  <div>
+                    <Label>Limit Kredit (IDR)</Label>
+                    <NumberInput
+                      value={editCreditLimit}
+                      onChange={setEditCreditLimit}
+                      placeholder="0"
+                      className={numberInputClass}
+                    />
                   </div>
+                )}
+              </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Saldo Deposit (IDR)</label>
-                      <NumberInput
-                        required
-                        value={editDepositBalance}
-                        onChange={setEditDepositBalance}
-                        placeholder="0"
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold text-gray-800 outline-none focus:bg-white focus:border-blue-500"
-                      />
-                    </div>
-                  </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Poin Loyalitas</Label>
+                  <NumberInput
+                    required
+                    value={editPoints}
+                    onChange={setEditPoints}
+                    placeholder="0"
+                    className={numberInputClass}
+                  />
                 </div>
 
-                <p className="text-[10px] text-gray-400 leading-relaxed bg-blue-50/40 p-3 rounded-lg border border-blue-100">
-                  Mengubah saldo piutang secara manual di sini akan otomatis meng-update status piutang (Lunas / Tertunda) dan nominal akumulasi piutang pada laporan keuangan.
-                </p>
-
-                <div className="pt-3 border-t border-gray-100 flex gap-2">
-                  <button 
-                    type="button" 
-                    onClick={() => setShowEditModal(false)}
-                    className="w-full py-2.5 border border-gray-200 rounded-xl font-bold hover:bg-gray-50 cursor-pointer"
-                  >
-                    Batal
-                  </button>
-                  <button 
-                    type="submit"
-                    className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold shadow-md shadow-amber-500/15 cursor-pointer"
-                  >
-                    Simpan Perubahan
-                  </button>
+                <div>
+                  <Label>Saldo Piutang (IDR)</Label>
+                  <NumberInput
+                    required
+                    value={editDebt}
+                    onChange={setEditDebt}
+                    placeholder="0"
+                    className={numberInputClass}
+                  />
                 </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Saldo Deposit (IDR)</Label>
+                  <NumberInput
+                    required
+                    value={editDepositBalance}
+                    onChange={setEditDepositBalance}
+                    placeholder="0"
+                    className={numberInputClass}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-gray-400 leading-relaxed bg-blue-50/40 p-3 rounded-lg border border-blue-100">
+              Mengubah saldo piutang secara manual di sini akan otomatis meng-update status piutang (Lunas / Tertunda) dan nominal akumulasi piutang pada laporan keuangan.
+            </p>
+
+            <div className="pt-3 border-t border-gray-100 flex gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowEditModal(false)} className="w-full">
+                Batal
+              </Button>
+              <Button type="submit" className="w-full bg-amber-600 hover:bg-amber-700 shadow-md shadow-amber-500/15">
+                Simpan Perubahan
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Deposit Top Up / Withdraw Modal */}
-      <AnimatePresence>
-        {showDepositModal && depositCustomer && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4"
-            >
-              <div className="flex items-center justify-between">
-                <h4 className="font-extrabold text-sm text-gray-900">Deposit: {depositCustomer.name}</h4>
-                <button onClick={() => setShowDepositModal(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+      <Dialog open={showDepositModal} onOpenChange={setShowDepositModal}>
+        <DialogContent className="max-w-sm">
+          {depositCustomer && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-sm normal-case tracking-normal">Deposit: {depositCustomer.name}</DialogTitle>
+              </DialogHeader>
 
               <div className="bg-gray-50 rounded-xl p-3 text-xs flex justify-between">
                 <span className="text-gray-500">Saldo Saat Ini</span>
                 <span className="font-bold text-emerald-600">Rp {(depositCustomer.depositBalance || 0).toLocaleString('id-ID')}</span>
               </div>
 
-              <div className="flex gap-2 bg-gray-100 rounded-xl p-1">
-                <button
-                  onClick={() => setDepositAction('topup')}
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${depositAction === 'topup' ? 'bg-white shadow text-emerald-600' : 'text-gray-500'}`}
-                >
-                  Top Up
-                </button>
-                <button
-                  onClick={() => setDepositAction('withdraw')}
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${depositAction === 'withdraw' ? 'bg-white shadow text-red-600' : 'text-gray-500'}`}
-                >
-                  Tarik / Withdraw
-                </button>
-              </div>
+              <Tabs value={depositAction} onValueChange={(v) => setDepositAction(v as 'topup' | 'withdraw')}>
+                <TabsList className="bg-gray-100 p-1 rounded-xl w-full gap-0">
+                  <TabsTrigger
+                    value="topup"
+                    className="flex-1 rounded-lg border-0 data-[state=active]:bg-white data-[state=active]:shadow data-[state=active]:text-emerald-600 text-gray-500"
+                  >
+                    Top Up
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="withdraw"
+                    className="flex-1 rounded-lg border-0 data-[state=active]:bg-white data-[state=active]:shadow data-[state=active]:text-red-600 text-gray-500"
+                  >
+                    Tarik / Withdraw
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
 
               <div>
-                <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Nominal (IDR)</label>
+                <Label>Nominal (IDR)</Label>
                 <NumberInput
                   value={depositAmount}
                   onChange={setDepositAmount}
-                  className="w-full border border-gray-200 rounded-lg p-2.5 text-sm font-bold outline-none"
+                  className={numberInputClass.replace('text-xs', 'text-sm')}
                   placeholder="0"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Metode</label>
-                <select
-                  value={depositMethod}
-                  onChange={(e) => setDepositMethod(e.target.value as 'Tunai' | 'Transfer')}
-                  className="w-full border border-gray-200 rounded-lg p-2.5 text-xs font-bold outline-none"
-                >
-                  <option value="Tunai">Tunai</option>
-                  <option value="Transfer">Transfer</option>
-                </select>
+                <Label>Metode</Label>
+                <Select value={depositMethod} onValueChange={(v) => setDepositMethod(v as 'Tunai' | 'Transfer')}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Tunai">Tunai</SelectItem>
+                    <SelectItem value="Transfer">Transfer</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <button
+              <Button
                 onClick={handleSubmitDeposit}
-                className={`w-full py-2.5 rounded-xl font-extrabold text-xs text-white cursor-pointer ${depositAction === 'topup' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
+                className={`w-full ${depositAction === 'topup' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
               >
                 {depositAction === 'topup' ? 'Simpan Top Up' : 'Simpan Penarikan'}
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </Button>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

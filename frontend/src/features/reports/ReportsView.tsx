@@ -8,6 +8,10 @@ import {
   Boxes,
 } from 'lucide-react';
 import { SalesInvoice, Product, PO, Expense } from '../../types';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
 
 interface ReportsViewProps {
   salesInvoices: SalesInvoice[];
@@ -256,20 +260,14 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
           <p className="text-gray-500 text-sm">Analisis kinerja penjualan berdasarkan data transaksi dan stok yang tercatat.</p>
         </div>
         <div className="flex gap-2">
-          <button 
-            onClick={printReport}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-xs font-semibold hover:bg-gray-50 cursor-pointer"
-          >
+          <Button variant="outline" onClick={printReport}>
             <Printer className="w-4 h-4 text-gray-500" />
             <span>Cetak / Simpan PDF</span>
-          </button>
-          <button 
-            onClick={exportCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 cursor-pointer shadow-md shadow-blue-500/10"
-          >
+          </Button>
+          <Button onClick={exportCSV} className="shadow-md shadow-blue-500/10">
             <Download className="w-4 h-4" />
             <span>Ekspor CSV / Excel</span>
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -312,25 +310,23 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
                   <p className="text-[11px] text-gray-400 mt-0.5">Total penjualan riil per minggu, {WEEKS_TO_SHOW} minggu terakhir</p>
                 </div>
                 
-                {/* Chart type toggle */}
-                <div className="flex bg-gray-100 p-1 rounded-lg">
-                  <button
-                    onClick={() => setChartType('bar')}
-                    className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                      chartType === 'bar' ? 'bg-white text-blue-600 shadow-xs' : 'text-gray-500 hover:text-gray-800'
-                    }`}
-                  >
-                    Grafik Batang
-                  </button>
-                  <button
-                    onClick={() => setChartType('line')}
-                    className={`px-3 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                      chartType === 'line' ? 'bg-white text-blue-600 shadow-xs' : 'text-gray-500 hover:text-gray-800'
-                    }`}
-                  >
-                    Kurva Garis
-                  </button>
-                </div>
+                {/* Chart type toggle (shadcn Tabs, pill styling) */}
+                <Tabs value={chartType} onValueChange={(v) => setChartType(v as 'bar' | 'line')}>
+                  <TabsList className="bg-gray-100 p-1 rounded-lg gap-0">
+                    <TabsTrigger
+                      value="bar"
+                      className="px-3 py-1.5 rounded-md text-[10px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-xs text-gray-500 hover:text-gray-800"
+                    >
+                      Grafik Batang
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="line"
+                      className="px-3 py-1.5 rounded-md text-[10px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-xs text-gray-500 hover:text-gray-800"
+                    >
+                      Kurva Garis
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
 
               {!hasRecentSales ? (
@@ -472,36 +468,36 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
               <h4 className="text-sm font-black text-gray-800">Produk Perlu Perhatian</h4>
               <p className="text-[11px] text-gray-400 mt-0.5">Stok menipis atau habis, diurutkan dari yang paling kritis.</p>
             </div>
-            <table className="w-full text-xs min-w-[480px]">
-              <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 font-bold">
-                <tr>
-                  <th className="text-left p-3">SKU</th>
-                  <th className="text-left p-3">Nama Produk</th>
-                  <th className="text-left p-3">Kategori</th>
-                  <th className="text-right p-3">Sisa Stok</th>
-                  <th className="text-center p-3">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
+            <Table className="min-w-[480px]">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent bg-gray-50">
+                  <TableHead>SKU</TableHead>
+                  <TableHead>Nama Produk</TableHead>
+                  <TableHead>Kategori</TableHead>
+                  <TableHead className="text-right">Sisa Stok</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {[...outOfStockProducts, ...lowStockProducts].length === 0 ? (
-                  <tr><td colSpan={5} className="p-6 text-center text-gray-400">Semua stok dalam kondisi sehat.</td></tr>
+                  <TableRow><TableCell colSpan={5} className="p-6 text-center text-gray-400">Semua stok dalam kondisi sehat.</TableCell></TableRow>
                 ) : (
                   [...outOfStockProducts, ...lowStockProducts].map((p) => (
-                    <tr key={p.sku} className="hover:bg-gray-50">
-                      <td className="p-3 font-mono text-gray-500">{p.sku}</td>
-                      <td className="p-3 font-bold text-gray-800">{p.name}</td>
-                      <td className="p-3 text-gray-500">{p.category}</td>
-                      <td className="p-3 text-right font-bold text-gray-900">{p.stock}</td>
-                      <td className="p-3 text-center">
-                        <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${p.stockStatus === 'Out of Stock' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
+                    <TableRow key={p.sku}>
+                      <TableCell className="font-mono text-gray-500">{p.sku}</TableCell>
+                      <TableCell className="font-bold text-gray-800">{p.name}</TableCell>
+                      <TableCell className="text-gray-500">{p.category}</TableCell>
+                      <TableCell className="text-right font-bold text-gray-900">{p.stock}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge className={`border-transparent ${p.stockStatus === 'Out of Stock' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
                           {p.stockStatus === 'Out of Stock' ? 'Habis' : 'Menipis'}
-                        </span>
-                      </td>
-                    </tr>
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}
@@ -525,34 +521,34 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
             <div className="p-4 border-b border-gray-100">
               <h4 className="text-sm font-black text-gray-800">Daftar Pesanan Pembelian</h4>
             </div>
-            <table className="w-full text-xs min-w-[480px]">
-              <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 font-bold">
-                <tr>
-                  <th className="text-left p-3">No. PO</th>
-                  <th className="text-left p-3">Supplier</th>
-                  <th className="text-left p-3">Tanggal</th>
-                  <th className="text-center p-3">Status</th>
-                  <th className="text-right p-3">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
+            <Table className="min-w-[480px]">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent bg-gray-50">
+                  <TableHead>No. PO</TableHead>
+                  <TableHead>Supplier</TableHead>
+                  <TableHead>Tanggal</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {pos.length === 0 ? (
-                  <tr><td colSpan={5} className="p-6 text-center text-gray-400">Belum ada PO tercatat.</td></tr>
+                  <TableRow><TableCell colSpan={5} className="p-6 text-center text-gray-400">Belum ada PO tercatat.</TableCell></TableRow>
                 ) : (
                   pos.map((p) => (
-                    <tr key={p.poNumber} className="hover:bg-gray-50">
-                      <td className="p-3 font-bold text-gray-800">{p.poNumber}</td>
-                      <td className="p-3 text-gray-600">{p.supplier}</td>
-                      <td className="p-3 text-gray-500">{p.createdDate}</td>
-                      <td className="p-3 text-center">
-                        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">{p.status}</span>
-                      </td>
-                      <td className="p-3 text-right font-bold text-gray-900">Rp {p.total.toLocaleString('id-ID')}</td>
-                    </tr>
+                    <TableRow key={p.poNumber}>
+                      <TableCell className="font-bold text-gray-800">{p.poNumber}</TableCell>
+                      <TableCell className="text-gray-600">{p.supplier}</TableCell>
+                      <TableCell className="text-gray-500">{p.createdDate}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge className="border-transparent bg-blue-50 text-blue-700">{p.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-gray-900">Rp {p.total.toLocaleString('id-ID')}</TableCell>
+                    </TableRow>
                   ))
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}
@@ -574,38 +570,38 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
             <div className="p-4 border-b border-gray-100">
               <h4 className="text-sm font-black text-gray-800">Klaim &amp; Pengeluaran</h4>
             </div>
-            <table className="w-full text-xs min-w-[520px]">
-              <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 font-bold">
-                <tr>
-                  <th className="text-left p-3">Tanggal</th>
-                  <th className="text-left p-3">Kategori</th>
-                  <th className="text-left p-3">Deskripsi</th>
-                  <th className="text-left p-3">Diajukan Oleh</th>
-                  <th className="text-center p-3">Status</th>
-                  <th className="text-right p-3">Jumlah</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
+            <Table className="min-w-[520px]">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent bg-gray-50">
+                  <TableHead>Tanggal</TableHead>
+                  <TableHead>Kategori</TableHead>
+                  <TableHead>Deskripsi</TableHead>
+                  <TableHead>Diajukan Oleh</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="text-right">Jumlah</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {expenses.length === 0 ? (
-                  <tr><td colSpan={6} className="p-6 text-center text-gray-400">Belum ada pengeluaran tercatat.</td></tr>
+                  <TableRow><TableCell colSpan={6} className="p-6 text-center text-gray-400">Belum ada pengeluaran tercatat.</TableCell></TableRow>
                 ) : (
                   expenses.map((e) => (
-                    <tr key={e.id} className="hover:bg-gray-50">
-                      <td className="p-3 text-gray-500">{e.date}</td>
-                      <td className="p-3 text-gray-600">{e.category}</td>
-                      <td className="p-3 text-gray-800">{e.description}</td>
-                      <td className="p-3 text-gray-500">{e.submittedBy}</td>
-                      <td className="p-3 text-center">
-                        <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                    <TableRow key={e.id}>
+                      <TableCell className="text-gray-500">{e.date}</TableCell>
+                      <TableCell className="text-gray-600">{e.category}</TableCell>
+                      <TableCell className="text-gray-800">{e.description}</TableCell>
+                      <TableCell className="text-gray-500">{e.submittedBy}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge className={`border-transparent ${
                           e.status === 'Approved' ? 'bg-emerald-50 text-emerald-700' : e.status === 'Rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
-                        }`}>{e.status}</span>
-                      </td>
-                      <td className="p-3 text-right font-bold text-gray-900">Rp {e.amount.toLocaleString('id-ID')}</td>
-                    </tr>
+                        }`}>{e.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-gray-900">Rp {e.amount.toLocaleString('id-ID')}</TableCell>
+                    </TableRow>
                   ))
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}

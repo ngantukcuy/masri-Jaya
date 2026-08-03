@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
-import { Search, Plus, Minus, X, PiggyBank } from 'lucide-react';
+import { useState } from 'react';
+import { Search, Plus, Minus, PiggyBank } from 'lucide-react';
 import { Customer } from '../../types';
-import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
 import NumberInput from '../../components/shared/NumberInput';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 
 interface DepositViewProps {
   customers: Customer[];
@@ -78,13 +83,13 @@ export default function DepositView({ customers, onUpdateCustomers, onAddActivit
       </div>
 
       <div className="relative max-w-sm">
-        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-        <input
+        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
+        <Input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Cari nama pelanggan..."
-          className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-blue-500"
+          className="pl-9"
         />
       </div>
 
@@ -100,69 +105,89 @@ export default function DepositView({ customers, onUpdateCustomers, onAddActivit
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-black text-emerald-600">Rp {(c.depositBalance || 0).toLocaleString('id-ID')}</span>
-                <button onClick={() => openModal(c, 'topup')} className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg cursor-pointer">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => openModal(c, 'topup')}
+                  className="w-8 h-8 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                >
                   <Plus className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={() => openModal(c, 'withdraw')} className="p-2 bg-red-50 text-red-500 hover:bg-red-100 rounded-lg cursor-pointer">
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => openModal(c, 'withdraw')}
+                  className="w-8 h-8 bg-red-50 text-red-500 hover:bg-red-100"
+                >
                   <Minus className="w-3.5 h-3.5" />
-                </button>
+                </Button>
               </div>
             </div>
           ))
         )}
       </div>
 
-      <AnimatePresence>
-        {showModal && target && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4"
-            >
-              <div className="flex items-center justify-between">
-                <h4 className="font-extrabold text-sm text-gray-900">Deposit: {target.name}</h4>
-                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-w-sm">
+          {target && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-sm normal-case tracking-normal">Deposit: {target.name}</DialogTitle>
+              </DialogHeader>
 
               <div className="bg-gray-50 rounded-xl p-3 text-xs flex justify-between">
                 <span className="text-gray-500">Saldo Saat Ini</span>
                 <span className="font-bold text-emerald-600">Rp {(target.depositBalance || 0).toLocaleString('id-ID')}</span>
               </div>
 
-              <div className="flex gap-2 bg-gray-100 rounded-xl p-1">
-                <button onClick={() => setAction('topup')} className={`flex-1 py-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${action === 'topup' ? 'bg-white shadow text-emerald-600' : 'text-gray-500'}`}>Top Up</button>
-                <button onClick={() => setAction('withdraw')} className={`flex-1 py-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${action === 'withdraw' ? 'bg-white shadow text-red-600' : 'text-gray-500'}`}>Tarik / Withdraw</button>
+              <Tabs value={action} onValueChange={(v) => setAction(v as 'topup' | 'withdraw')}>
+                <TabsList className="bg-gray-100 p-1 rounded-xl w-full gap-0">
+                  <TabsTrigger
+                    value="topup"
+                    className="flex-1 rounded-lg border-0 data-[state=active]:bg-white data-[state=active]:shadow data-[state=active]:text-emerald-600 text-gray-500"
+                  >
+                    Top Up
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="withdraw"
+                    className="flex-1 rounded-lg border-0 data-[state=active]:bg-white data-[state=active]:shadow data-[state=active]:text-red-600 text-gray-500"
+                  >
+                    Tarik / Withdraw
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              <div>
+                <Label>Nominal (IDR)</Label>
+                <NumberInput
+                  value={amount}
+                  onChange={setAmount}
+                  className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm font-bold outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20"
+                  placeholder="0"
+                />
               </div>
 
               <div>
-                <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Nominal (IDR)</label>
-                <NumberInput value={amount} onChange={setAmount} className="w-full border border-gray-200 rounded-lg p-2.5 text-sm font-bold outline-none" placeholder="0" />
+                <Label>Metode</Label>
+                <Select value={method} onValueChange={(v) => setMethod(v as 'Tunai' | 'Transfer')}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Tunai">Tunai</SelectItem>
+                    <SelectItem value="Transfer">Transfer</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <div>
-                <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Metode</label>
-                <select value={method} onChange={(e) => setMethod(e.target.value as 'Tunai' | 'Transfer')} className="w-full border border-gray-200 rounded-lg p-2.5 text-xs font-bold outline-none">
-                  <option value="Tunai">Tunai</option>
-                  <option value="Transfer">Transfer</option>
-                </select>
-              </div>
-
-              <button onClick={handleSubmit} className={`w-full py-2.5 rounded-xl font-extrabold text-xs text-white cursor-pointer ${action === 'topup' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}>
+              <Button
+                onClick={handleSubmit}
+                className={`w-full ${action === 'topup' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
+              >
                 {action === 'topup' ? 'Simpan Top Up' : 'Simpan Penarikan'}
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </Button>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

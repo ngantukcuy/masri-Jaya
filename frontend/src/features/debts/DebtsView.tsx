@@ -9,7 +9,6 @@ import {
   Coins,
   Printer as PrinterIcon,
   Calendar,
-  X,
   PlusCircle,
   FileText
 } from 'lucide-react';
@@ -19,6 +18,15 @@ import { addMutation } from '../../lib/cashSession';
 import { getSupabaseTableCache } from '../../lib/supabaseCache';
 import { useDialog } from '../../components/shared/DialogProvider';
 import NumberInput from '../../components/shared/NumberInput';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Badge } from '../../components/ui/badge';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+
+const numberInputClass =
+  'flex h-11 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm font-black outline-none transition-colors focus-visible:border-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-500/15';
 
 interface DebtsStoreProfileLite {
   storeName: string;
@@ -322,61 +330,59 @@ export default function DebtsView({
         {/* Controls Bar */}
         <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col md:flex-row gap-3 justify-between items-center">
           <div className="relative w-full md:max-w-xs group">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
-            <input 
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors z-10" />
+            <Input
               type="text"
               placeholder="Cari nama debitur atau ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-600/15"
+              className="pl-9 h-8 bg-white"
             />
           </div>
 
           <div className="flex gap-1.5 overflow-x-auto w-full md:w-auto">
             {(['Semua', 'Pending', 'Overdue', 'Cleared'] as const).map((st) => (
-              <button
+              <Button
                 key={st}
+                size="sm"
+                variant={statusFilter === st ? 'default' : 'outline'}
                 onClick={() => setStatusFilter(st)}
-                className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg border transition-all cursor-pointer ${
-                  statusFilter === st 
-                    ? 'bg-blue-600 border-blue-600 text-white shadow-xs' 
-                    : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
-                }`}
+                className="whitespace-nowrap"
               >
                 {st === 'Semua' ? 'Semua Debitur' : st === 'Pending' ? 'Berjalan (Pending)' : st === 'Overdue' ? 'Jatuh Tempo (Overdue)' : 'Lunas (Cleared)'}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
 
         {/* List of Debtors */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-gray-100 bg-slate-100/50">
-                <th className="p-4 font-extrabold text-gray-500 uppercase tracking-widest text-[9px]">ID &amp; Pelanggan</th>
-                <th className="p-4 font-extrabold text-gray-500 uppercase tracking-widest text-[9px]">Tingkat Loyalitas</th>
-                <th className="p-4 font-extrabold text-gray-500 uppercase tracking-widest text-[9px]">Status Kredit</th>
-                <th className="p-4 font-extrabold text-gray-500 uppercase tracking-widest text-[9px]">Jatuh Tempo</th>
-                <th className="p-4 font-extrabold text-gray-500 uppercase tracking-widest text-[9px]">Sisa Piutang Aktif</th>
-                <th className="p-4 font-extrabold text-gray-500 uppercase tracking-widest text-[9px] text-right">Opsi Operasional</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent bg-slate-100/50">
+                <TableHead>ID &amp; Pelanggan</TableHead>
+                <TableHead>Tingkat Loyalitas</TableHead>
+                <TableHead>Status Kredit</TableHead>
+                <TableHead>Jatuh Tempo</TableHead>
+                <TableHead>Sisa Piutang Aktif</TableHead>
+                <TableHead className="text-right">Opsi Operasional</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filteredCustomers.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-400">
+                <TableRow>
+                  <TableCell colSpan={6} className="p-8 text-center text-gray-400">
                     <span className="text-2xl block mb-2">📒</span>
                     <span className="font-extrabold uppercase tracking-wider block text-xs">Tidak Ada Data Piutang</span>
                     <span className="text-[10px] text-gray-400 mt-1 block">Silakan ubah filter atau tambahkan transaksi piutang baru di POS.</span>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : (
                 filteredCustomers.map((cust) => (
-                  <tr key={cust.id} className="hover:bg-slate-50/50 transition-all">
-                    <td className="p-4">
+                  <TableRow key={cust.id}>
+                    <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-200 to-slate-100 text-slate-700 flex items-center justify-center font-black text-xs">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-200 to-slate-100 text-slate-700 flex items-center justify-center font-black text-xs shrink-0">
                           {cust.logoLetters}
                         </div>
                         <div>
@@ -384,18 +390,18 @@ export default function DebtsView({
                           <p className="text-[9px] text-gray-400 mt-0.5">{cust.id}</p>
                         </div>
                       </div>
-                    </td>
-                    <td className="p-4 font-semibold text-gray-600">{cust.loyaltyTier}</td>
-                    <td className="p-4">
+                    </TableCell>
+                    <TableCell className="font-semibold text-gray-600">{cust.loyaltyTier}</TableCell>
+                    <TableCell>
                       {cust.currentDebt === 0 ? (
-                        <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border border-emerald-100">Lunas</span>
+                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100">Lunas</Badge>
                       ) : isEffectivelyOverdue(cust) ? (
-                        <span className="bg-red-50 text-red-700 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border border-red-100 animate-pulse">Jatuh Tempo</span>
+                        <Badge className="bg-red-50 text-red-700 border-red-100 animate-pulse">Jatuh Tempo</Badge>
                       ) : (
-                        <span className="bg-amber-50 text-amber-700 px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border border-amber-100">Berjalan</span>
+                        <Badge className="bg-amber-50 text-amber-700 border-amber-100">Berjalan</Badge>
                       )}
-                    </td>
-                    <td className="p-4">
+                    </TableCell>
+                    <TableCell>
                       {cust.currentDebt > 0 && cust.nextDueDate ? (
                         <div>
                           <p className="font-bold text-gray-700">{new Date(cust.nextDueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
@@ -408,76 +414,64 @@ export default function DebtsView({
                       ) : (
                         <span className="text-gray-300">-</span>
                       )}
-                    </td>
-                    <td className="p-4">
+                    </TableCell>
+                    <TableCell>
                       <span className={`font-black text-xs ${cust.currentDebt > 0 ? 'text-gray-800' : 'text-emerald-600'}`}>
                         Rp {cust.currentDebt.toLocaleString('id-ID')}
                       </span>
-                    </td>
-                    <td className="p-4 text-right">
+                    </TableCell>
+                    <TableCell className="text-right">
                       <div className="flex justify-end gap-1.5">
-                        <button
+                        <Button
+                          size="sm"
+                          variant="secondary"
                           onClick={() => handleOpenInvoice(cust)}
-                          className="bg-gray-100 hover:bg-slate-200 text-gray-700 font-extrabold px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                          className="text-[10px]"
                           title="Cetak Surat Tagihan"
                         >
                           <FileText className="w-3.5 h-3.5" />
                           <span className="hidden sm:inline">Surat</span>
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          size="sm"
                           onClick={() => handleOpenAddDebtModal(cust)}
-                          className="bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 font-extrabold px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                          className="text-[10px] bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 shadow-none"
                           title="Tambah Hutang Baru"
                         >
                           <PlusCircle className="w-3.5 h-3.5" />
                           <span className="hidden sm:inline">Kredit</span>
-                        </button>
+                        </Button>
                         {cust.currentDebt > 0 && (
-                          <button
+                          <Button
+                            size="sm"
                             onClick={() => handleOpenPayModal(cust)}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                            className="text-[10px] bg-emerald-600 hover:bg-emerald-700"
                             title="Bayar Cicilan"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             <span>Cicil / Lunas</span>
-                          </button>
+                          </Button>
                         )}
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </div>
 
       {/* REPAYMENT MODAL */}
-      <AnimatePresence>
-        {showPayModal && selectedCustomerForAction && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowPayModal(false)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs"
-            />
-            <motion.div 
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="bg-white rounded-2xl max-w-md w-full border border-gray-200 p-6 shadow-2xl max-h-[85vh] overflow-y-auto relative z-10 space-y-4"
-            >
-              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <CreditCard className="w-5 h-5 text-emerald-600" />
-                  <h3 className="font-extrabold text-sm uppercase tracking-wider text-gray-800">Pembayaran Cicilan Piutang</h3>
-                </div>
-                <button onClick={() => setShowPayModal(false)} className="p-1 hover:bg-slate-100 rounded-lg">
-                  <X className="w-4 h-4 text-gray-400" />
-                </button>
-              </div>
+      <Dialog open={showPayModal && !!selectedCustomerForAction} onOpenChange={setShowPayModal}>
+        <DialogContent className="max-w-md">
+          {selectedCustomerForAction && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-emerald-600">
+                  <CreditCard className="w-5 h-5" /> Pembayaran Cicilan Piutang
+                </DialogTitle>
+              </DialogHeader>
 
               <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl space-y-1 text-xs">
                 <div className="flex justify-between">
@@ -492,79 +486,65 @@ export default function DebtsView({
 
               <form onSubmit={submitRepayment} className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Nominal Pembayaran (Rp)</label>
+                  <Label>Nominal Pembayaran (Rp)</Label>
                   <NumberInput
                     value={payAmount}
                     onChange={setPayAmount}
                     placeholder="Masukkan nominal Rp..."
                     required
-                    className="w-full bg-white border border-gray-200 rounded-xl p-3 font-black text-sm outline-none focus:ring-2 focus:ring-emerald-500/15 text-gray-800"
+                    className={numberInputClass}
                   />
                   <div className="flex gap-2 mt-2">
-                    <button 
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => setPayAmount(Math.round(selectedCustomerForAction.currentDebt / 2))}
-                      className="flex-1 py-1 px-2 border border-gray-200 rounded-lg hover:bg-slate-50 text-[10px] text-gray-500 font-bold"
+                      className="flex-1 text-[10px] text-gray-500"
                     >
                       Bayar Setengah (50%)
-                    </button>
-                    <button 
+                    </Button>
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => setPayAmount(selectedCustomerForAction.currentDebt)}
-                      className="flex-1 py-1 px-2 border border-gray-200 rounded-lg hover:bg-slate-50 text-[10px] text-gray-500 font-bold"
+                      className="flex-1 text-[10px] text-gray-500"
                     >
                       Bayar Lunas (100%)
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
                 <div className="flex gap-3 pt-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={() => setShowPayModal(false)}
-                    className="flex-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 font-bold py-2.5 rounded-xl cursor-pointer text-xs uppercase"
+                    className="flex-1"
                   >
                     Batal
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2.5 rounded-xl cursor-pointer text-xs uppercase shadow-sm shadow-emerald-900/10"
-                  >
+                  </Button>
+                  <Button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-900/10">
                     Konfirmasi Bayar
-                  </button>
+                  </Button>
                 </div>
               </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ADD DEBT MODAL */}
-      <AnimatePresence>
-        {showAddDebtModal && selectedCustomerForAction && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowAddDebtModal(false)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs"
-            />
-            <motion.div 
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="bg-white rounded-2xl max-w-md w-full border border-gray-200 p-6 shadow-2xl max-h-[85vh] overflow-y-auto relative z-10 space-y-4"
-            >
-              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <PlusCircle className="w-5 h-5 text-blue-600" />
-                  <h3 className="font-extrabold text-sm uppercase tracking-wider text-gray-800">Catat Hutang Baru</h3>
-                </div>
-                <button onClick={() => setShowAddDebtModal(false)} className="p-1 hover:bg-slate-100 rounded-lg">
-                  <X className="w-4 h-4 text-gray-400" />
-                </button>
-              </div>
+      <Dialog open={showAddDebtModal && !!selectedCustomerForAction} onOpenChange={setShowAddDebtModal}>
+        <DialogContent className="max-w-md">
+          {selectedCustomerForAction && (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  <PlusCircle className="w-5 h-5" /> Catat Hutang Baru
+                </DialogTitle>
+              </DialogHeader>
 
               <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl space-y-1 text-xs">
                 <div className="flex justify-between">
@@ -579,89 +559,70 @@ export default function DebtsView({
 
               <form onSubmit={submitAddDebt} className="space-y-4 text-xs">
                 <div>
-                  <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Nominal Hutang Baru (Rp)</label>
+                  <Label>Nominal Hutang Baru (Rp)</Label>
                   <NumberInput
                     value={addDebtAmount}
                     onChange={setAddDebtAmount}
                     placeholder="Rp..."
                     required
-                    className="w-full bg-white border border-gray-200 rounded-xl p-3 font-black text-sm outline-none focus:ring-2 focus:ring-blue-500/15 text-gray-800"
+                    className={numberInputClass}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Keterangan / Detail Bahan</label>
-                  <input 
+                  <Label>Keterangan / Detail Bahan</Label>
+                  <Input
                     type="text"
                     value={debtDescription}
                     onChange={(e) => setDebtDescription(e.target.value)}
                     placeholder="Contoh: Semen 15 sak, Besi Beton 10 btg"
                     required
-                    className="w-full bg-white border border-gray-200 rounded-xl p-2.5 font-bold outline-none focus:ring-2 focus:ring-blue-500/15 text-gray-800"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Batas Jatuh Tempo</label>
+                  <Label>Batas Jatuh Tempo</Label>
                   <div className="relative">
-                    <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input 
+                    <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10" />
+                    <Input
                       type="date"
                       value={debtDueDate}
                       onChange={(e) => setDebtDueDate(e.target.value)}
                       required
-                      className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-3.5 py-2.5 font-bold outline-none focus:ring-2 focus:ring-blue-500/15 text-gray-800"
+                      className="pl-9"
                     />
                   </div>
                 </div>
 
                 <div className="flex gap-3 pt-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={() => setShowAddDebtModal(false)}
-                    className="flex-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 font-bold py-2.5 rounded-xl cursor-pointer text-xs uppercase"
+                    className="flex-1"
                   >
                     Batal
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 rounded-xl cursor-pointer text-xs uppercase shadow-sm"
-                  >
+                  </Button>
+                  <Button type="submit" className="flex-1 shadow-sm">
                     Simpan Catatan
-                  </button>
+                  </Button>
                 </div>
               </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* PRINT INVOICE MODAL / SURAT TAGIHAN */}
-      <AnimatePresence>
-        {showPrintInvoice && selectedCustomerForAction && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-y-auto">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowPrintInvoice(false)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs"
-            />
-            <motion.div 
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="bg-white rounded-2xl max-w-lg w-full border border-gray-200 p-6 shadow-2xl max-h-[85vh] overflow-y-auto relative z-10 space-y-4 print:p-0 print:border-none print:shadow-none"
-            >
-              <div className="flex justify-between items-center border-b border-gray-100 pb-3 print:hidden">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-gray-700" />
-                  <h3 className="font-extrabold text-sm uppercase tracking-wider text-gray-800">Kartu Piutang &amp; Tagihan</h3>
-                </div>
-                <button onClick={() => setShowPrintInvoice(false)} className="p-1 hover:bg-slate-100 rounded-lg">
-                  <X className="w-4 h-4 text-gray-400" />
-                </button>
-              </div>
+      <Dialog open={showPrintInvoice && !!selectedCustomerForAction} onOpenChange={setShowPrintInvoice}>
+        <DialogContent className="max-w-lg print:p-0 print:border-none print:shadow-none">
+          {selectedCustomerForAction && (
+            <>
+              <DialogHeader className="print:hidden">
+                <DialogTitle className="text-gray-800">
+                  <FileText className="w-5 h-5" /> Kartu Piutang &amp; Tagihan
+                </DialogTitle>
+              </DialogHeader>
 
               {/* Printable Invoice Sheet */}
               <div className="bg-amber-50/20 border border-dashed border-amber-200 rounded-2xl p-6 font-mono text-slate-800 text-[11px] leading-relaxed relative">
@@ -740,25 +701,26 @@ export default function DebtsView({
 
               {/* Action Buttons */}
               <div className="flex gap-3 print:hidden pt-2">
-                <button
+                <Button
+                  variant="outline"
                   onClick={() => setShowPrintInvoice(false)}
-                  className="flex-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 font-bold py-2.5 rounded-xl cursor-pointer text-xs uppercase"
+                  className="flex-1"
                 >
                   Tutup
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={simulatePrint}
                   disabled={isPrinting}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-black py-2.5 rounded-xl cursor-pointer text-xs uppercase shadow-sm flex items-center justify-center gap-2"
+                  className="flex-1 shadow-sm"
                 >
                   <PrinterIcon className={`w-4 h-4 ${isPrinting ? 'animate-spin' : ''}`} />
                   <span>{isPrinting ? 'Mencetak...' : 'Cetak Tagihan'}</span>
-                </button>
+                </Button>
               </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
