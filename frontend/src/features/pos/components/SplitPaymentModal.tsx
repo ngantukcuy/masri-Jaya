@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Wallet } from 'lucide-react';
-import { motion } from 'motion/react';
 import { Customer } from '../../../types';
 import NumberInput from '../../../components/shared/NumberInput';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog';
+import { Button } from '../../../components/ui/button';
+import { Label } from '../../../components/ui/label';
 
 interface SplitPaymentModalProps {
   onClose: () => void;
@@ -33,94 +35,79 @@ export default function SplitPaymentModal({ onClose, onConfirm, totalAmount, cus
   const effectiveDueDateLabel = new Date(effectiveDueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-[150] p-4">
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-2xl max-w-sm w-full p-6 border border-gray-200 shadow-2xl max-h-[85vh] overflow-y-auto space-y-4"
-      >
-        <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-          <span className="font-extrabold text-xs uppercase tracking-widest text-blue-600 flex items-center gap-1.5">
-            <Wallet className="w-4 h-4" /> BAYAR SEBAGIAN (DP)
-          </span>
-          <button onClick={onClose} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 cursor-pointer">✕</button>
-        </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>
+            <Wallet className="w-4 h-4" /> Bayar Sebagian (DP)
+          </DialogTitle>
+        </DialogHeader>
 
         <div className="text-center space-y-1">
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Total Belanja</p>
-          <p className="text-2xl font-black text-gray-900">Rp {totalAmount.toLocaleString('id-ID')}</p>
-          <p className="text-[10px] text-gray-400">Pelanggan: <span className="font-bold text-gray-600">{customer.name}</span></p>
+          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Total Belanja</p>
+          <p className="text-2xl font-black text-foreground">Rp {totalAmount.toLocaleString('id-ID')}</p>
+          <p className="text-[10px] text-muted-foreground">Pelanggan: <span className="font-bold text-foreground/80">{customer.name}</span></p>
         </div>
 
-        <div className="space-y-1.5">
-          <label className="block text-[10px] text-gray-400 font-bold uppercase tracking-wider">Jumlah Dibayar Sekarang</label>
+        <div className="space-y-1.5 mt-4">
+          <Label>Jumlah Dibayar Sekarang</Label>
           <NumberInput
             value={paidNow}
             onChange={setPaidNow}
             max={totalAmount}
             autoFocus
             placeholder="0"
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-right font-black text-lg text-gray-900"
+            className="flex h-11 w-full rounded-xl border border-input bg-background px-3 py-2 text-right font-black text-lg text-foreground outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20"
           />
         </div>
 
-        <div className="rounded-xl p-3 text-center bg-amber-50 border border-amber-100">
+        <div className="rounded-xl p-3 text-center bg-amber-50 border border-amber-100 mt-3">
           <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">Sisa Menjadi Piutang</p>
           <p className="text-lg font-black text-amber-600">Rp {remaining.toLocaleString('id-ID')}</p>
         </div>
 
-        <div className="text-[10px] text-gray-400 space-y-0.5 px-1">
+        <div className="text-[10px] text-muted-foreground space-y-0.5 px-1 mt-3">
           <div className="flex justify-between">
             <span>Piutang saat ini</span>
-            <span className="font-bold text-gray-600">Rp {currentDebt.toLocaleString('id-ID')}</span>
+            <span className="font-bold text-foreground/80">Rp {currentDebt.toLocaleString('id-ID')}</span>
           </div>
           <div className="flex justify-between">
             <span>Piutang setelah transaksi ini</span>
-            <span className="font-bold text-gray-600">Rp {nextDebt.toLocaleString('id-ID')}</span>
+            <span className="font-bold text-foreground/80">Rp {nextDebt.toLocaleString('id-ID')}</span>
           </div>
           {creditLimit > 0 && (
             <div className="flex justify-between">
               <span>Limit piutang pelanggan</span>
-              <span className="font-bold text-gray-600">Rp {creditLimit.toLocaleString('id-ID')}</span>
+              <span className="font-bold text-foreground/80">Rp {creditLimit.toLocaleString('id-ID')}</span>
             </div>
           )}
           {remaining > 0 && (
             <div className="flex justify-between">
               <span>Jatuh tempo otomatis</span>
-              <span className="font-bold text-gray-600">{effectiveDueDateLabel} ({customer.tempoDays || 30} hari)</span>
+              <span className="font-bold text-foreground/80">{effectiveDueDateLabel} ({customer.tempoDays || 30} hari)</span>
             </div>
           )}
         </div>
 
         {exceedsLimit && (
-          <div className="rounded-xl p-3 text-center bg-red-50 border border-red-100">
+          <div className="rounded-xl p-3 text-center bg-red-50 border border-red-100 mt-3">
             <p className="text-[10px] text-red-500 font-bold">Peringatan: transaksi ini akan membuat piutang pelanggan melebihi limit yang ditetapkan.</p>
           </div>
         )}
 
         {!isValid && paidNow > 0 && (
-          <p className="text-[10px] text-red-500 font-bold text-center">Jumlah dibayar harus lebih kecil dari total belanja. Gunakan metode Tunai/QRIS jika membayar lunas.</p>
+          <p className="text-[10px] text-red-500 font-bold text-center mt-3">Jumlah dibayar harus lebih kecil dari total belanja. Gunakan metode Tunai/QRIS jika membayar lunas.</p>
         )}
 
-        <div className="pt-1 flex gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full py-2.5 border border-gray-200 rounded-xl font-bold text-xs hover:bg-gray-50 cursor-pointer"
-          >
+        <DialogFooter>
+          <Button type="button" variant="outline" className="w-full" onClick={onClose}>
             Batal
-          </button>
-          <button
-            type="button"
-            disabled={!isValid}
-            onClick={() => onConfirm(paidNow)}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs cursor-pointer shadow-md"
-          >
+          </Button>
+          <Button type="button" disabled={!isValid} className="w-full" onClick={() => onConfirm(paidNow)}>
             Selesaikan Transaksi
-          </button>
-        </div>
-      </motion.div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

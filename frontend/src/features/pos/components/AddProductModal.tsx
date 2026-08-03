@@ -1,7 +1,11 @@
 import { FormEvent } from 'react';
-import { Plus, X } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Plus } from 'lucide-react';
 import NumberInput from '../../../components/shared/NumberInput';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../../components/ui/select';
 
 interface AddProductModalProps {
   onClose: () => void;
@@ -25,6 +29,9 @@ interface AddProductModalProps {
   onStockChange: (v: number) => void;
 }
 
+const numberInputClass =
+  'flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-bold outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20';
+
 export default function AddProductModal({
   onClose,
   onSubmit,
@@ -39,123 +46,96 @@ export default function AddProductModal({
   stock, onStockChange
 }: AddProductModalProps) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={onClose}
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs"
-      />
-      <motion.div
-        initial={{ scale: 0.95, y: 15 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.95, y: 15 }}
-        className="bg-white rounded-2xl max-w-lg w-full border border-gray-200 p-6 shadow-2xl max-h-[85vh] overflow-y-auto relative z-10 space-y-4 font-sans text-xs"
-      >
-        <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-          <div className="flex items-center gap-1.5 text-emerald-600">
-            <Plus className="w-5 h-5" />
-            <h3 className="font-extrabold text-sm uppercase tracking-wider text-gray-800">Tambah Barang Baru ke POS</h3>
-          </div>
-          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded-lg">
-            <X className="w-4 h-4 text-gray-400" />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-sm text-foreground normal-case tracking-normal">
+            <Plus className="w-5 h-5" /> Tambah Barang Baru ke POS
+          </DialogTitle>
+        </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Nama Barang</label>
-              <input
+              <Label>Nama Barang</Label>
+              <Input
                 type="text"
                 required
                 placeholder="Contoh: Semen Tiga Roda"
                 value={name}
                 onChange={(e) => onNameChange(e.target.value)}
-                className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-bold text-xs outline-none focus:ring-2 focus:ring-emerald-600/15 text-gray-800"
               />
             </div>
             <div>
-              <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">SKU</label>
-              <input
+              <Label>SKU</Label>
+              <Input
                 type="text"
                 required
                 placeholder="Contoh: SEMEN-TR"
                 value={sku}
                 onChange={(e) => onSkuChange(e.target.value)}
-                className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-bold text-xs outline-none focus:ring-2 focus:ring-emerald-600/15 text-gray-800"
               />
             </div>
             <div>
-              <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Kategori</label>
-              <select
-                value={category}
-                onChange={(e) => onCategoryChange(e.target.value)}
-                className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-bold text-xs outline-none focus:ring-2 focus:ring-emerald-600/15 text-gray-800"
-              >
-                {categories.filter((cat) => cat !== 'Semua Kategori').map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
+              <Label>Kategori</Label>
+              <Select value={category} onValueChange={onCategoryChange}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {categories.filter((cat) => cat !== 'Semua Kategori').map((cat) => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
-              <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Satuan</label>
-              <input
+              <Label>Satuan</Label>
+              <Input
                 type="text"
                 placeholder="pcs / zak / meter"
                 value={unit}
                 onChange={(e) => onUnitChange(e.target.value)}
-                className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-bold text-xs outline-none focus:ring-2 focus:ring-emerald-600/15 text-gray-800"
               />
             </div>
             <div>
-              <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Harga Standard</label>
+              <Label>Harga Standard</Label>
               <NumberInput
                 value={wholesalePrice}
                 onChange={onWholesalePriceChange}
                 placeholder="0"
-                className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-bold text-xs outline-none focus:ring-2 focus:ring-emerald-600/15 text-gray-800"
+                className={numberInputClass}
               />
             </div>
             <div>
-              <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Harga Minimum</label>
+              <Label>Harga Minimum</Label>
               <NumberInput
                 value={projectPrice}
                 max={wholesalePrice || undefined}
                 onChange={onProjectPriceChange}
                 placeholder="0"
-                className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-bold text-xs outline-none focus:ring-2 focus:ring-emerald-600/15 text-gray-800"
+                className={numberInputClass}
               />
             </div>
             <div>
-              <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Stok Awal</label>
+              <Label>Stok Awal</Label>
               <NumberInput
                 value={stock}
                 onChange={onStockChange}
                 placeholder="0"
-                className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-bold text-xs outline-none focus:ring-2 focus:ring-emerald-600/15 text-gray-800"
+                className={numberInputClass}
               />
             </div>
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 font-bold py-2 rounded-lg cursor-pointer uppercase"
-            >
+          <DialogFooter>
+            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
               Batal
-            </button>
-            <button
-              type="submit"
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2 rounded-lg cursor-pointer uppercase shadow-sm"
-            >
+            </Button>
+            <Button type="submit" className="flex-1">
               Simpan &amp; Masukkan ke Keranjang
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </motion.div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

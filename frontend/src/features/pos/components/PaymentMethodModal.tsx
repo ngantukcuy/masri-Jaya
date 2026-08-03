@@ -1,7 +1,8 @@
 import { ReactNode } from 'react';
 import { Coins, QrCode, CreditCard, Wallet } from 'lucide-react';
-import { motion } from 'motion/react';
 import { Customer } from '../../../types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog';
+import { Button } from '../../../components/ui/button';
 
 interface PaymentMethodModalProps {
   onClose: () => void;
@@ -59,26 +60,18 @@ export default function PaymentMethodModal({ onClose, onSelect, totalAmount, cus
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-[150] p-4">
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-2xl max-w-sm w-full p-6 border border-gray-200 shadow-2xl max-h-[85vh] overflow-y-auto space-y-4"
-      >
-        <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-          <span className="font-extrabold text-xs uppercase tracking-widest text-blue-600">
-            PILIH METODE PEMBAYARAN
-          </span>
-          <button onClick={onClose} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 cursor-pointer">✕</button>
-        </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Pilih Metode Pembayaran</DialogTitle>
+        </DialogHeader>
 
         <div className="text-center space-y-1">
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Total Belanja</p>
-          <p className="text-2xl font-black text-gray-900">Rp {totalAmount.toLocaleString('id-ID')}</p>
+          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Total Belanja</p>
+          <p className="text-2xl font-black text-foreground">Rp {totalAmount.toLocaleString('id-ID')}</p>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2 mt-4">
           {options.map((opt) => {
             const disabled = opt.method === 'Split' && isGenericCustomer;
             return (
@@ -87,32 +80,30 @@ export default function PaymentMethodModal({ onClose, onSelect, totalAmount, cus
                 type="button"
                 onClick={() => !disabled && onSelect(opt.method)}
                 disabled={disabled}
-                className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-colors ${
+                className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-colors cursor-pointer ${
                   disabled
-                    ? 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed'
-                    : 'border-gray-200 bg-white hover:bg-blue-50 hover:border-blue-600 cursor-pointer'
+                    ? 'border-border bg-muted/50 opacity-60 cursor-not-allowed'
+                    : 'border-border bg-background hover:bg-primary/5 hover:border-primary'
                 }`}
               >
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${disabled ? 'bg-gray-200 text-gray-400' : 'bg-blue-50 text-blue-600'}`}>
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${disabled ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'}`}>
                   {opt.icon}
                 </div>
                 <div className="min-w-0">
-                  <p className={`font-black text-xs ${disabled ? 'text-gray-400' : 'text-gray-900'}`}>{opt.label}</p>
-                  <p className="text-[10px] text-gray-400 truncate">{opt.desc}</p>
+                  <p className={`font-black text-xs ${disabled ? 'text-muted-foreground' : 'text-foreground'}`}>{opt.label}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{opt.desc}</p>
                 </div>
               </button>
             );
           })}
         </div>
 
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-full py-2.5 border border-gray-200 rounded-xl font-bold text-xs hover:bg-gray-50 cursor-pointer"
-        >
-          Batal
-        </button>
-      </motion.div>
-    </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" className="w-full" onClick={onClose}>
+            Batal
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

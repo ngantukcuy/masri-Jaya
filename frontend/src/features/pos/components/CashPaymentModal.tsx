@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react';
 import { Coins } from 'lucide-react';
-import { motion } from 'motion/react';
 import NumberInput from '../../../components/shared/NumberInput';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog';
+import { Button } from '../../../components/ui/button';
+import { Label } from '../../../components/ui/label';
 
 interface CashPaymentModalProps {
   onClose: () => void;
@@ -32,52 +34,46 @@ export default function CashPaymentModal({ onClose, onConfirm, totalAmount }: Ca
   const isSufficient = cashReceived >= totalAmount;
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-[150] p-4">
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-2xl max-w-sm w-full p-6 border border-gray-200 shadow-2xl max-h-[85vh] overflow-y-auto space-y-4"
-      >
-        <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-          <span className="font-extrabold text-xs uppercase tracking-widest text-blue-600 flex items-center gap-1.5">
-            <Coins className="w-4 h-4" /> PEMBAYARAN TUNAI
-          </span>
-          <button onClick={onClose} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 cursor-pointer">✕</button>
-        </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>
+            <Coins className="w-4 h-4" /> Pembayaran Tunai
+          </DialogTitle>
+        </DialogHeader>
 
         <div className="text-center space-y-1">
-          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Total Belanja</p>
-          <p className="text-2xl font-black text-gray-900">Rp {totalAmount.toLocaleString('id-ID')}</p>
+          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Total Belanja</p>
+          <p className="text-2xl font-black text-foreground">Rp {totalAmount.toLocaleString('id-ID')}</p>
         </div>
 
-        <div className="space-y-1.5">
-          <label className="block text-[10px] text-gray-400 font-bold uppercase tracking-wider">Uang Diterima Dari Pelanggan</label>
+        <div className="space-y-1.5 mt-4">
+          <Label>Uang Diterima Dari Pelanggan</Label>
           <NumberInput
             value={cashReceived}
             onChange={setCashReceived}
             autoFocus
             placeholder="0"
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-right font-black text-lg text-gray-900"
+            className="flex h-11 w-full rounded-xl border border-input bg-background px-3 py-2 text-right font-black text-lg text-foreground outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20"
           />
         </div>
 
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5 mt-3">
           {suggestions.map((amount) => (
             <button
               key={amount}
               type="button"
               onClick={() => setCashReceived(amount)}
-              className="py-2 px-1 rounded-lg text-[11px] font-bold border border-gray-200 bg-gray-50 hover:bg-blue-50 hover:border-blue-600 hover:text-blue-600 cursor-pointer transition-colors"
+              className="py-2 px-1 rounded-lg text-[11px] font-bold border border-border bg-muted/50 hover:bg-primary/5 hover:border-primary hover:text-primary cursor-pointer transition-colors"
             >
               {amount === totalAmount ? 'Uang Pas' : `Rp ${amount.toLocaleString('id-ID')}`}
             </button>
           ))}
         </div>
 
-        <div className={`rounded-xl p-3 text-center ${isSufficient ? 'bg-emerald-50 border border-emerald-100' : 'bg-red-50 border border-red-100'}`}>
+        <div className={`rounded-xl p-3 text-center mt-3 border ${isSufficient ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
           {cashReceived === 0 ? (
-            <p className="text-[11px] text-gray-400 font-bold">Masukkan jumlah uang tunai yang diterima.</p>
+            <p className="text-[11px] text-muted-foreground font-bold">Masukkan jumlah uang tunai yang diterima.</p>
           ) : isSufficient ? (
             <>
               <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Kembalian</p>
@@ -91,24 +87,15 @@ export default function CashPaymentModal({ onClose, onConfirm, totalAmount }: Ca
           )}
         </div>
 
-        <div className="pt-1 flex gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full py-2.5 border border-gray-200 rounded-xl font-bold text-xs hover:bg-gray-50 cursor-pointer"
-          >
+        <DialogFooter>
+          <Button type="button" variant="outline" className="w-full" onClick={onClose}>
             Batal
-          </button>
-          <button
-            type="button"
-            disabled={!isSufficient}
-            onClick={() => onConfirm(cashReceived)}
-            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs cursor-pointer shadow-md"
-          >
+          </Button>
+          <Button type="button" disabled={!isSufficient} className="w-full" onClick={() => onConfirm(cashReceived)}>
             Selesaikan Transaksi
-          </button>
-        </div>
-      </motion.div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
