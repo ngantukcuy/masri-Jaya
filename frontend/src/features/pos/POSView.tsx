@@ -183,10 +183,10 @@ export default function POSView({
   const [newProductSku, setNewProductSku] = useState('');
   const [newProductCategory, setNewProductCategory] = useState('Cement & Mortar');
   const [newProductUnit, setNewProductUnit] = useState('pcs');
-  const [newProductRetailPrice, setNewProductRetailPrice] = useState('');
-  const [newProductWholesalePrice, setNewProductWholesalePrice] = useState('');
-  const [newProductProjectPrice, setNewProductProjectPrice] = useState('');
-  const [newProductStock, setNewProductStock] = useState('');
+  const [newProductRetailPrice, setNewProductRetailPrice] = useState<number>(0);
+  const [newProductWholesalePrice, setNewProductWholesalePrice] = useState<number>(0);
+  const [newProductProjectPrice, setNewProductProjectPrice] = useState<number>(0);
+  const [newProductStock, setNewProductStock] = useState<number>(0);
 
   // Filter Categories — derived from the products actually in stock, same
   // approach as the Stok (ProductsView) page, so a store never sees filter
@@ -296,10 +296,10 @@ export default function POSView({
     setNewProductSku('');
     setNewProductCategory('Cement & Mortar');
     setNewProductUnit('pcs');
-    setNewProductRetailPrice('');
-    setNewProductWholesalePrice('');
-    setNewProductProjectPrice('');
-    setNewProductStock('');
+    setNewProductRetailPrice(0);
+    setNewProductWholesalePrice(0);
+    setNewProductProjectPrice(0);
+    setNewProductStock(0);
 
     onAddActivity(
       'Barang Baru ditambahkan',
@@ -1022,7 +1022,7 @@ export default function POSView({
       </div>
 
       {/* Right Panel: POS Shopping Cart */}
-      <Card className={`lg:col-span-4 flex flex-col justify-between overflow-hidden min-h-0 self-start max-h-[calc(100vh-140px)] p-0 gap-0 ${mobileActiveSubTab === 'cart' ? 'flex' : 'hidden lg:flex'}`}>
+      <Card className={`lg:col-span-4 flex flex-col overflow-hidden h-[calc(100vh-140px)] p-0 gap-0 ${mobileActiveSubTab === 'cart' ? 'flex' : 'hidden lg:flex'}`}>
         
         {/* Customer select box */}
         <div className="p-4 border-b border-gray-100 bg-gray-50 space-y-2">
@@ -1143,7 +1143,7 @@ export default function POSView({
         </div>
 
         {/* Calculations / Actions */}
-        <div className="p-4 border-t border-gray-100 bg-gray-50/50 space-y-4">
+        <div className="p-4 border-t border-gray-100 bg-gray-50/50 shrink-0 space-y-4">
           
           {/* Quick calculations */}
           <div className="space-y-1.5 text-xs">
@@ -1239,7 +1239,7 @@ export default function POSView({
 
       {/* Floating Bottom Cart Bar for mobile - ONLY shown when on 'products' tab and cart has items */}
       {cart.length > 0 && mobileActiveSubTab === 'products' && (
-        <div className="fixed bottom-[74px] left-4 right-4 z-[90] md:hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3.5 rounded-2xl flex items-center justify-between shadow-xl shadow-blue-900/30 border border-blue-500/30 animate-in fade-in slide-in-from-bottom-5 duration-200">
+        <div className="fixed bottom-[5px] left-4 right-4 z-[90] md:hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3.5 rounded-2xl flex items-center justify-between shadow-xl shadow-blue-900/30 border border-blue-500/30 animate-in fade-in slide-in-from-bottom-5 duration-200">
           <div className="flex flex-col">
             <span className="text-[9px] text-blue-100 font-extrabold uppercase tracking-widest">
               {cart.reduce((acc, item) => acc + item.quantity, 0)} Barang di Keranjang
