@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   LayoutDashboard,
-  CornerDownRight,
+  Calculator,
   PlusCircle,
   ShoppingCart,
   Boxes,
@@ -27,6 +27,8 @@ import {
 } from 'lucide-react';
 import { useDialog } from '../shared/DialogProvider';
 import { CurrentUser, canAccessTab } from '../../lib/permissions';
+import { Button } from '../ui/button';
+import { cn } from '../../lib/utils';
 
 interface NavChild {
   id: string;
@@ -68,7 +70,7 @@ export default function Sidebar({
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'DASHBOARD', icon: LayoutDashboard },
     { id: 'kas-harian', label: 'KAS HARIAN', icon: Wallet },
-    { id: 'pos', label: 'POS KASIR', icon: CornerDownRight },
+    { id: 'pos', label: 'POS KASIR', icon: Calculator },
     { id: 'riwayat-transaksi', label: 'RIWAYAT TRANSAKSI', icon: History },
     { id: 'products', label: 'STOK', icon: Boxes },
     {
@@ -144,23 +146,27 @@ export default function Sidebar({
     return item.id === baseTab || item.children.some(c => c.id === currentTab);
   };
 
+  const navButtonCls = (isActive: boolean, isChild = false) =>
+    cn(
+      'w-full justify-start gap-3 h-auto px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl',
+      isChild && 'pl-9 py-2',
+      isActive
+        ? 'neu-pill-active text-primary border border-slate-200/60 hover:bg-transparent'
+        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 bg-transparent shadow-none'
+    );
+
   const renderNavButton = (item: NavItem | NavChild, isActive: boolean, isChild = false) => {
     const Icon = item.icon;
     return (
-      <button
+      <Button
         key={item.id}
+        variant="ghost"
         onClick={() => onTabChange(item.id)}
-        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
-          isChild ? 'pl-9 py-2' : ''
-        } ${
-          isActive
-            ? 'neu-pill-active text-blue-600 border border-slate-200/60'
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
-        }`}
+        className={navButtonCls(isActive, isChild)}
       >
-        <Icon className={`${isChild ? 'w-3.5 h-3.5' : 'w-4 h-4'} ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
+        <Icon className={`${isChild ? 'w-3.5 h-3.5' : 'w-4 h-4'} ${isActive ? 'text-primary' : 'text-slate-400'}`} />
         <span>{item.label}</span>
-      </button>
+      </Button>
     );
   };
 
@@ -177,29 +183,26 @@ export default function Sidebar({
         <div className="flex flex-col">
           <div className="text-2xl font-black tracking-tighter italic uppercase text-slate-900 flex items-center gap-1.5">
             <span>Masri</span>
-            <span className="text-blue-600">/ jaya</span>
+            <span className="text-primary">/ jaya</span>
           </div>
           <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.3em] mt-1.5">SISTEM ERP MATERIAL / v{__APP_VERSION__}</p>
         </div>
         {isMobile && onClose && (
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors cursor-pointer"
-          >
+          <Button variant="ghost" size="icon" onClick={onClose} className="text-slate-500">
             <X className="w-5 h-5" />
-          </button>
+          </Button>
         )}
       </div>
 
       {/* New Transaction CTA Button (Tasteful Neumorphic Button in Moderation) */}
       {canStartNewTransaction && (
-        <button
+        <Button
           onClick={onNewTransaction}
-          className="mb-6 w-full flex items-center justify-center gap-2 neu-btn text-blue-600 py-3 px-4 font-extrabold uppercase tracking-widest text-xs rounded-xl cursor-pointer"
+          className="mb-6 w-full h-auto neu-btn text-primary py-3 px-4 font-extrabold uppercase tracking-widest text-xs rounded-xl bg-transparent shadow-none hover:bg-transparent"
         >
           <PlusCircle className="w-4 h-4" />
           <span>Transaksi Baru</span>
-        </button>
+        </Button>
       )}
 
       {/* Nav Menu */}
@@ -217,20 +220,22 @@ export default function Sidebar({
 
           return (
             <div key={item.id}>
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => toggleGroup(item.id)}
-                className={`w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
+                className={cn(
+                  'w-full justify-between gap-2 h-auto px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl',
                   groupActive
-                    ? 'neu-pill-active text-blue-600 border border-slate-200/60'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
-                }`}
+                    ? 'neu-pill-active text-primary border border-slate-200/60 hover:bg-transparent'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 bg-transparent shadow-none'
+                )}
               >
                 <span className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 ${groupActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                  <Icon className={`w-4 h-4 ${groupActive ? 'text-primary' : 'text-slate-400'}`} />
                   <span>{item.label}</span>
                 </span>
-                <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''} ${groupActive ? 'text-blue-600' : 'text-slate-400'}`} />
-              </button>
+                <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''} ${groupActive ? 'text-primary' : 'text-slate-400'}`} />
+              </Button>
               {isOpen && (
                 <div className="mt-1 space-y-1">
                   {item.children.map((child) => renderNavButton(child, currentTab === child.id, true))}
@@ -246,38 +251,28 @@ export default function Sidebar({
 
       {/* Bottom Actions */}
       <div className="mt-auto pt-5 border-t border-slate-100 space-y-1.5">
-        {canOpenSettings && (
-          <button
-            onClick={() => onTabChange('settings')}
-            className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
-              currentTab === 'settings'
-                ? 'neu-pill-active text-blue-600 border border-slate-200/60'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50'
-            }`}
-          >
-            <Settings className={`w-4 h-4 ${currentTab === 'settings' ? 'text-blue-600' : 'text-slate-400'}`} />
-            <span>Pengaturan</span>
-          </button>
-        )}
-        <button
+        {canOpenSettings && renderNavButton({ id: 'settings', label: 'Pengaturan', icon: Settings }, currentTab === 'settings')}
+        <Button
+          variant="ghost"
           onClick={() => dialog.alert("Pusat bantuan siap melayani! Hubungi dukungan Masri Jaya.")}
-          className="w-full flex items-center gap-3 px-3.5 py-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+          className="w-full justify-start gap-3 h-auto px-3.5 py-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 bg-transparent shadow-none rounded-xl text-xs font-bold uppercase tracking-wider"
         >
           <HelpCircle className="w-4 h-4 text-slate-400" />
           <span>Bantuan</span>
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="ghost"
           onClick={async () => {
             const confirmed = await dialog.confirm("Apakah Anda yakin ingin keluar dari akun?");
             if (confirmed) {
               onLogout();
             }
           }}
-          className="w-full flex items-center gap-3 px-3.5 py-2.5 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+          className="w-full justify-start gap-3 h-auto px-3.5 py-2.5 text-red-600 hover:bg-red-50 hover:text-red-700 bg-transparent shadow-none rounded-xl text-xs font-bold uppercase tracking-wider"
         >
           <LogOut className="w-4 h-4 text-red-500" />
           <span>Keluar</span>
-        </button>
+        </Button>
       </div>
     </aside>
   );

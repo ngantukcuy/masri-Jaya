@@ -28,6 +28,7 @@ import QRISModal from './components/QRISModal';
 import ReceiptModal from './components/ReceiptModal';
 import AddProductModal from './components/AddProductModal';
 import AddCustomerModal from './components/AddCustomerModal';
+import SelectCustomerModal from './components/SelectCustomerModal';
 import PaymentMethodModal from './components/PaymentMethodModal';
 import CashPaymentModal from './components/CashPaymentModal';
 import SplitPaymentModal from './components/SplitPaymentModal';
@@ -44,6 +45,12 @@ import {
 } from './lib/posCartStorage';
 import { useDialog } from '../../components/shared/DialogProvider';
 import NumberInput from '../../components/shared/NumberInput';
+import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Badge } from '../../components/ui/badge';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select';
 
 /** ID pelanggan umum/walk-in "Customer" (lihat genericWalkInCustomer di
  * bawah) — bukan baris asli di tabel customers, jadi tidak punya tempat
@@ -168,6 +175,7 @@ export default function POSView({
 
   // New Custom Add Customer states
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [showSelectCustomerModal, setShowSelectCustomerModal] = useState(false);
 
   // New Product quick add states
   const [showAddProductModal, setShowAddProductModal] = useState(false);
@@ -794,13 +802,10 @@ export default function POSView({
       {/* Slim top bar replacing the app header/sidebar while in full-screen POS mode */}
       {onExitFullScreen && (
         <div className="flex items-center justify-between shrink-0">
-          <button
-            onClick={onExitFullScreen}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-50 cursor-pointer"
-          >
+          <Button variant="outline" size="sm" onClick={onExitFullScreen} className="text-gray-600">
             <X className="w-4 h-4" />
             <span>Kembali</span>
-          </button>
+          </Button>
           <div className="flex items-center gap-3 text-xs font-bold text-gray-500">
             {storeProfile?.storeName && <span className="text-gray-800">{storeProfile.storeName}</span>}
             {cashierName && <span className="text-gray-400">Kasir: {cashierName}</span>}
@@ -810,27 +815,27 @@ export default function POSView({
 
       {/* Mobile Tab Swapper (Header) */}
       <div className="flex md:hidden bg-slate-100 p-1 rounded-xl border border-slate-200/50 w-full shrink-0">
-        <button
+        <Button
+          variant="ghost"
           onClick={() => setMobileActiveSubTab('products')}
-          className={`flex-1 py-2.5 text-center rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-            mobileActiveSubTab === 'products' ? 'bg-white text-blue-600 shadow-sm border border-slate-200/30 font-black' : 'text-slate-500 hover:text-slate-800'
+          className={`flex-1 h-auto py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-transparent shadow-none ${
+            mobileActiveSubTab === 'products' ? 'bg-white text-primary shadow-sm border border-slate-200/30 font-black hover:bg-white' : 'text-slate-500 hover:text-slate-800 hover:bg-transparent'
           }`}
         >
           Daftar Barang
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="ghost"
           onClick={() => setMobileActiveSubTab('cart')}
-          className={`flex-1 py-2.5 text-center rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-            mobileActiveSubTab === 'cart' ? 'bg-white text-blue-600 shadow-sm border border-slate-200/30 font-black' : 'text-slate-500 hover:text-slate-800'
+          className={`flex-1 h-auto py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-transparent shadow-none ${
+            mobileActiveSubTab === 'cart' ? 'bg-white text-primary shadow-sm border border-slate-200/30 font-black hover:bg-white' : 'text-slate-500 hover:text-slate-800 hover:bg-transparent'
           }`}
         >
           <span>Keranjang Belanja</span>
           {cart.length > 0 && (
-            <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black animate-pulse">
-              {cart.reduce((acc, item) => acc + item.quantity, 0)}
-            </span>
+            <Badge className="animate-pulse">{cart.reduce((acc, item) => acc + item.quantity, 0)}</Badge>
           )}
-        </button>
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
@@ -838,89 +843,90 @@ export default function POSView({
         <div className={`lg:col-span-8 flex flex-col justify-between space-y-4 min-h-0 h-full ${mobileActiveSubTab === 'products' ? 'flex' : 'hidden lg:flex'}`}>
         
         {/* Search and Shortcuts Headers with Barcode scanner option */}
-        <div className="flex flex-col xl:flex-row gap-3 xl:items-center xl:justify-between bg-white border border-gray-200 p-4 rounded-xl shadow-xs">
+        <Card className="flex flex-col xl:flex-row gap-3 xl:items-center xl:justify-between p-4">
           
           {/* Scan barcode input */}
           <div className="relative w-full xl:max-w-md flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1 group">
-              <Barcode className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors" />
-              <input 
+            <div className="relative flex-1">
+              <Barcode className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10" />
+              <Input 
                 id="barcode-search-input"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Ketik nama bahan bangunan atau scan (F1)..."
-                className="w-full bg-gray-50 border-none rounded-lg pl-10 pr-12 py-2 text-xs focus:ring-2 focus:ring-blue-600/15 outline-none text-gray-900"
+                className="pl-10 pr-12 bg-gray-50 border-none"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] bg-gray-200 text-gray-500 px-1 py-0.5 rounded font-black font-mono">F1</span>
             </div>
 
             <div className="flex gap-2">
               {/* Quick add product button */}
-              <button
+              <Button
                 onClick={() => setShowAddProductModal(true)}
-                className="flex-1 sm:flex-none px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer"
                 title="Tambah Barang Baru Langsung dari POS"
+                className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 whitespace-nowrap"
               >
                 <Plus className="w-4 h-4" />
                 <span>Tambah Barang</span>
-              </button>
+              </Button>
 
               {/* Simulated hardware scanning button */}
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => {
                   setShowScannerModal(true);
                   setScanningLineActive(true);
                 }}
-                className="flex-1 sm:flex-none px-3.5 py-2 nm-btn text-blue-600 hover:text-blue-700 flex items-center justify-center gap-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer"
                 title="Simulator Pemindai Barcode"
+                className="flex-1 sm:flex-none text-primary whitespace-nowrap"
               >
                 <Camera className="w-4 h-4 animate-pulse" />
                 <span>Pindai Barcode</span>
-              </button>
+              </Button>
             </div>
           </div>
 
           {/* Sound enable switch & Customer Selection Quick View */}
           <div className="flex items-center gap-2 flex-wrap">
-            <button
+            <Button
+              variant={showCategoryFilter ? 'default' : 'outline'}
+              size="sm"
               onClick={() => setShowCategoryFilter(!showCategoryFilter)}
-              className={`px-3 py-2 border rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5 transition-all whitespace-nowrap ${
-                showCategoryFilter ? 'bg-blue-50 border-blue-600 text-blue-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}
+              className={showCategoryFilter ? 'bg-primary/10 text-primary hover:bg-primary/15 shadow-none' : ''}
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
               <span>Filter</span>
               {selectedCategory !== 'Semua Kategori' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+                <span className="w-1.5 h-1.5 rounded-full bg-primary" />
               )}
-            </button>
+            </Button>
 
-            <button
+            <Button
+              variant={isCartPersistenceEnabled ? 'default' : 'outline'}
+              size="sm"
               onClick={handleToggleCartPersistence}
-              className={`px-3 py-2 rounded-lg border text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                isCartPersistenceEnabled
-                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                  : 'bg-white text-slate-600 border-slate-200 hover:border-blue-400 hover:text-blue-600'
-              }`}
+              className={isCartPersistenceEnabled ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
             >
               {isCartPersistenceEnabled ? 'Simpan Keranjang Aktif' : 'Aktifkan Simpan Keranjang'}
-            </button>
+            </Button>
 
-            <button
+            <Button
+              variant="outline"
+              size="icon"
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className="p-2 nm-btn text-gray-500 hover:text-gray-800 rounded-lg cursor-pointer shrink-0"
+              className="text-gray-500 shrink-0"
               title={soundEnabled ? "Matikan Suara Beep" : "Aktifkan Suara Beep"}
             >
-              {soundEnabled ? <Volume2 className="w-4 h-4 text-blue-600" /> : <VolumeX className="w-4 h-4 text-red-500" />}
-            </button>
+              {soundEnabled ? <Volume2 className="w-4 h-4 text-primary" /> : <VolumeX className="w-4 h-4 text-red-500" />}
+            </Button>
 
-            <div className="flex items-center gap-2 bg-blue-100/40 text-blue-800 px-3.5 py-1.5 rounded-lg border border-blue-200 text-xs font-bold whitespace-nowrap">
+            <Badge variant="secondary" className="bg-primary/10 text-primary border border-primary/20 normal-case gap-1.5 py-1.5 px-3.5">
               <User className="w-4 h-4 shrink-0" />
               <span className="truncate max-w-[160px]">Pembeli: {selectedCustomer.name}</span>
-            </div>
+            </Badge>
           </div>
-        </div>
+        </Card>
 
         {/* Scan successful banner feedback */}
         <AnimatePresence>
@@ -947,18 +953,19 @@ export default function POSView({
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="bg-white border border-gray-200 rounded-xl p-4 overflow-hidden text-xs"
+              className="overflow-hidden"
             >
-              <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Pilih Kategori</label>
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full sm:max-w-xs bg-gray-50 border border-gray-200 rounded-lg p-2 font-semibold text-gray-700 outline-none"
-              >
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>{categoryTranslationMap[cat] || cat}</option>
-                ))}
-              </select>
+              <Card className="p-4 text-xs">
+                <Label>Pilih Kategori</Label>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="w-full sm:max-w-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>{categoryTranslationMap[cat] || cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Card>
             </motion.div>
           )}
         </AnimatePresence>
@@ -970,8 +977,8 @@ export default function POSView({
               whileTap={{ scale: 0.98 }}
               onClick={() => handleAddToCart(prod)}
               key={prod.sku}
-              className="bg-white border border-gray-200 rounded-xl p-3 flex flex-col justify-between shadow-xs hover:border-blue-600 cursor-pointer group transition-all"
             >
+              <Card className="p-3 flex flex-col justify-between hover:border-primary/50 cursor-pointer group transition-all gap-0">
               {/* Product Thumbnail */}
               <div className="w-full h-28 rounded-lg overflow-hidden bg-gray-50 relative border border-gray-100 mb-3">
                 {/* Fallback icon shown when the image fails to load (broken/expired URL) */}
@@ -987,67 +994,58 @@ export default function POSView({
                   onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
                   onLoad={(e) => { e.currentTarget.style.visibility = 'visible'; }}
                 />
-                <span className={`absolute bottom-2 left-2 px-1.5 py-0.5 rounded text-[8px] font-black uppercase ${
-                  prod.stockStatus === 'Healthy' ? 'bg-emerald-100 text-emerald-800' : 
-                  prod.stockStatus === 'Low Stock' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'
-                }`}>
+                <Badge
+                  variant={prod.stockStatus === 'Healthy' ? 'success' : prod.stockStatus === 'Low Stock' ? 'warning' : 'destructive'}
+                  className="absolute bottom-2 left-2"
+                >
                   STOK: {prod.stock}
-                </span>
+                </Badge>
               </div>
 
               {/* Descriptions */}
               <div>
-                <p className="text-xs font-black text-gray-800 line-clamp-1 group-hover:text-blue-600 transition-colors">{prod.name}</p>
+                <p className="text-xs font-black text-gray-800 line-clamp-1 group-hover:text-primary transition-colors">{prod.name}</p>
                 <p className="text-[10px] text-gray-400 font-mono mt-0.5">{prod.sku}</p>
               </div>
 
               {/* Price Details — shows Harga Standard, not Harga Modal/Minimum */}
               <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
                 <span className="text-xs font-black text-gray-950">Rp {prod.wholesalePrice.toLocaleString('id-ID')}</span>
-                <span className="text-[9px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded uppercase">
+                <Badge variant="secondary" className="bg-primary/10 text-primary normal-case">
                   {prod.unit}
-                </span>
+                </Badge>
               </div>
+              </Card>
             </motion.div>
           ))}
         </div>
       </div>
 
       {/* Right Panel: POS Shopping Cart */}
-      <div className={`lg:col-span-4 bg-white border border-gray-200 rounded-2xl shadow-sm flex flex-col overflow-hidden h-[calc(100vh-140px)] ${mobileActiveSubTab === 'cart' ? 'flex' : 'hidden lg:flex'}`}>
+      <Card className={`lg:col-span-4 flex flex-col justify-between overflow-hidden min-h-0 self-start max-h-[calc(100vh-140px)] p-0 gap-0 ${mobileActiveSubTab === 'cart' ? 'flex' : 'hidden lg:flex'}`}>
         
         {/* Customer select box */}
         <div className="p-4 border-b border-gray-100 bg-gray-50 space-y-2">
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1">
               <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">PILIH PELANGGAN</label>
-              <select 
-                value={selectedCustomer.id}
-                onChange={(e) => {
-                  const match = customers.find(c => c.id === e.target.value);
-                  if (match) setSelectedCustomer(match);
-                }}
-                className="w-full bg-white border border-gray-200 rounded-lg p-2 font-bold text-xs text-gray-800 outline-none focus:ring-2 focus:ring-blue-600/15"
+              <button
+                type="button"
+                onClick={() => setShowSelectCustomerModal(true)}
+                className="w-full flex items-center justify-between bg-white border border-gray-200 rounded-lg p-2 font-bold text-xs text-gray-800 outline-none focus:ring-2 focus:ring-blue-600/15 cursor-pointer hover:bg-gray-50"
               >
-                {/* selectedCustomer bisa berupa pelanggan umum "Customer" (fallback,
-                    bukan baris asli di tabel customers) — kalau tidak ditambahkan
-                    sebagai <option> sendiri, <select> tidak akan menemukan opsi yang
-                    cocok dengan value-nya dan browser otomatis menampilkan opsi
-                    pertama di daftar (nama pelanggan lain), padahal yang benar-benar
-                    terpilih tetap "Customer". */}
-                {!customers.some(c => c.id === selectedCustomer.id) && (
-                  <option value={selectedCustomer.id}>{selectedCustomer.name}</option>
-                )}
-                {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+                <span className="truncate">{selectedCustomer.name}</span>
+                <span className="text-gray-400 font-semibold text-[9px] uppercase shrink-0 ml-2">Ganti</span>
+              </button>
             </div>
-            <button 
+            <Button
+              size="icon"
               onClick={() => setShowAddCustomerModal(true)}
-              className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer mt-4"
+              className="mt-4 shrink-0"
               title="Tambah Pelanggan Baru"
             >
               <UserPlus className="w-4 h-4" />
-            </button>
+            </Button>
           </div>
           {selectedCustomer && (
             <div className="flex justify-between items-center text-[10px] text-gray-500 font-extrabold bg-white/60 border border-gray-100/40 rounded-lg p-1.5 px-2">
@@ -1083,12 +1081,14 @@ export default function POSView({
                       <p className="text-[10px] text-gray-400 font-mono mt-0.5">{item.product.sku}</p>
                     </div>
                     {/* Delete action */}
-                    <button 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => handleDeleteCartItem(item.product.sku)}
-                      className="text-red-400 hover:text-red-600 transition-colors cursor-pointer"
+                      className="h-6 w-6 text-red-400 hover:text-red-600"
                     >
                       <Trash2 className="w-4 h-4" />
-                    </button>
+                    </Button>
                   </div>
 
                   {/* Pricing: shows Harga Minimum as a reference, price itself is editable
@@ -1096,7 +1096,7 @@ export default function POSView({
                   <div className="bg-white p-2 rounded-lg border border-gray-100 text-xs space-y-1.5">
                     <div className="flex justify-between items-center text-[9px] font-bold uppercase text-gray-400">
                       <span>Harga Minimum: Rp {minPrice.toLocaleString('id-ID')}</span>
-                      <span className="font-black text-blue-600 text-xs normal-case">Rp {lineTotal.toLocaleString('id-ID')}</span>
+                      <span className="font-black text-primary text-xs normal-case">Rp {lineTotal.toLocaleString('id-ID')}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span className="text-gray-400 font-bold">Rp</span>
@@ -1117,19 +1117,23 @@ export default function POSView({
                   {/* Quantity control */}
                   <div className="flex items-center justify-between pt-1">
                     <div className="flex items-center gap-1 border border-gray-200 bg-white rounded-lg p-1">
-                      <button 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleUpdateQty(item.product.sku, -1)}
-                        className="w-6 h-6 hover:bg-gray-100 rounded flex items-center justify-center cursor-pointer"
+                        className="w-6 h-6 hover:bg-gray-100"
                       >
                         <Minus className="w-3.5 h-3.5 text-gray-500" />
-                      </button>
+                      </Button>
                       <span className="w-8 text-center text-xs font-black text-gray-800">{item.quantity}</span>
-                      <button 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleUpdateQty(item.product.sku, 1)}
-                        className="w-6 h-6 hover:bg-gray-100 rounded flex items-center justify-center cursor-pointer"
+                        className="w-6 h-6 hover:bg-gray-100"
                       >
                         <Plus className="w-3.5 h-3.5 text-gray-500" />
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -1139,7 +1143,7 @@ export default function POSView({
         </div>
 
         {/* Calculations / Actions */}
-        <div className="p-4 border-t border-gray-100 bg-gray-50/50 shrink-0 space-y-4">
+        <div className="p-4 border-t border-gray-100 bg-gray-50/50 space-y-4">
           
           {/* Quick calculations */}
           <div className="space-y-1.5 text-xs">
@@ -1149,30 +1153,30 @@ export default function POSView({
             </div>
             <div className="flex justify-between items-center text-gray-500">
               <span className="flex items-center gap-1">
-                {discountMode === 'percent' ? <BadgePercent className="w-4 h-4 text-blue-600" /> : <Banknote className="w-4 h-4 text-blue-600" />}
+                {discountMode === 'percent' ? <BadgePercent className="w-4 h-4 text-primary" /> : <Banknote className="w-4 h-4 text-primary" />}
                 Diskon Promo
               </span>
               <div className="flex items-center gap-1">
-                <button
+                <Button
                   type="button"
+                  size="icon"
+                  variant={discountMode === 'percent' ? 'default' : 'outline'}
                   onClick={() => setDiscountMode('percent')}
                   title="Diskon persen (%)"
-                  className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black border cursor-pointer transition-colors ${
-                    discountMode === 'percent' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50'
-                  }`}
+                  className="w-6 h-6 text-[10px]"
                 >
                   %
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  size="icon"
+                  variant={discountMode === 'fixed' ? 'default' : 'outline'}
                   onClick={() => setDiscountMode('fixed')}
                   title="Potongan harga langsung (Rp)"
-                  className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-black border cursor-pointer transition-colors ${
-                    discountMode === 'fixed' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-200 text-gray-400 hover:bg-gray-50'
-                  }`}
+                  className="w-6 h-6 text-[9px]"
                 >
                   Rp
-                </button>
+                </Button>
                 <NumberInput
                   value={discountValue}
                   max={discountMode === 'percent' ? 100 : undefined}
@@ -1181,7 +1185,7 @@ export default function POSView({
                 />
               </div>
             </div>
-            <div className="flex justify-between text-blue-600 font-black text-sm pt-2.5 border-t border-gray-200">
+            <div className="flex justify-between text-primary font-black text-sm pt-2.5 border-t border-gray-200">
               <span>Total Akhir</span>
               <span>Rp {totalAmount.toLocaleString('id-ID')}</span>
             </div>
@@ -1191,32 +1195,30 @@ export default function POSView({
           <div className="space-y-1.5">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Pengambilan Barang</span>
             <div className="grid grid-cols-2 gap-1.5">
-              <button
+              <Button
+                variant={fulfillmentMethod === 'Pickup' ? 'default' : 'outline'}
                 onClick={() => setFulfillmentMethod('Pickup')}
-                className={`py-2 px-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 ${
-                  fulfillmentMethod === 'Pickup' ? 'bg-blue-50 border-blue-600 text-blue-600 font-black' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
-                }`}
+                className={`text-[10px] h-auto py-2 px-1.5 rounded-xl ${fulfillmentMethod === 'Pickup' ? 'bg-primary/10 text-primary hover:bg-primary/15 shadow-none font-black' : 'text-gray-500'}`}
               >
                 <Store className="w-3.5 h-3.5" />
                 <span>Ambil Sendiri</span>
-              </button>
-              <button
+              </Button>
+              <Button
+                variant={fulfillmentMethod === 'Delivery' ? 'default' : 'outline'}
                 onClick={() => setFulfillmentMethod('Delivery')}
-                className={`py-2 px-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 ${
-                  fulfillmentMethod === 'Delivery' ? 'bg-blue-50 border-blue-600 text-blue-600 font-black' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
-                }`}
+                className={`text-[10px] h-auto py-2 px-1.5 rounded-xl ${fulfillmentMethod === 'Delivery' ? 'bg-primary/10 text-primary hover:bg-primary/15 shadow-none font-black' : 'text-gray-500'}`}
               >
                 <Truck className="w-3.5 h-3.5" />
                 <span>Diantar</span>
-              </button>
+              </Button>
             </div>
             {fulfillmentMethod === 'Delivery' && (
-              <input
+              <Input
                 type="text"
                 value={deliveryAddress}
                 onChange={(e) => setDeliveryAddress(e.target.value)}
                 placeholder="Alamat pengiriman (opsional)"
-                className="w-full bg-white border border-gray-200 rounded-lg p-2 text-[11px]"
+                className="text-[11px]"
               />
             )}
           </div>
@@ -1224,19 +1226,20 @@ export default function POSView({
           {/* Checkout Button CTA — memilih metode pembayaran terjadi di
               PaymentMethodModal setelah tombol ini diklik, bukan lewat
               toggle yang selalu tampil di sini. */}
-          <button 
+          <Button 
             onClick={handleCheckout}
-            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-md shadow-blue-500/15 cursor-pointer transition-colors"
+            size="lg"
+            className="w-full py-3.5 h-auto text-sm shadow-md shadow-blue-500/15"
           >
             Bayar &amp; Cetak Struk (F12)
-          </button>
+          </Button>
         </div>
+      </Card>
       </div>
-    </div>
 
       {/* Floating Bottom Cart Bar for mobile - ONLY shown when on 'products' tab and cart has items */}
       {cart.length > 0 && mobileActiveSubTab === 'products' && (
-        <div className="fixed bottom-[0px] left-4 right-4 z-[90] md:hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3.5 rounded-2xl flex items-center justify-between shadow-xl shadow-blue-900/30 border border-blue-500/30 animate-in fade-in slide-in-from-bottom-5 duration-200">
+        <div className="fixed bottom-[74px] left-4 right-4 z-[90] md:hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3.5 rounded-2xl flex items-center justify-between shadow-xl shadow-blue-900/30 border border-blue-500/30 animate-in fade-in slide-in-from-bottom-5 duration-200">
           <div className="flex flex-col">
             <span className="text-[9px] text-blue-100 font-extrabold uppercase tracking-widest">
               {cart.reduce((acc, item) => acc + item.quantity, 0)} Barang di Keranjang
@@ -1245,13 +1248,13 @@ export default function POSView({
               Rp {totalAmount.toLocaleString('id-ID')}
             </span>
           </div>
-          <button
+          <Button
             onClick={() => setMobileActiveSubTab('cart')}
-            className="bg-white hover:bg-slate-50 text-blue-600 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider shadow-sm cursor-pointer transition-transform active:scale-95 flex items-center gap-1.5"
+            className="bg-white hover:bg-slate-50 text-primary px-4 py-2.5 h-auto rounded-xl text-xs font-black uppercase tracking-wider shadow-sm"
           >
             <span>Buka Keranjang</span>
             <span className="text-sm font-bold">→</span>
-          </button>
+          </Button>
         </div>
       )}
 
@@ -1348,6 +1351,23 @@ export default function POSView({
           <AddCustomerModal
             onClose={() => setShowAddCustomerModal(false)}
             onSubmit={handleAddCustomer}
+          />
+        )}
+
+        {showSelectCustomerModal && (
+          <SelectCustomerModal
+            customers={customers}
+            selectedCustomerId={selectedCustomer.id}
+            genericCustomer={genericWalkInCustomer()}
+            onClose={() => setShowSelectCustomerModal(false)}
+            onSelect={(c) => {
+              setSelectedCustomer(c);
+              setShowSelectCustomerModal(false);
+            }}
+            onAddNew={() => {
+              setShowSelectCustomerModal(false);
+              setShowAddCustomerModal(true);
+            }}
           />
         )}
       </AnimatePresence>

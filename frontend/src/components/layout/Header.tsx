@@ -4,6 +4,11 @@ import { getCurrentSession, getMutationTotals } from '../../lib/cashSession';
 import { useTheme } from '../../lib/ThemeContext';
 import InstallAppButton from '../shared/InstallAppButton';
 import { CurrentUser, canSeeApproverNotifications } from '../../lib/permissions';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Badge } from '../ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import { cn } from '../../lib/utils';
 
 interface SearchResultItem {
   id: string;
@@ -234,30 +239,32 @@ export default function Header({
     }
   };
 
+  const navTabCls = (active: boolean) =>
+    cn(
+      'h-auto px-0 pb-1 rounded-none text-xs font-bold uppercase tracking-wider bg-transparent shadow-none border-b-2',
+      active ? 'text-primary border-primary hover:bg-transparent' : 'text-slate-500 border-transparent hover:text-primary hover:bg-transparent'
+    );
+
   return (
     <header className="h-16 w-full bg-white/70 backdrop-blur-md border-b border-slate-200/50 sticky top-0 z-40 flex items-center justify-between px-4 md:px-8 shadow-sm">
       {/* Menu Hamburger for mobile & Search Input */}
       <div className="flex items-center gap-2 md:gap-6 flex-1 mr-4">
         {onMenuToggle && (
-          <button 
-            onClick={onMenuToggle}
-            className="p-2 md:hidden hover:bg-slate-100/80 active:bg-slate-200/80 rounded-xl text-slate-700 transition-colors cursor-pointer mr-1"
-            aria-label="Buka Menu"
-          >
+          <Button variant="ghost" size="icon" onClick={onMenuToggle} className="md:hidden text-slate-700 mr-1" aria-label="Buka Menu">
             <Menu className="w-5 h-5" />
-          </button>
+          </Button>
         )}
-        
+
         <div className="relative w-full max-w-xs md:max-w-md group">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
-          <input 
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors z-10" />
+          <Input
             type="text"
             value={searchValue || ''}
             onChange={handleSearchChange}
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => setTimeout(() => setIsSearchFocused(false), 150)}
             placeholder={actualPlaceholder}
-            className="w-full glass-input rounded-xl pl-11 pr-4 py-2 text-xs text-slate-900 placeholder-slate-400"
+            className="glass-input rounded-xl pl-11 pr-4 py-2 h-9 text-xs text-slate-900 placeholder-slate-400 border-none"
           />
 
           {isSearchFocused && searchValue && (
@@ -270,13 +277,13 @@ export default function Header({
                     key={result.id}
                     type="button"
                     onMouseDown={() => handleResultClick(result.tab)}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-50 transition-colors flex items-center justify-between gap-2"
+                    className="w-full text-left px-4 py-2 hover:bg-slate-50 transition-colors flex items-center justify-between gap-2 cursor-pointer"
                   >
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-slate-800 truncate">{result.label}</p>
                       <p className="text-[10px] text-slate-400 truncate">{result.sublabel}</p>
                     </div>
-                    <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">{result.category}</span>
+                    <Badge variant="secondary" className="shrink-0 bg-primary/10 text-primary normal-case">{result.category}</Badge>
                   </button>
                 ))
               )}
@@ -285,30 +292,15 @@ export default function Header({
         </div>
 
         <nav className="hidden lg:flex items-center gap-6 ml-4">
-          <button 
-            onClick={() => onTabChange('pos')}
-            className={`text-xs font-bold uppercase tracking-wider pb-1 transition-colors cursor-pointer ${
-              currentTab === 'pos' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-blue-600'
-            }`}
-          >
+          <Button variant="ghost" onClick={() => onTabChange('pos')} className={navTabCls(currentTab === 'pos')}>
             KASIR POS
-          </button>
-          <button 
-            onClick={() => onTabChange('products')}
-            className={`text-xs font-bold uppercase tracking-wider pb-1 transition-colors cursor-pointer ${
-              currentTab === 'products' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-blue-600'
-            }`}
-          >
+          </Button>
+          <Button variant="ghost" onClick={() => onTabChange('products')} className={navTabCls(currentTab === 'products')}>
             INVENTORI
-          </button>
-          <button 
-            onClick={() => onTabChange('reports')}
-            className={`text-xs font-bold uppercase tracking-wider pb-1 transition-colors cursor-pointer ${
-              currentTab === 'reports' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-blue-600'
-            }`}
-          >
+          </Button>
+          <Button variant="ghost" onClick={() => onTabChange('reports')} className={navTabCls(currentTab === 'reports')}>
             LAPORAN
-          </button>
+          </Button>
         </nav>
       </div>
 
@@ -318,48 +310,52 @@ export default function Header({
         {storeName && (
           <div className="hidden sm:flex flex-col items-end mr-1">
             <span className="text-[9px] text-slate-400 uppercase tracking-widest font-bold flex items-center gap-1">
-              <MapPin className="w-3 h-3 text-blue-600" /> Toko
+              <MapPin className="w-3 h-3 text-primary" /> Toko
             </span>
-            <span className="text-xs font-extrabold text-blue-600 mt-0.5">{storeName}</span>
+            <span className="text-xs font-extrabold text-primary mt-0.5">{storeName}</span>
           </div>
         )}
 
         {/* Dark / Light Theme Toggle */}
-        <button
+        <Button
+          variant="outline"
+          size="icon"
           onClick={toggleTheme}
-          className="p-2 hover:bg-slate-100 rounded-xl transition-all cursor-pointer border border-slate-200/40 text-slate-600 bg-white"
+          className="text-slate-600 bg-white"
           title={theme === 'dark' ? 'Ganti ke Mode Terang' : 'Ganti ke Mode Gelap'}
           aria-label="Ganti Tema"
         >
           {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-        </button>
+        </Button>
 
         {/* Install App (PWA) — hides itself once installed or unsupported */}
         <InstallAppButton compact />
 
         {/* Sync Button (Moderate Neumorphic Feel) */}
-        <button 
+        <Button
+          variant="outline"
+          size="icon"
           onClick={handleSyncClick}
-          className={`p-2 hover:bg-slate-100 rounded-xl transition-all relative cursor-pointer border border-slate-200/40 text-slate-600 ${
-            syncing ? 'bg-slate-100 text-blue-600' : 'bg-white'
-          }`}
+          className={cn('text-slate-600', syncing && 'bg-slate-100 text-primary')}
           title="Sinkronisasi Data ERP"
         >
-          <RotateCw className={`w-4 h-4 ${syncing ? 'animate-spin text-blue-600' : 'text-slate-500'}`} />
-        </button>
+          <RotateCw className={`w-4 h-4 ${syncing ? 'animate-spin text-primary' : 'text-slate-500'}`} />
+        </Button>
 
         {/* Notifications Button */}
         <div className="relative">
-          <button 
+          <Button
+            variant="outline"
+            size="icon"
             onClick={() => setShowNotifications(!showNotifications)}
-            className="p-2 hover:bg-slate-100 rounded-xl transition-all relative cursor-pointer border border-slate-200/40 text-slate-600 bg-white"
+            className="relative text-slate-600 bg-white"
             aria-label="Notifikasi"
           >
             <Bell className="w-4 h-4" />
             {notifications.length > 0 && (
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
             )}
-          </button>
+          </Button>
 
           {/* Notifications Dropdown */}
           {showNotifications && (
@@ -367,7 +363,7 @@ export default function Header({
               <div className="px-4 py-2 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                 <span className="font-extrabold text-xs text-slate-700 uppercase tracking-wider">Notifikasi Terbaru</span>
                 {notifications.length > 0 && (
-                  <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{notifications.length} Aktif</span>
+                  <Badge variant="destructive" className="normal-case">{notifications.length} Aktif</Badge>
                 )}
               </div>
               <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
@@ -380,9 +376,7 @@ export default function Header({
                       <div className="min-w-0 flex-1">
                         <p className="tracking-wide text-[10px] leading-relaxed">{notif.text}</p>
                         {notif.pending && (
-                          <span className="inline-block mt-1 text-[8px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
-                            Menunggu Persetujuan
-                          </span>
+                          <Badge variant="warning" className="mt-1 normal-case">Menunggu Persetujuan</Badge>
                         )}
                       </div>
                     </div>
@@ -410,86 +404,71 @@ export default function Header({
       </div>
 
       {/* USER PROFILE MODAL */}
-      {showProfileModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pt-50 ">w
-          <div 
-            onClick={() => setShowProfileModal(false)}
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs"
-          />
-          <div className="bg-white rounded-2xl max-w-sm w-full border border-slate-200 p-6 shadow-2xl max-h-[85vh] overflow-y-auto relative z-10 space-y-4 font-sans text-xs">
-            <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-              <div className="flex items-top gap-1.5 text-blue-600">
-                <Shield className="w-5 h-5 animate-pulse" />
-                <h3 className="font-extrabold text-sm uppercase tracking-wider text-gray-800">Sesi &amp; Informasi Akun</h3>
-              </div>
-              <button 
-                onClick={() => setShowProfileModal(false)} 
-                className="p-1 hover:bg-slate-100 rounded-lg"
-              >
-                <X className="w-4 h-4 text-gray-400" />
-              </button>
-            </div>
+      <Dialog open={showProfileModal} onOpenChange={setShowProfileModal}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm text-foreground normal-case tracking-normal">
+              <Shield className="w-5 h-5 animate-pulse" /> Sesi &amp; Informasi Akun
+            </DialogTitle>
+          </DialogHeader>
 
+          <div className="space-y-4">
             {/* Profile Detail Card */}
-            <div className="flex items-center gap-4 p-3 bg-slate-50 border border-slate-100 rounded-xl">
+            <div className="flex items-center gap-4 p-3 bg-muted border border-border rounded-xl">
               <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-base font-extrabold border-2 border-white shadow-sm ${colorFor(profile.name)}`}>
                 {initialsFor(profile.name)}
               </div>
               <div className="text-left">
-                <h4 className="font-bold text-gray-900 text-sm">{profile.name}</h4>
-                <p className="text-[10px] text-gray-500 font-semibold">{profile.role}</p>
-                {storeName && <p className="text-[10px] text-gray-400">{storeName}</p>}
-                <span className="inline-block mt-1 text-[8px] bg-emerald-100 text-emerald-800 font-bold uppercase tracking-wider px-1.5 py-0.5 rounded">
-                  Status: Online
-                </span>
+                <h4 className="font-bold text-foreground text-sm">{profile.name}</h4>
+                <p className="text-[10px] text-muted-foreground font-semibold">{profile.role}</p>
+                {storeName && <p className="text-[10px] text-muted-foreground">{storeName}</p>}
+                <Badge variant="success" className="mt-1 normal-case">Status: Online</Badge>
               </div>
             </div>
 
             {/* System Info & Stats */}
-            <div className="space-y-2 border-t border-gray-100 pt-3">
-              <h5 className="font-bold text-[10px] text-gray-400 uppercase tracking-wider text-left">Metrik Operasional Sesi</h5>
+            <div className="space-y-2 border-t border-border pt-3">
+              <h5 className="font-bold text-[10px] text-muted-foreground uppercase tracking-wider text-left">Metrik Operasional Sesi</h5>
               <div className="grid grid-cols-2 gap-2 text-[10px]">
-                <div className="p-2 border border-gray-100 rounded-lg flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-blue-600" />
+                <div className="p-2 border border-border rounded-lg flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-primary" />
                   <div className="text-left">
-                    <span className="text-[8px] text-gray-400 block uppercase">Uptime Sesi</span>
-                    <span className="font-bold text-slate-800">{loginAt ? formatUptime(uptimeMs) : '—'}</span>
+                    <span className="text-[8px] text-muted-foreground block uppercase">Uptime Sesi</span>
+                    <span className="font-bold text-foreground/80">{loginAt ? formatUptime(uptimeMs) : '—'}</span>
                   </div>
                 </div>
-                <div className="p-2 border border-gray-100 rounded-lg flex items-center gap-2">
-                  {kasLaci === null ? <Wallet className="w-4 h-4 text-slate-400" /> : <Coins className="w-4 h-4 text-emerald-600" />}
+                <div className="p-2 border border-border rounded-lg flex items-center gap-2">
+                  {kasLaci === null ? <Wallet className="w-4 h-4 text-muted-foreground" /> : <Coins className="w-4 h-4 text-emerald-600" />}
                   <div className="text-left">
-                    <span className="text-[8px] text-gray-400 block uppercase">Kas Laci</span>
-                    <span className="font-bold text-slate-800">{kasLaci === null ? 'Sesi belum dibuka' : formatRupiah(kasLaci)}</span>
+                    <span className="text-[8px] text-muted-foreground block uppercase">Kas Laci</span>
+                    <span className="font-bold text-foreground/80">{kasLaci === null ? 'Sesi belum dibuka' : formatRupiah(kasLaci)}</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Action buttons */}
-            <div className="flex gap-3 pt-2 border-t border-gray-100">
-              <button
-                onClick={() => setShowProfileModal(false)}
-                className="flex-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 font-bold py-2 rounded-lg cursor-pointer uppercase text-center"
-              >
+            <div className="flex gap-3 pt-2 border-t border-border">
+              <Button variant="outline" className="flex-1 uppercase" onClick={() => setShowProfileModal(false)}>
                 Tutup
-              </button>
+              </Button>
               {onLogout && (
-                <button
+                <Button
+                  variant="destructive"
+                  className="flex-1 uppercase bg-red-50 hover:bg-red-600 hover:text-white text-red-600 shadow-sm"
                   onClick={() => {
                     onLogout();
                     setShowProfileModal(false);
                   }}
-                  className="flex-1 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 font-black py-2 rounded-lg cursor-pointer uppercase flex items-center justify-center gap-1.5 shadow-sm transition-all text-center"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   <span>Logout</span>
-                </button>
+                </Button>
               )}
             </div>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }
