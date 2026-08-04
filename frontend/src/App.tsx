@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import LoginView from './features/auth/LoginView';
-import { LayoutDashboard, CornerDownRight, Boxes, Menu, Receipt, ShieldOff } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Boxes, Menu, Receipt, ShieldOff } from 'lucide-react';
 
 import { Product, PO, Customer, Expense, Activity, Branch, Supplier, SalesInvoice, ReturnRecord, DigitalOrder, Banner, SkuLocation } from './types';
 import { useSupabaseState } from './lib/useSupabaseState';
@@ -74,16 +74,54 @@ export default function App() {
  * login. LoginView fetches just the two tables it actually needs
  * (store_owner, staff_list) on its own.
  */
-function AuthGate() {
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [loginAt, setLoginAt] = useState<number | null>(null);
+// Session persists across a page refresh/reload — without this, AuthGate's
+// currentUser state (plain useState) resets to null on every reload and
+// kicks the user back to LoginView even though their PIN was already
+// verified moments ago. localStorage (not sessionStorage) is used so a
+// cashier reopening the browser/tab later stays logged in too, matching
+// how a POS terminal is typically shared and left open.
+const SESSION_STORAGE_KEY = 'tokku_session_v1';
 
-  if (!currentUser) {
+interface StoredSession {
+  user: CurrentUser;
+  loginAt: number;
+}
+
+function loadStoredSession(): StoredSession | null {
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.user && typeof parsed.loginAt === 'number') return parsed as StoredSession;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredSession(session: StoredSession | null) {
+  try {
+    if (session) {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    } else {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+  } catch {
+    // Ignore storage failures (e.g. private browsing quota) — worst case
+    // the session just won't survive a refresh, same as before this fix.
+  }
+}
+
+function AuthGate() {
+  const [session, setSession] = useState<StoredSession | null>(() => loadStoredSession());
+
+  if (!session) {
     return (
       <LoginView
         onLoginSuccess={(user) => {
-          setCurrentUser(user);
-          setLoginAt(Date.now());
+          const next = { user, loginAt: Date.now() };
+          setSession(next);
+          saveStoredSession(next);
         }}
       />
     );
@@ -91,9 +129,12 @@ function AuthGate() {
 
   return (
     <Dashboard
-      currentUser={currentUser}
-      loginAt={loginAt}
-      onLogout={() => setCurrentUser(null)}
+      currentUser={session.user}
+      loginAt={session.loginAt}
+      onLogout={() => {
+        setSession(null);
+        saveStoredSession(null);
+      }}
     />
   );
 }
@@ -219,7 +260,11 @@ function Dashboard({
   };
 
   const handleForceSync = () => {
-    dialog.alert("Memulai Sinkronisasi Utama...\nBerhasil menerima data real-time dari North Retail Hub & South Dock. Database ERP ter-update sepenuhnya!");
+    // A real refresh now — session is persisted (see AuthGate in App.tsx),
+    // so reloading the page no longer forces the user back to the login
+    // screen. This used to just show a fake "sync succeeded" alert without
+    // actually refreshing anything.
+    window.location.reload();
   };
 
   // Render active view component
@@ -647,7 +692,7 @@ function Dashboard({
                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-2 border-white'
             }`}
           >
-            <CornerDownRight className="w-5 h-5" />
+            <ShoppingBag className="w-5 h-5" />
             <span className="text-[7px] uppercase tracking-tighter mt-0.5">Kasir</span>
           </button>
         )}

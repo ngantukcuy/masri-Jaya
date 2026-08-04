@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -15,8 +15,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Product, Activity, SalesInvoice, Customer } from '../../types';
 import { timeAgo } from '../../lib/timeAgo';
 import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
+import { buildDateBuckets, toDateInputValue } from '../../lib/dateBuckets';
 
 interface DashboardViewProps {
   products: Product[];
@@ -40,6 +43,13 @@ export default function DashboardView({
   onQuickRestock 
 }: DashboardViewProps) {
   const [activeChartTab, setActiveChartTab] = useState<'sales' | 'profit'>('sales');
+  const [chartDateFrom, setChartDateFrom] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 11);
+    d.setDate(1);
+    return toDateInputValue(d);
+  });
+  const [chartDateTo, setChartDateTo] = useState(() => toDateInputValue(new Date()));
   const [hoveredMonth, setHoveredMonth] = useState<number | null>(null);
   const [showIntelligenceReport, setShowIntelligenceReport] = useState(false);
 
@@ -69,21 +79,26 @@ export default function DashboardView({
     return current > 0 ? 100 : 0;
   };
 
-  // Data grafik tren 12 bulan terakhir, dihitung langsung dari salesInvoices (database).
-  const monthLabels = ['JAN', 'FEB', 'MAR', 'APR', 'MEI', 'JUN', 'JUL', 'AGU', 'SEP', 'OKT', 'NOV', 'DES'];
-  const monthlyData = Array.from({ length: 12 }).map((_, idx) => {
-    const monthDate = new Date(today.getFullYear(), today.getMonth() - (11 - idx), 1);
-    const monthInvoices = salesInvoices.filter((inv) => {
-      if (!inv.createdAt) return false;
-      const d = new Date(inv.createdAt);
-      return d.getFullYear() === monthDate.getFullYear() && d.getMonth() === monthDate.getMonth();
+  // Data grafik tren pendapatan pada rentang tanggal terpilih, dihitung
+  // langsung dari salesInvoices (database). Granularitas menyesuaikan
+  // rentang (harian/mingguan/bulanan) lewat buildDateBuckets.
+  const monthlyData = useMemo(() => {
+    const buckets = buildDateBuckets(chartDateFrom, chartDateTo);
+    return buckets.map((b) => {
+      const bucketInvoices = salesInvoices.filter((inv) => {
+        if (!inv.createdAt) return false;
+        const d = new Date(inv.createdAt);
+        return d >= b.start && d < b.endExclusive;
+      });
+      return {
+        name: b.label,
+        start: b.start,
+        sales: bucketInvoices.reduce((s, inv) => s + inv.total, 0),
+        profit: bucketInvoices.reduce((s, inv) => s + estimateInvoiceProfit(inv), 0),
+      };
     });
-    return {
-      name: monthLabels[monthDate.getMonth()],
-      sales: monthInvoices.reduce((s, inv) => s + inv.total, 0),
-      profit: monthInvoices.reduce((s, inv) => s + estimateInvoiceProfit(inv), 0),
-    };
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [salesInvoices, chartDateFrom, chartDateTo]);
 
   // KPI "hari ini" dihitung dari transaksi POS sungguhan, dibandingkan kemarin.
   const liveTodaySales = todayInvoices.reduce((s, inv) => s + inv.total, 0);
@@ -171,7 +186,8 @@ export default function DashboardView({
   const maxVal = (activeChartTab === 'sales' ? maxSalesValue : maxProfitValue) * 1.15;
   const points = monthlyData.map((d, i) => {
     const val = activeChartTab === 'sales' ? d.sales : d.profit;
-    const x = 30 + (i * 54);
+    const stepX = 610 / Math.max(monthlyData.length - 1, 1);
+    const x = 30 + (i * stepX);
     const y = 170 - (val / maxVal) * 130;
     return { x, y };
   });
@@ -244,29 +260,56 @@ export default function DashboardView({
         
         {/* Sales Chart Panel (Stripe-style Glass Card) */}
         <div className="glass-card lg:col-span-8 rounded-2xl p-6 flex flex-col justify-between relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 pb-4 border-b border-slate-100/60">
-            <div>
-              <h4 className="text-sm font-black text-slate-800 tracking-tight">Tren Kinerja Penjualan</h4>
-              <p className="text-[10px] text-slate-400 mt-0.5">Statistik finansial pendapatan dan laba bersih sepanjang tahun 2026</p>
+          <div className="flex flex-col gap-3 pb-4 border-b border-slate-100/60">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+              <div>
+                <h4 className="text-sm font-black text-slate-800 tracking-tight">Tren Kinerja Penjualan</h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">Statistik finansial pendapatan dan laba bersih pada rentang tanggal terpilih</p>
+              </div>
+
+              {/* Chart toggle (shadcn Tabs, styled as a pill switcher) */}
+              <Tabs value={activeChartTab} onValueChange={(v) => setActiveChartTab(v as 'sales' | 'profit')} className="self-start sm:self-auto">
+                <TabsList className="bg-slate-100/70 p-1 rounded-xl border border-slate-200/40 gap-0">
+                  <TabsTrigger
+                    value="sales"
+                    className="px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/30 text-slate-500 hover:text-slate-800"
+                  >
+                    Pendapatan
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="profit"
+                    className="px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/30 text-slate-500 hover:text-slate-800"
+                  >
+                    Keuntungan
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
-            
-            {/* Chart toggle (shadcn Tabs, styled as a pill switcher) */}
-            <Tabs value={activeChartTab} onValueChange={(v) => setActiveChartTab(v as 'sales' | 'profit')} className="self-start sm:self-auto">
-              <TabsList className="bg-slate-100/70 p-1 rounded-xl border border-slate-200/40 gap-0">
-                <TabsTrigger
-                  value="sales"
-                  className="px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/30 text-slate-500 hover:text-slate-800"
-                >
-                  Pendapatan
-                </TabsTrigger>
-                <TabsTrigger
-                  value="profit"
-                  className="px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/30 text-slate-500 hover:text-slate-800"
-                >
-                  Keuntungan
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+
+            {/* Custom chart date range */}
+            <div className="flex items-end gap-2">
+              <div>
+                <Label className="text-[9px]">Dari Tanggal</Label>
+                <Input
+                  type="date"
+                  value={chartDateFrom}
+                  max={chartDateTo}
+                  onChange={(e) => setChartDateFrom(e.target.value)}
+                  className="h-8 text-[11px] w-auto"
+                />
+              </div>
+              <div>
+                <Label className="text-[9px]">Sampai Tanggal</Label>
+                <Input
+                  type="date"
+                  value={chartDateTo}
+                  min={chartDateFrom}
+                  max={toDateInputValue(new Date())}
+                  onChange={(e) => setChartDateTo(e.target.value)}
+                  className="h-8 text-[11px] w-auto"
+                />
+              </div>
+            </div>
           </div>
 
           {/* SVG Line Canvas (Highly Responsive) */}
@@ -363,7 +406,7 @@ export default function DashboardView({
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
                     style={{ 
-                      left: `${(hoveredMonth / 11) * 80 + 3}%`,
+                      left: `${(hoveredMonth / Math.max(monthlyData.length - 1, 1)) * 80 + 3}%`,
                       top: '20px'
                     }}
                     className="absolute bg-slate-900 text-white rounded-xl p-3 shadow-xl z-20 pointer-events-none text-[10px] w-44 border border-slate-800"
@@ -384,7 +427,12 @@ export default function DashboardView({
           </div>
 
           <div className="flex justify-between mt-3 text-slate-400 text-[9px] font-bold tracking-wider px-4">
-            {monthlyData.map((d) => <span key={d.name}>{d.name}</span>)}
+            {(() => {
+              const labelStep = Math.ceil(monthlyData.length / 12);
+              return monthlyData.map((d, i) => (
+                <span key={`${d.name}-${d.start.toISOString()}`}>{i % labelStep === 0 ? d.name : ''}</span>
+              ));
+            })()}
           </div>
         </div>
 

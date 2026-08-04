@@ -10,8 +10,11 @@ import {
 import { SalesInvoice, Product, PO, Expense } from '../../types';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
+import { buildDateBuckets, toDateInputValue } from '../../lib/dateBuckets';
 
 interface ReportsViewProps {
   salesInvoices: SalesInvoice[];
@@ -21,8 +24,6 @@ interface ReportsViewProps {
 }
 
 type ReportCategory = 'Sales' | 'Inventory' | 'Purchase' | 'Finance';
-
-const WEEKS_TO_SHOW = 6;
 
 function parseInvoiceDate(inv: SalesInvoice): Date | null {
   // createdAt is a real ISO timestamp set at checkout time. `date` is a
@@ -57,6 +58,15 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
   const [selectedFolder, setSelectedFolder] = useState<ReportCategory>('Sales');
 
+  // Chart date range — defaults to the last 6 weeks (same window the chart
+  // used to be hardcoded to), but the user can now pick any range.
+  const [chartDateFrom, setChartDateFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 41);
+    return toDateInputValue(d);
+  });
+  const [chartDateTo, setChartDateTo] = useState(() => toDateInputValue(new Date()));
+
   // Map category displays to Indonesian
   const folderTranslationMap: Record<ReportCategory, string> = {
     'Sales': 'Penjualan',
@@ -73,28 +83,23 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
     { name: 'Finance', count: expenses.length },
   ];
 
-  // Real weekly revenue for the last WEEKS_TO_SHOW weeks, computed from
-  // actual sales invoices (was: hardcoded lastYear/thisYear fake numbers).
+  // Real revenue trend for the selected date range, bucketed adaptively
+  // (daily/weekly/monthly depending on the span) from actual sales
+  // invoices (was: hardcoded to a fixed "last 6 weeks" window).
   const weeklyRevenueTrend = useMemo(() => {
-    const now = new Date();
-    const weeks: { label: string; start: Date; endExclusive: Date; total: number; count: number }[] = [];
-    for (let i = WEEKS_TO_SHOW - 1; i >= 0; i--) {
-      const endExclusive = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i * 7 + 1);
-      const start = new Date(endExclusive);
-      start.setDate(start.getDate() - 7);
-      weeks.push({ label: `M${WEEKS_TO_SHOW - i}`, start, endExclusive, total: 0, count: 0 });
-    }
+    const buckets = buildDateBuckets(chartDateFrom, chartDateTo).map((b) => ({ ...b, total: 0, count: 0 }));
+    if (buckets.length === 0) return buckets;
     salesInvoices.forEach((inv) => {
       const d = parseInvoiceDate(inv);
       if (!d) return;
-      const bucket = weeks.find((w) => d >= w.start && d < w.endExclusive);
+      const bucket = buckets.find((b) => d >= b.start && d < b.endExclusive);
       if (bucket) {
         bucket.total += inv.total;
         bucket.count += 1;
       }
     });
-    return weeks;
-  }, [salesInvoices]);
+    return buckets;
+  }, [salesInvoices, chartDateFrom, chartDateTo]);
 
   const hasAnySales = salesInvoices.length > 0;
   const hasRecentSales = weeklyRevenueTrend.some((w) => w.count > 0);
@@ -170,13 +175,13 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
       const pct = Math.round(((thisWeek.total - lastWeek.total) / lastWeek.total) * 100);
       parts.push(
         pct >= 0
-          ? `Pendapatan minggu ini naik ${pct}% dibanding minggu lalu.`
-          : `Pendapatan minggu ini turun ${Math.abs(pct)}% dibanding minggu lalu.`
+          ? `Pendapatan periode terakhir naik ${pct}% dibanding periode sebelumnya.`
+          : `Pendapatan periode terakhir turun ${Math.abs(pct)}% dibanding periode sebelumnya.`
       );
     } else if (thisWeek && thisWeek.count > 0) {
-      parts.push(`Pendapatan minggu ini: Rp ${thisWeek.total.toLocaleString('id-ID')} dari ${thisWeek.count} transaksi.`);
+      parts.push(`Pendapatan periode terakhir: Rp ${thisWeek.total.toLocaleString('id-ID')} dari ${thisWeek.count} transaksi.`);
     } else {
-      parts.push('Belum ada transaksi tercatat minggu ini.');
+      parts.push('Belum ada transaksi tercatat pada rentang tanggal ini.');
     }
 
     if (topProducts[0]) {
@@ -304,43 +309,70 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
             
             {/* Weekly Revenue Trend Chart (real data) */}
             <div className="lg:col-span-8 bg-white border border-gray-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between">
-              <div className="flex justify-between items-center pb-4 border-b border-gray-100">
-                <div>
-                  <h4 className="text-sm font-black text-gray-800 tracking-tight">Tren Pendapatan Mingguan</h4>
-                  <p className="text-[11px] text-gray-400 mt-0.5">Total penjualan riil per minggu, {WEEKS_TO_SHOW} minggu terakhir</p>
+              <div className="flex flex-col gap-3 pb-4 border-b border-gray-100">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h4 className="text-sm font-black text-gray-800 tracking-tight">Tren Pendapatan</h4>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Total penjualan riil pada rentang tanggal terpilih</p>
+                  </div>
+
+                  {/* Chart type toggle (shadcn Tabs, pill styling) */}
+                  <Tabs value={chartType} onValueChange={(v) => setChartType(v as 'bar' | 'line')}>
+                    <TabsList className="bg-gray-100 p-1 rounded-lg gap-0">
+                      <TabsTrigger
+                        value="bar"
+                        className="px-3 py-1.5 rounded-md text-[10px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-xs text-gray-500 hover:text-gray-800"
+                      >
+                        Grafik Batang
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="line"
+                        className="px-3 py-1.5 rounded-md text-[10px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-xs text-gray-500 hover:text-gray-800"
+                      >
+                        Kurva Garis
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                 </div>
-                
-                {/* Chart type toggle (shadcn Tabs, pill styling) */}
-                <Tabs value={chartType} onValueChange={(v) => setChartType(v as 'bar' | 'line')}>
-                  <TabsList className="bg-gray-100 p-1 rounded-lg gap-0">
-                    <TabsTrigger
-                      value="bar"
-                      className="px-3 py-1.5 rounded-md text-[10px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-xs text-gray-500 hover:text-gray-800"
-                    >
-                      Grafik Batang
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="line"
-                      className="px-3 py-1.5 rounded-md text-[10px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-xs text-gray-500 hover:text-gray-800"
-                    >
-                      Kurva Garis
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
+
+                {/* Custom chart date range */}
+                <div className="flex items-end gap-2">
+                  <div>
+                    <Label className="text-[9px]">Dari Tanggal</Label>
+                    <Input
+                      type="date"
+                      value={chartDateFrom}
+                      max={chartDateTo}
+                      onChange={(e) => setChartDateFrom(e.target.value)}
+                      className="h-8 text-[11px] w-auto"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[9px]">Sampai Tanggal</Label>
+                    <Input
+                      type="date"
+                      value={chartDateTo}
+                      min={chartDateFrom}
+                      max={toDateInputValue(new Date())}
+                      onChange={(e) => setChartDateTo(e.target.value)}
+                      className="h-8 text-[11px] w-auto"
+                    />
+                  </div>
+                </div>
               </div>
 
               {!hasRecentSales ? (
                 <div className="h-56 mt-6 flex flex-col items-center justify-center text-center text-gray-400 gap-1">
                   <FileText className="w-8 h-8 text-gray-200 mb-1" />
-                  <p className="text-xs font-bold">Belum ada data penjualan {WEEKS_TO_SHOW} minggu terakhir</p>
+                  <p className="text-xs font-bold">Belum ada data penjualan pada rentang tanggal ini</p>
                   <p className="text-[11px]">Grafik akan terisi otomatis begitu ada transaksi di POS Kasir.</p>
                 </div>
               ) : chartType === 'bar' ? (
-                <div className="h-56 mt-6 flex items-end justify-between px-4 relative">
+                <div className="h-56 mt-6 flex items-end justify-between px-4 relative gap-1 overflow-x-auto">
                   {weeklyRevenueTrend.map((d) => {
                     const barHeight = (d.total / maxWeeklyValue) * 140;
                     return (
-                      <div key={d.label} className="flex flex-col items-center flex-1 group">
+                      <div key={`${d.label}-${d.start.toISOString()}`} className="flex flex-col items-center flex-1 min-w-[28px] group">
                         <div className="flex items-end gap-1.5 h-36">
                           <div 
                             style={{ height: `${Math.max(barHeight, d.total > 0 ? 4 : 0)}px` }} 
@@ -367,13 +399,18 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
                       const stepX = (width - padX * 2) / Math.max(weeklyRevenueTrend.length - 1, 1);
                       const x = padX + i * stepX;
                       const y = 160 - 20 - (d.total / maxWeeklyValue) * (160 - 40);
-                      return <circle key={d.label} cx={x} cy={y} r="4" fill="#2563EB" stroke="white" strokeWidth="2" />;
+                      return <circle key={`${d.label}-${d.start.toISOString()}`} cx={x} cy={y} r="4" fill="#2563EB" stroke="white" strokeWidth="2" />;
                     })}
                   </svg>
                   <div className="flex justify-between text-[10px] text-gray-400 font-bold px-4">
-                    {weeklyRevenueTrend.map((d) => (
-                      <span key={d.label}>{d.label}</span>
-                    ))}
+                    {(() => {
+                      // Thin out labels when there are many buckets (e.g. a
+                      // 31-day daily range) so the x-axis stays readable.
+                      const labelStep = Math.ceil(weeklyRevenueTrend.length / 10);
+                      return weeklyRevenueTrend.map((d, i) => (
+                        <span key={`${d.label}-${d.start.toISOString()}`}>{i % labelStep === 0 ? d.label : ''}</span>
+                      ));
+                    })()}
                   </div>
                 </div>
               )}
