@@ -6,17 +6,23 @@ import {
   Phone,
   MapPin,
   User,
-  X,
   Edit3,
   Trash2,
   Wallet,
   Clock
 } from 'lucide-react';
 import { Supplier } from '../../types';
-import { motion, AnimatePresence } from 'motion/react';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+
+const numberInputClass =
+  'flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-bold outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20';
 
 interface PemasokViewProps {
   suppliers: Supplier[];
@@ -155,23 +161,20 @@ export default function PemasokView({ suppliers, onUpdateSuppliers, onAddActivit
           <p className="text-xs text-gray-500 font-medium mt-0.5">Kelola data pemasok / supplier, sales, dan syarat pembayaran.</p>
         </div>
         {can('manage_supplier_add') && (
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer"
-        >
-          <Plus className="w-4 h-4" /> Tambah Pemasok
-        </button>
+          <Button onClick={openCreate}>
+            <Plus className="w-4 h-4" /> Tambah Pemasok
+          </Button>
         )}
       </div>
 
       <div className="relative max-w-sm">
-        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-        <input
+        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
+        <Input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Cari nama pemasok atau sales..."
-          className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-blue-500"
+          className="pl-9"
         />
       </div>
 
@@ -193,14 +196,14 @@ export default function PemasokView({ suppliers, onUpdateSuppliers, onAddActivit
                 </div>
                 <div className="flex gap-1">
                   {can('manage_supplier_update') && (
-                    <button onClick={() => openEdit(s)} className="p-1.5 text-amber-500 hover:text-amber-700 cursor-pointer">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(s)} className="w-7 h-7 text-amber-500 hover:text-amber-700">
                       <Edit3 className="w-3.5 h-3.5" />
-                    </button>
+                    </Button>
                   )}
                   {can('manage_supplier_delete') && (
-                    <button onClick={() => handleDelete(s)} className="p-1.5 text-red-400 hover:text-red-600 cursor-pointer">
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(s)} className="w-7 h-7 text-red-400 hover:text-red-600">
                       <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -226,109 +229,94 @@ export default function PemasokView({ suppliers, onUpdateSuppliers, onAddActivit
         )}
       </div>
 
-      <AnimatePresence>
-        {showModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4 overflow-y-auto"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-5 space-y-4 my-8 text-xs"
-            >
-              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                <h4 className="font-extrabold text-sm text-gray-900">{editingName ? 'Edit Pemasok' : 'Tambah Data Pemasok'}</h4>
-                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
-                  <X className="w-4 h-4" />
-                </button>
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-sm normal-case tracking-normal">{editingName ? 'Edit Pemasok' : 'Tambah Data Pemasok'}</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+            <div>
+              <Label>Nama Pemasok</Label>
+              <Input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Nomor Telepon</Label>
+                <Input type="text" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              </div>
+              <div>
+                <Label>Alamat</Label>
+                <Input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="border border-gray-100 rounded-xl p-3 space-y-3 bg-gray-50/50">
+              <p className="text-[10px] font-black uppercase text-gray-400">Sales Pemasok</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Nama Sales</Label>
+                  <Input type="text" value={form.salesName} onChange={(e) => setForm({ ...form, salesName: e.target.value })} className="bg-white" />
+                </div>
+                <div>
+                  <Label>Nomor Telepon Sales</Label>
+                  <Input type="text" value={form.salesPhone} onChange={(e) => setForm({ ...form, salesPhone: e.target.value })} className="bg-white" />
+                </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              {form.additionalSales.length > 0 && (
+                <div className="space-y-1.5">
+                  {form.additionalSales.map((a, i) => (
+                    <div key={i} className="flex items-center justify-between bg-white rounded-lg p-2 border border-gray-100">
+                      <span className="font-semibold text-gray-700">{a.name} {a.phone && `• ${a.phone}`}</span>
+                      <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveExtraSales(i)} className="w-6 h-6 text-red-400 hover:text-red-600">
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <Label>+ Sales Lain</Label>
+                  <Input type="text" value={extraSalesName} onChange={(e) => setExtraSalesName(e.target.value)} placeholder="Nama sales..." className="bg-white" />
+                </div>
+                <div className="flex-1">
+                  <Input type="text" value={extraSalesPhone} onChange={(e) => setExtraSalesPhone(e.target.value)} placeholder="No. telepon..." className="bg-white" />
+                </div>
+                <Button type="button" onClick={handleAddExtraSales} className="bg-gray-900 hover:bg-black shrink-0">
+                  <Plus className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Pilih Pembayaran</Label>
+                <Tabs value={form.paymentMethod} onValueChange={(v) => setForm({ ...form, paymentMethod: v as 'Cash' | 'Tempo' })}>
+                  <TabsList className="bg-gray-100 p-1 rounded-xl w-full gap-0">
+                    <TabsTrigger value="Cash" className="flex-1 rounded-lg border-0 data-[state=active]:bg-white data-[state=active]:shadow data-[state=active]:text-emerald-600 text-gray-500">Cash</TabsTrigger>
+                    <TabsTrigger value="Tempo" className="flex-1 rounded-lg border-0 data-[state=active]:bg-white data-[state=active]:shadow data-[state=active]:text-amber-600 text-gray-500">Tempo</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+              {form.paymentMethod === 'Tempo' && (
                 <div>
-                  <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Nama Pemasok</label>
-                  <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold outline-none focus:bg-white focus:border-blue-500" />
+                  <Label>Jangka Waktu (Hari)</Label>
+                  <NumberInput min={1} value={form.topDays} onChange={(v) => setForm({ ...form, topDays: v })} placeholder="0" className={numberInputClass} />
                 </div>
+              )}
+            </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Nomor Telepon</label>
-                    <input type="text" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold outline-none focus:bg-white focus:border-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Alamat</label>
-                    <input type="text" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold outline-none focus:bg-white focus:border-blue-500" />
-                  </div>
-                </div>
-
-                <div className="border border-gray-100 rounded-xl p-3 space-y-3 bg-gray-50/50">
-                  <p className="text-[10px] font-black uppercase text-gray-400">Sales Pemasok</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Nama Sales</label>
-                      <input type="text" value={form.salesName} onChange={(e) => setForm({ ...form, salesName: e.target.value })} className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-bold outline-none focus:border-blue-500" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Nomor Telepon Sales</label>
-                      <input type="text" value={form.salesPhone} onChange={(e) => setForm({ ...form, salesPhone: e.target.value })} className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-bold outline-none focus:border-blue-500" />
-                    </div>
-                  </div>
-
-                  {form.additionalSales.length > 0 && (
-                    <div className="space-y-1.5">
-                      {form.additionalSales.map((a, i) => (
-                        <div key={i} className="flex items-center justify-between bg-white rounded-lg p-2 border border-gray-100">
-                          <span className="font-semibold text-gray-700">{a.name} {a.phone && `• ${a.phone}`}</span>
-                          <button type="button" onClick={() => handleRemoveExtraSales(i)} className="text-red-400 hover:text-red-600 cursor-pointer">
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="flex gap-2 items-end">
-                    <div className="flex-1">
-                      <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">+ Sales Lain</label>
-                      <input type="text" value={extraSalesName} onChange={(e) => setExtraSalesName(e.target.value)} placeholder="Nama sales..." className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-semibold outline-none focus:border-blue-500" />
-                    </div>
-                    <div className="flex-1">
-                      <input type="text" value={extraSalesPhone} onChange={(e) => setExtraSalesPhone(e.target.value)} placeholder="No. telepon..." className="w-full bg-white border border-gray-200 rounded-lg p-2.5 font-semibold outline-none focus:border-blue-500" />
-                    </div>
-                    <button type="button" onClick={handleAddExtraSales} className="px-3 py-2.5 bg-gray-900 hover:bg-black text-white rounded-lg cursor-pointer">
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Pilih Pembayaran</label>
-                    <div className="flex gap-2 bg-gray-100 rounded-xl p-1">
-                      <button type="button" onClick={() => setForm({ ...form, paymentMethod: 'Cash' })} className={`flex-1 py-2 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${form.paymentMethod === 'Cash' ? 'bg-white shadow text-emerald-600' : 'text-gray-500'}`}>Cash</button>
-                      <button type="button" onClick={() => setForm({ ...form, paymentMethod: 'Tempo' })} className={`flex-1 py-2 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${form.paymentMethod === 'Tempo' ? 'bg-white shadow text-amber-600' : 'text-gray-500'}`}>Tempo</button>
-                    </div>
-                  </div>
-                  {form.paymentMethod === 'Tempo' && (
-                    <div>
-                      <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Jangka Waktu (Hari)</label>
-                      <NumberInput min={1} value={form.topDays} onChange={(v) => setForm({ ...form, topDays: v })} placeholder="0" className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-bold outline-none focus:bg-white focus:border-blue-500" />
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-3 border-t border-gray-100 flex gap-2">
-                  <button type="button" onClick={() => setShowModal(false)} className="w-full py-2.5 border border-gray-200 rounded-xl font-bold hover:bg-gray-50 cursor-pointer">Batal</button>
-                  <button type="submit" className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md shadow-blue-500/15 cursor-pointer">Simpan &amp; Konfirmasi</button>
-                </div>
-              </form>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <div className="pt-3 border-t border-gray-100 flex gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowModal(false)} className="w-full">Batal</Button>
+              <Button type="submit" className="w-full shadow-md shadow-blue-500/15">Simpan &amp; Konfirmasi</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

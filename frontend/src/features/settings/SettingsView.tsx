@@ -33,6 +33,12 @@ import { buildTestPrint } from '../../lib/printing/escpos';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { TAB_DEFS, FEATURE_PERMISSION_DEFS, ROLE_DEFAULT_PERMISSIONS, CurrentUser, hasPermission } from '../../lib/permissions';
 import { resetAllBusinessData } from '../../lib/resetAllData';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Textarea } from '../../components/ui/textarea';
+import { Checkbox } from '../../components/ui/checkbox';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select';
 
 interface SettingsViewProps {
   branches: Branch[];
@@ -529,66 +535,26 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
 
       {/* Settings Navigation Tabs */}
       <div className="flex flex-wrap border-b border-gray-200 gap-x-6 gap-y-2">
-        <button 
-          onClick={() => setActiveTab('profile')}
-          className={`pb-3 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 ${
-            activeTab === 'profile' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-700'
-          }`}
-        >
-          <Building className="w-4 h-4" />
-          <span>Profil Bisnis</span>
-        </button>
-        <button 
-          onClick={() => setActiveTab('branches')}
-          className={`pb-3 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 ${
-            activeTab === 'branches' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-700'
-          }`}
-        >
-          <MapPin className="w-4 h-4" />
-          <span>Cabang</span>
-        </button>
-        {can('manage_gudang_list') && (
-        <button 
-          onClick={() => setActiveTab('locations')}
-          className={`pb-3 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 ${
-            activeTab === 'locations' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-700'
-          }`}
-        >
-          <Warehouse className="w-4 h-4" />
-          <span>Lokasi SKU</span>
-        </button>
-        )}
-        <button 
-          onClick={() => setActiveTab('printers')}
-          className={`pb-3 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 ${
-            activeTab === 'printers' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-700'
-          }`}
-        >
-          <PrinterIcon className="w-4 h-4" />
-          <span>Printer Thermal</span>
-        </button>
-        {can('manage_user_list') && (
-        <button 
-          onClick={() => setActiveTab('security')}
-          className={`pb-3 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 ${
-            activeTab === 'security' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-700'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4" />
-          <span>Staff</span>
-        </button>
-        )}
-        {can('manage_rekening_list') && (
-        <button 
-          onClick={() => setActiveTab('accounts')}
-          className={`pb-3 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer flex items-center gap-1.5 ${
-            activeTab === 'accounts' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-700'
-          }`}
-        >
-          <CreditCard className="w-4 h-4" />
-          <span>Daftar Rekening</span>
-        </button>
-        )}
+        {([
+          { key: 'profile', label: 'Profil Bisnis', icon: Building, show: true },
+          { key: 'branches', label: 'Cabang', icon: MapPin, show: true },
+          { key: 'locations', label: 'Lokasi SKU', icon: Warehouse, show: can('manage_gudang_list') },
+          { key: 'printers', label: 'Printer Thermal', icon: PrinterIcon, show: true },
+          { key: 'security', label: 'Staff', icon: ShieldCheck, show: can('manage_user_list') },
+          { key: 'accounts', label: 'Daftar Rekening', icon: CreditCard, show: can('manage_rekening_list') },
+        ] as const).map((tab) => tab.show && (
+          <Button
+            key={tab.key}
+            variant="ghost"
+            onClick={() => setActiveTab(tab.key)}
+            className={`h-auto pb-3 px-0 rounded-none text-xs uppercase tracking-wider hover:bg-transparent ${
+              activeTab === tab.key ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400 hover:text-gray-700'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            <span>{tab.label}</span>
+          </Button>
+        ))}
       </div>
 
       {/* Tabs Contents Wrapper */}
@@ -604,92 +570,86 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Nama Resmi Perusahaan / Toko</label>
-                <input 
-                  type="text" 
+                <Label>Nama Resmi Perusahaan / Toko</Label>
+                <Input
+                  type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none font-bold text-gray-700 focus:ring-2 focus:ring-blue-600/15"
                 />
               </div>
               <div>
-                <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Nomor Telepon Toko</label>
-                <input 
-                  type="text" 
+                <Label>Nomor Telepon Toko</Label>
+                <Input
+                  type="text"
                   value={storeProfile.phone || ''}
                   onChange={(e) => setStoreProfile((prev) => ({ ...prev, phone: e.target.value }))}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none text-gray-700 focus:ring-2 focus:ring-blue-600/15"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Alamat Toko</label>
-              <input 
-                type="text" 
+              <Label>Alamat Toko</Label>
+              <Input
+                type="text"
                 value={storeProfile.address || ''}
                 onChange={(e) => setStoreProfile((prev) => ({ ...prev, address: e.target.value }))}
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none text-gray-700 focus:ring-2 focus:ring-blue-600/15"
               />
             </div>
 
             <div>
-              <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Nomor NPWP Terdaftar</label>
-              <input 
-                type="text" 
+              <Label>Nomor NPWP Terdaftar</Label>
+              <Input
+                type="text"
                 value={taxId}
                 onChange={(e) => setTaxId(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none font-mono text-gray-700 focus:ring-2 focus:ring-blue-600/15"
+                className="font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Catatan di Struk Penjualan</label>
-              <textarea 
+              <Label>Catatan di Struk Penjualan</Label>
+              <Textarea
                 rows={3}
                 value={storeProfile.receiptNote || ''}
                 onChange={(e) => setStoreProfile((prev) => ({ ...prev, receiptNote: e.target.value }))}
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none text-gray-700 focus:ring-2 focus:ring-blue-600/15"
               />
             </div>
 
             <div className="pt-2 border-t border-gray-100">
-              <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Pelanggan Default di POS</label>
+              <Label>Pelanggan Default di POS</Label>
               <p className="text-[10px] text-gray-400 mb-1.5">
                 Pelanggan yang otomatis terpilih tiap buka halaman POS. Kalau dikosongkan, POS pakai pelanggan umum "Customer".
               </p>
-              <select
-                value={defaultCustomerId || ''}
-                onChange={(e) => onUpdateDefaultCustomerId?.(e.target.value || null)}
+              <Select
+                value={defaultCustomerId || '__none__'}
+                onValueChange={(v) => onUpdateDefaultCustomerId?.(v === '__none__' ? null : v)}
                 disabled={!onUpdateDefaultCustomerId}
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none font-bold text-gray-700 focus:ring-2 focus:ring-blue-600/15 disabled:opacity-50"
               >
-                <option value="">Customer (Pelanggan Umum)</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Customer (Pelanggan Umum)</SelectItem>
+                  {customers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Account/login field — kept separate since it's used for signing in, not printed on the receipt */}
             <div className="pt-2 border-t border-gray-100">
-              <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Alamat Email Kontak <span className="normal-case font-medium text-gray-300">(untuk login, tidak tampil di struk)</span></label>
-              <input 
-                type="email" 
+              <Label>Alamat Email Kontak <span className="normal-case font-medium text-gray-300">(untuk login, tidak tampil di struk)</span></Label>
+              <Input
+                type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 outline-none text-gray-700 focus:ring-2 focus:ring-blue-600/15"
               />
             </div>
 
             <div className="pt-4 border-t border-gray-100 flex justify-end">
-              <button 
-                type="submit"
-                className="flex items-center gap-1.5 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-md shadow-blue-500/10 cursor-pointer"
-              >
+              <Button type="submit" className="shadow-md shadow-blue-500/10">
                 <Save className="w-4 h-4" />
                 <span>Simpan Perubahan</span>
-              </button>
+              </Button>
             </div>
           </form>
         )}
@@ -705,52 +665,52 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Nama Cabang</label>
-                  <input type="text" value={branchForm.name} onChange={(e) => setBranchForm((prev) => ({ ...prev, name: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white p-2.5 font-bold text-gray-800" />
+                  <Label className="text-[9px]">Nama Cabang</Label>
+                  <Input type="text" value={branchForm.name} onChange={(e) => setBranchForm((prev) => ({ ...prev, name: e.target.value }))} className="bg-white" />
                 </div>
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Kode Cabang</label>
-                  <input type="text" value={branchForm.branchCode} onChange={(e) => setBranchForm((prev) => ({ ...prev, branchCode: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white p-2.5 font-bold text-gray-800" />
+                  <Label className="text-[9px]">Kode Cabang</Label>
+                  <Input type="text" value={branchForm.branchCode} onChange={(e) => setBranchForm((prev) => ({ ...prev, branchCode: e.target.value }))} className="bg-white" />
                 </div>
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Alamat</label>
-                  <input type="text" value={branchForm.address} onChange={(e) => setBranchForm((prev) => ({ ...prev, address: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white p-2.5 font-bold text-gray-800" />
+                  <Label className="text-[9px]">Alamat</Label>
+                  <Input type="text" value={branchForm.address} onChange={(e) => setBranchForm((prev) => ({ ...prev, address: e.target.value }))} className="bg-white" />
                 </div>
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Kota</label>
-                  <input type="text" value={branchForm.city} onChange={(e) => setBranchForm((prev) => ({ ...prev, city: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white p-2.5 font-bold text-gray-800" />
+                  <Label className="text-[9px]">Kota</Label>
+                  <Input type="text" value={branchForm.city} onChange={(e) => setBranchForm((prev) => ({ ...prev, city: e.target.value }))} className="bg-white" />
                 </div>
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Nomor Telepon</label>
-                  <input type="text" value={branchForm.phone} onChange={(e) => setBranchForm((prev) => ({ ...prev, phone: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white p-2.5 font-bold text-gray-800" />
+                  <Label className="text-[9px]">Nomor Telepon</Label>
+                  <Input type="text" value={branchForm.phone} onChange={(e) => setBranchForm((prev) => ({ ...prev, phone: e.target.value }))} className="bg-white" />
                 </div>
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Kode Pos</label>
-                  <input type="text" value={branchForm.postalCode} onChange={(e) => setBranchForm((prev) => ({ ...prev, postalCode: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white p-2.5 font-bold text-gray-800" />
+                  <Label className="text-[9px]">Kode Pos</Label>
+                  <Input type="text" value={branchForm.postalCode} onChange={(e) => setBranchForm((prev) => ({ ...prev, postalCode: e.target.value }))} className="bg-white" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Catatan di Struk</label>
-                <textarea rows={2} value={branchForm.receiptNote} onChange={(e) => setBranchForm((prev) => ({ ...prev, receiptNote: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white p-2.5 font-bold text-gray-800" />
+                <Label className="text-[9px]">Catatan di Struk</Label>
+                <Textarea rows={2} value={branchForm.receiptNote} onChange={(e) => setBranchForm((prev) => ({ ...prev, receiptNote: e.target.value }))} className="bg-white" />
               </div>
 
               <div>
-                <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">URL Gambar Cabang (opsional)</label>
-                <input type="text" value={branchForm.imageUrl} onChange={(e) => setBranchForm((prev) => ({ ...prev, imageUrl: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white p-2.5 font-bold text-gray-800" />
+                <Label className="text-[9px]">URL Gambar Cabang (opsional)</Label>
+                <Input type="text" value={branchForm.imageUrl} onChange={(e) => setBranchForm((prev) => ({ ...prev, imageUrl: e.target.value }))} className="bg-white" />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-2 text-[10px] font-bold text-gray-700">
-                  <input type="checkbox" checked={branchForm.allowNegativeStock} onChange={(e) => setBranchForm((prev) => ({ ...prev, allowNegativeStock: e.target.checked }))} />
+                <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-2 text-[10px] font-bold text-gray-700 cursor-pointer">
+                  <Checkbox checked={branchForm.allowNegativeStock} onCheckedChange={(v) => setBranchForm((prev) => ({ ...prev, allowNegativeStock: v === true }))} />
                   Izinkan stok minus
                 </label>
-                <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-2 text-[10px] font-bold text-gray-700">
-                  <input type="checkbox" checked={branchForm.showStockInDigital} onChange={(e) => setBranchForm((prev) => ({ ...prev, showStockInDigital: e.target.checked }))} />
+                <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-2 text-[10px] font-bold text-gray-700 cursor-pointer">
+                  <Checkbox checked={branchForm.showStockInDigital} onCheckedChange={(v) => setBranchForm((prev) => ({ ...prev, showStockInDigital: v === true }))} />
                   Tampilkan stok di toko digital
                 </label>
-                <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-2 text-[10px] font-bold text-gray-700">
-                  <input type="checkbox" checked={branchForm.useDailyCash} onChange={(e) => setBranchForm((prev) => ({ ...prev, useDailyCash: e.target.checked }))} />
+                <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white p-2 text-[10px] font-bold text-gray-700 cursor-pointer">
+                  <Checkbox checked={branchForm.useDailyCash} onCheckedChange={(v) => setBranchForm((prev) => ({ ...prev, useDailyCash: v === true }))} />
                   Gunakan fitur kas harian
                 </label>
               </div>
@@ -761,19 +721,22 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                   {(Object.entries(branchForm.openingHours) as [string, { open: string; close: string; status: string }][]).map(([day, value]) => (
                     <div key={day} className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-[10px]">
                       <div className="rounded-lg bg-gray-50 p-2 font-bold text-gray-700">{day}</div>
-                      <input type="time" value={value.open} onChange={(e) => handleBranchHoursChange(day, 'open', e.target.value)} className="rounded-lg border border-gray-200 p-2" />
-                      <input type="time" value={value.close} onChange={(e) => handleBranchHoursChange(day, 'close', e.target.value)} className="rounded-lg border border-gray-200 p-2" />
-                      <select value={value.status} onChange={(e) => handleBranchHoursChange(day, 'status', e.target.value)} className="rounded-lg border border-gray-200 p-2">
-                        <option value="Open">Buka</option>
-                        <option value="Closed">Tutup</option>
-                      </select>
+                      <Input type="time" value={value.open} onChange={(e) => handleBranchHoursChange(day, 'open', e.target.value)} className="h-auto p-2 text-[10px]" />
+                      <Input type="time" value={value.close} onChange={(e) => handleBranchHoursChange(day, 'close', e.target.value)} className="h-auto p-2 text-[10px]" />
+                      <Select value={value.status} onValueChange={(v) => handleBranchHoursChange(day, 'status', v)}>
+                        <SelectTrigger className="h-auto p-2 text-[10px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Open">Buka</SelectItem>
+                          <SelectItem value="Closed">Tutup</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   ))}
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-black uppercase text-white">Simpan Cabang</button>
+                <Button type="submit">Simpan Cabang</Button>
               </div>
             </form>
 
@@ -790,14 +753,16 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 whitespace-nowrap">{b.branchCode || 'Kode belum ada'}</span>
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleDeleteBranch(b.name)}
-                        className="rounded-lg p-1.5 text-red-500 hover:bg-red-50"
+                        className="w-7 h-7 text-red-500"
                         aria-label={`Hapus cabang ${b.name}`}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -818,44 +783,41 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                   <span className="font-black text-[10px] uppercase text-blue-600 tracking-wider">Tambah Lokasi Baru</span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Nama Lokasi <span className="text-red-500">*</span></label>
-                      <input
+                      <Label className="text-[9px]">Nama Lokasi <span className="text-red-500">*</span></Label>
+                      <Input
                         type="text"
                         placeholder="Contoh: Gudang Belakang, Rak Cat..."
                         value={newLocationName}
                         onChange={(e) => setNewLocationName(e.target.value)}
-                        className="w-full bg-white border border-gray-200 rounded-lg p-2 font-bold text-gray-800 outline-none"
+                        className="bg-white"
                       />
                     </div>
                     <div>
-                      <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Kota <span className="text-red-500">*</span></label>
-                      <input
+                      <Label className="text-[9px]">Kota <span className="text-red-500">*</span></Label>
+                      <Input
                         type="text"
                         placeholder="Contoh: Pekanbaru"
                         value={newLocationCity}
                         onChange={(e) => setNewLocationCity(e.target.value)}
-                        className="w-full bg-white border border-gray-200 rounded-lg p-2 font-bold text-gray-800 outline-none"
+                        className="bg-white"
                       />
                     </div>
                 </div>
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Alamat (opsional)</label>
-                  <input
+                  <Label className="text-[9px]">Alamat (opsional)</Label>
+                  <Input
                     type="text"
                     placeholder="Alamat lengkap lokasi..."
                     value={newLocationAddress}
                     onChange={(e) => setNewLocationAddress(e.target.value)}
-                    className="w-full bg-white border border-gray-200 rounded-lg p-2 text-gray-800 outline-none"
+                    className="bg-white"
                   />
                 </div>
                 <div className="flex justify-end pt-1.5">
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
-                  >
+                  <Button type="submit" size="sm">
                     <Plus className="w-3.5 h-3.5" />
                     <span>Tambah Lokasi</span>
-                  </button>
+                  </Button>
                 </div>
               </form>
               )}
@@ -879,13 +841,15 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                         </div>
                       </div>
                       {can('manage_gudang_delete') && (
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => handleDeleteLocation(loc.id)}
-                          className="p-1.5 text-red-400 hover:text-red-600 transition-colors cursor-pointer"
+                          className="w-8 h-8 text-red-400 hover:text-red-600"
                           title="Hapus Lokasi"
                         >
                           <Trash2 className="w-4 h-4" />
-                        </button>
+                        </Button>
                       )}
                     </div>
                   ))
@@ -900,12 +864,14 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
           <div className="space-y-4 text-xs">
             <div className="flex justify-between items-center border-b border-gray-100 pb-2 mb-1">
               <h4 className="font-extrabold text-sm text-gray-800">Integrasi Hardware Pencetakan Struk</h4>
-              <button 
+              <Button
+                size="sm"
+                variant="secondary"
                 onClick={() => setShowAddPrinterForm((v) => !v)}
-                className="flex items-center gap-1 bg-blue-100/70 text-blue-800 text-xs font-bold px-2.5 py-1 rounded hover:bg-blue-600 hover:text-white transition-all cursor-pointer"
+                className="bg-blue-100/70 text-blue-800 hover:bg-blue-600 hover:text-white text-xs"
               >
                 <Plus className="w-3.5 h-3.5" /> Tambah Printer
-              </button>
+              </Button>
             </div>
 
             {!isBluetoothSupported() && !isUsbSupported() && (
@@ -918,50 +884,49 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
             {showAddPrinterForm && (
               <form onSubmit={handleAddPrinter} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Nama Printer</label>
-                  <input
+                  <Label className="text-[9px]">Nama Printer</Label>
+                  <Input
                     type="text"
                     value={newPrinterName}
                     onChange={(e) => setNewPrinterName(e.target.value)}
                     placeholder="Contoh: Printer Kasir Depan"
-                    className="w-full bg-white border border-gray-200 rounded-lg p-2 font-bold text-gray-800 outline-none"
+                    className="bg-white"
                     autoFocus
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1.5">Jenis Koneksi</label>
+                  <Label className="text-[9px] mb-1.5">Jenis Koneksi</Label>
                   <div className="grid grid-cols-2 gap-2">
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
                       onClick={() => setNewPrinterType('bluetooth')}
-                      className={`flex items-center justify-center gap-1.5 p-2 rounded-lg border font-bold cursor-pointer ${
-                        newPrinterType === 'bluetooth' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-200 text-gray-500'
-                      }`}
+                      className={newPrinterType === 'bluetooth' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white text-gray-500'}
                     >
                       <Bluetooth className="w-3.5 h-3.5" /> Bluetooth
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
+                      variant="outline"
                       onClick={() => setNewPrinterType('usb')}
-                      className={`flex items-center justify-center gap-1.5 p-2 rounded-lg border font-bold cursor-pointer ${
-                        newPrinterType === 'usb' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-200 text-gray-500'
-                      }`}
+                      className={newPrinterType === 'usb' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white text-gray-500'}
                     >
                       <Usb className="w-3.5 h-3.5" /> USB
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 <div className="flex gap-2 pt-1">
-                  <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg cursor-pointer">
+                  <Button type="submit" className="flex-1">
                     Simpan Printer
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={() => setShowAddPrinterForm(false)}
-                    className="flex-1 bg-white border border-gray-200 hover:bg-gray-100 text-gray-600 font-bold py-2 rounded-lg cursor-pointer"
+                    className="flex-1"
                   >
                     Batal
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}
@@ -991,29 +956,35 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      <button 
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => (isConnected ? handleDisconnectPrinter(pr) : handleConnectPrinter(pr))}
                         disabled={isConnecting}
-                        className="text-[10px] bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 px-2.5 py-1 rounded font-bold cursor-pointer disabled:opacity-50 disabled:cursor-wait flex items-center gap-1"
+                        className="text-[10px] bg-white text-gray-700 disabled:cursor-wait"
                       >
                         {isConnecting && <Loader2 className="w-3 h-3 animate-spin" />}
                         {isConnecting ? 'Menyambungkan...' : isConnected ? 'Putuskan' : 'Sambungkan'}
-                      </button>
+                      </Button>
                       {isConnected && (
-                        <button 
+                        <Button
+                          size="sm"
+                          variant="secondary"
                           onClick={() => handleTestPrinter(pr)}
-                          className="text-[10px] bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white px-2.5 py-1 rounded font-bold cursor-pointer transition-colors"
+                          className="text-[10px] bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white"
                         >
                           Cetak Test Roll
-                        </button>
+                        </Button>
                       )}
-                      <button
+                      <Button
+                        size="icon"
+                        variant="ghost"
                         onClick={() => handleDeletePrinter(pr)}
-                        className="text-[10px] bg-red-50 hover:bg-red-600 text-red-600 hover:text-white p-1.5 rounded-lg font-bold cursor-pointer transition-colors"
+                        className="w-7 h-7 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white"
                         title="Hapus Printer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 );
@@ -1033,34 +1004,37 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
               <h4 className="font-extrabold text-sm text-gray-800">Data Rekening Toko</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Nama Rekening</label>
-                  <input type="text" value={newBankAccount.name} onChange={(e) => setNewBankAccount((prev) => ({ ...prev, name: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white p-2.5 font-bold text-gray-800" />
+                  <Label className="text-[9px]">Nama Rekening</Label>
+                  <Input type="text" value={newBankAccount.name} onChange={(e) => setNewBankAccount((prev) => ({ ...prev, name: e.target.value }))} className="bg-white" />
                 </div>
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Tipe</label>
-                  <select value={newBankAccount.type} onChange={(e) => setNewBankAccount((prev) => ({ ...prev, type: e.target.value as BankAccount['type'] }))} className="w-full rounded-lg border border-gray-200 bg-white p-2.5 font-bold text-gray-800">
-                    <option value="Bank">Bank</option>
-                    <option value="E-Wallet">E-Wallet</option>
-                    <option value="QRIS">QRIS</option>
-                    <option value="Cash">Tunai</option>
-                  </select>
+                  <Label className="text-[9px]">Tipe</Label>
+                  <Select value={newBankAccount.type} onValueChange={(v) => setNewBankAccount((prev) => ({ ...prev, type: v as BankAccount['type'] }))}>
+                    <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Bank">Bank</SelectItem>
+                      <SelectItem value="E-Wallet">E-Wallet</SelectItem>
+                      <SelectItem value="QRIS">QRIS</SelectItem>
+                      <SelectItem value="Cash">Tunai</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Nomor Rekening / QRIS</label>
-                  <input type="text" value={newBankAccount.accountNumber} onChange={(e) => setNewBankAccount((prev) => ({ ...prev, accountNumber: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white p-2.5 font-bold text-gray-800" />
+                  <Label className="text-[9px]">Nomor Rekening / QRIS</Label>
+                  <Input type="text" value={newBankAccount.accountNumber} onChange={(e) => setNewBankAccount((prev) => ({ ...prev, accountNumber: e.target.value }))} className="bg-white" />
                 </div>
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Nama Pemilik</label>
-                  <input type="text" value={newBankAccount.holderName} onChange={(e) => setNewBankAccount((prev) => ({ ...prev, holderName: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white p-2.5 font-bold text-gray-800" />
+                  <Label className="text-[9px]">Nama Pemilik</Label>
+                  <Input type="text" value={newBankAccount.holderName} onChange={(e) => setNewBankAccount((prev) => ({ ...prev, holderName: e.target.value }))} className="bg-white" />
                 </div>
               </div>
               <div>
-                <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Catatan</label>
-                <textarea rows={2} value={newBankAccount.notes} onChange={(e) => setNewBankAccount((prev) => ({ ...prev, notes: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white p-2.5 font-bold text-gray-800" />
+                <Label className="text-[9px]">Catatan</Label>
+                <Textarea rows={2} value={newBankAccount.notes} onChange={(e) => setNewBankAccount((prev) => ({ ...prev, notes: e.target.value }))} className="bg-white" />
               </div>
               {newBankAccount.type === 'QRIS' && (
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Gambar QRIS</label>
+                  <Label className="text-[9px]">Gambar QRIS</Label>
                   <p className="text-[9px] text-gray-400 mb-2">Unggah gambar kode QRIS toko sekali di sini — kode ini yang akan tampil di halaman Pos Kasir setiap kali pelanggan memilih bayar QRIS.</p>
                   <div className="flex items-center gap-3">
                     {newBankAccount.qrisImageUrl && (
@@ -1076,7 +1050,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                 </div>
               )}
               <div className="flex justify-end">
-                <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-black uppercase text-white">Tambah Rekening</button>
+                <Button type="submit">Tambah Rekening</Button>
               </div>
             </form>
             )}
@@ -1101,7 +1075,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                       </div>
                     </div>
                     {can('manage_rekening_delete') && (
-                      <button onClick={() => handleDeleteBankAccount(account.id)} className="rounded-lg p-2 text-red-500 hover:bg-red-50"> <Trash2 className="w-4 h-4" /> </button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteBankAccount(account.id)} className="w-8 h-8 text-red-500"> <Trash2 className="w-4 h-4" /> </Button>
                     )}
                   </div>
                 </div>
@@ -1123,17 +1097,18 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                   <p className="text-[10px] text-gray-400 mt-0.5">Digunakan untuk login Owner di halaman awal dan otorisasi menu-menu vital.</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <input 
-                    type="password" 
+                  <Input
+                    type="password"
                     value={ownerPin}
                     onChange={(e) => {
                       const val = e.target.value.replace(/\D/g, '').slice(0, 6);
                       setOwnerPin(val);
                     }}
                     placeholder="882100"
-                    className="w-20 bg-white border border-gray-200 rounded p-1.5 text-center font-bold font-mono text-sm"
+                    className="w-20 h-9 text-center font-mono"
                   />
-                  <button 
+                  <Button
+                    size="sm"
                     onClick={() => {
                       if (ownerPin.length !== 6) {
                         dialog.alert("PIN Owner harus berisi 6 digit angka!");
@@ -1142,10 +1117,10 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                       setRegisteredOwner((prev) => prev ? { ...prev, pin: ownerPin } : prev);
                       triggerToast("PIN Utama Owner berhasil dimodifikasi.");
                     }}
-                    className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-lg cursor-pointer"
+                    className="text-[10px]"
                   >
                     Simpan PIN
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1160,18 +1135,18 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Nama Lengkap Staf</label>
-                    <input 
+                    <Label className="text-[9px]">Nama Lengkap Staf</Label>
+                    <Input
                       type="text"
                       placeholder="Masukkan nama staf..."
                       value={newStaffName}
                       onChange={(e) => setNewStaffName(e.target.value)}
-                      className="w-full bg-white border border-gray-200 rounded-lg p-2 font-bold text-gray-800 outline-none"
+                      className="bg-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">6-Digit PIN Kasir (Hanya Angka)</label>
-                    <input 
+                    <Label className="text-[9px]">6-Digit PIN Kasir (Hanya Angka)</Label>
+                    <Input
                       type="password"
                       placeholder="Contoh: 123456"
                       value={newStaffPin}
@@ -1180,38 +1155,38 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                         const val = e.target.value.replace(/\D/g, '').slice(0, 6);
                         setNewStaffPin(val);
                       }}
-                      className="w-full bg-white border border-gray-200 rounded-lg p-2 font-mono font-bold text-gray-800 outline-none"
+                      className="bg-white font-mono"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Peran (Role)</label>
-                  <select
+                  <Label className="text-[9px]">Peran (Role)</Label>
+                  <Select
                     value={newStaffRole}
-                    onChange={(e) => {
-                      const role = e.target.value as 'Admin' | 'Kasir' | 'Stoker';
+                    onValueChange={(v) => {
+                      const role = v as 'Admin' | 'Kasir' | 'Stoker';
                       setNewStaffRole(role);
                       setNewStaffPermissions(ROLE_DEFAULT_PERMISSIONS[role]);
                     }}
-                    className="w-full bg-white border border-gray-200 rounded-lg p-2 font-bold text-gray-800 outline-none"
                   >
-                    <option value="Admin">Admin</option>
-                    <option value="Kasir">Kasir</option>
-                    <option value="Stoker">Stoker</option>
-                  </select>
+                    <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Admin">Admin</SelectItem>
+                      <SelectItem value="Kasir">Kasir</SelectItem>
+                      <SelectItem value="Stoker">Stoker</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1.5">Akses Menu (Tab yang Bisa Dibuka)</label>
+                  <Label className="mb-1.5">Akses Menu (Tab yang Bisa Dibuka)</Label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 bg-white border border-gray-200 rounded-lg p-2.5">
                     {TAB_DEFS.map((tab) => (
                       <label key={tab.key} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={newStaffPermissions.includes(tab.key)}
-                          onChange={() => handleTogglePermission(tab.key)}
-                          className="w-3.5 h-3.5 accent-blue-600 cursor-pointer"
+                          onCheckedChange={() => handleTogglePermission(tab.key)}
                         />
                         <span className="text-gray-700 font-medium">{tab.label}</span>
                       </label>
@@ -1220,15 +1195,13 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                 </div>
 
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1.5">Akses Fitur (Custom Permission)</label>
+                  <Label className="mb-1.5">Akses Fitur (Custom Permission)</Label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 bg-white border border-gray-200 rounded-lg p-2.5">
                     {PERMISSION_DEFS.map((perm) => (
                       <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={newStaffPermissions.includes(perm.key)}
-                          onChange={() => handleTogglePermission(perm.key)}
-                          className="w-3.5 h-3.5 accent-blue-600 cursor-pointer"
+                          onCheckedChange={() => handleTogglePermission(perm.key)}
                         />
                         <span className="text-gray-700 font-medium">{perm.label}</span>
                       </label>
@@ -1237,13 +1210,10 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                 </div>
 
                 <div className="flex justify-end pt-1.5">
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
-                  >
+                  <Button type="submit" size="sm">
                     <Plus className="w-3.5 h-3.5" />
                     <span>Daftarkan Akun Staf</span>
-                  </button>
+                  </Button>
                 </div>
               </form>
               )}
@@ -1270,13 +1240,15 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                       </div>
 
                       {can('manage_user_delete') && (
-                        <button
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           onClick={() => handleDeleteStaff(idx)}
-                          className="p-1.5 text-red-400 hover:text-red-600 transition-colors cursor-pointer"
+                          className="w-8 h-8 text-red-400 hover:text-red-600"
                           title="Hapus Akun Staf"
                         >
                           <Trash2 className="w-4 h-4" />
-                        </button>
+                        </Button>
                       )}
                     </div>
                   ))
@@ -1296,12 +1268,12 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                 </div>
               </div>
               <div className="pt-2">
-                <button 
+                <Button
                   onClick={handleLockdown}
-                  className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold shadow-md cursor-pointer text-center"
+                  className="w-full bg-red-600 hover:bg-red-700 shadow-md"
                 >
                   Aktifkan Lockdown Darurat
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -1318,10 +1290,10 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                   </div>
                 </div>
                 <div className="pt-2">
-                  <button
+                  <Button
                     onClick={handleResetAllData}
                     disabled={resettingData}
-                    className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold shadow-md cursor-pointer text-center disabled:opacity-60 flex items-center justify-center gap-2"
+                    className="w-full bg-red-600 hover:bg-red-700 shadow-md disabled:opacity-60"
                   >
                     {resettingData ? (
                       <>
@@ -1331,7 +1303,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                     ) : (
                       <span>Hapus Seluruh Data</span>
                     )}
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -1368,15 +1340,15 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
             <p className="text-xs text-red-200 max-w-md leading-relaxed">
               Seluruh terminal kasir telah diputus secara paksa. Enkripsi data lokal berjalan. Silakan klik tombol verifikasi di bawah untuk memulihkan keadaan semula.
             </p>
-            <button 
+            <Button
               onClick={() => {
                 setLockdownActive(false);
                 triggerToast("Koneksi kasir dipulihkan. Protokol dinonaktifkan.");
               }}
-              className="px-5 py-2.5 bg-white text-red-950 font-black rounded-lg text-xs hover:bg-red-50 cursor-pointer shadow-xl"
+              className="bg-white text-red-950 hover:bg-red-50 shadow-xl"
             >
               Pulihkan Keadaan Sistem
-            </button>
+            </Button>
           </motion.div>
         )}
       </AnimatePresence>

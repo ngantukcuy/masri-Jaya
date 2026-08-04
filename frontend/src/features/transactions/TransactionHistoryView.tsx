@@ -1,8 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { History, Search, Receipt, X, Printer, Truck, CornerUpLeft, CalendarRange } from 'lucide-react';
+import { History, Search, Receipt, Printer, Truck, CornerUpLeft, CalendarRange } from 'lucide-react';
 import { SalesInvoice, ReturnRecord } from '../../types';
-import { motion, AnimatePresence } from 'motion/react';
 import InvoicePrintModal from './components/InvoicePrintModal';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Badge } from '../../components/ui/badge';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 
 interface StoreProfileLite {
   storeName: string;
@@ -122,133 +127,127 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], st
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="relative max-w-sm w-full sm:w-64">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
+          <Input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Cari no. invoice atau nama pelanggan..."
-            className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-blue-500"
+            className="pl-9"
           />
         </div>
 
         <div className="flex items-end gap-2">
           <div>
-            <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1 flex items-center gap-1">
+            <Label className="flex items-center gap-1">
               <CalendarRange className="w-3 h-3" /> Dari Tanggal
-            </label>
-            <input
+            </Label>
+            <Input
               type="date"
               value={dateFrom}
               max={dateTo || undefined}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-blue-500"
+              className="w-auto"
             />
           </div>
           <div>
-            <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Sampai Tanggal</label>
-            <input
+            <Label>Sampai Tanggal</Label>
+            <Input
               type="date"
               value={dateTo}
               min={dateFrom || undefined}
               onChange={(e) => setDateTo(e.target.value)}
-              className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-blue-500"
+              className="w-auto"
             />
           </div>
           {(dateFrom || dateTo) && (
-            <button
+            <Button
+              variant="secondary"
               onClick={() => { setDateFrom(''); setDateTo(''); }}
-              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-xl text-xs font-bold cursor-pointer"
             >
               Reset
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-x-auto">
-        <table className="w-full text-xs min-w-[560px]">
-          <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 font-bold">
-            <tr>
-              <th className="text-left p-3">No. Invoice</th>
-              <th className="text-left p-3">Tanggal</th>
-              <th className="text-left p-3">Pelanggan</th>
-              <th className="text-left p-3">Metode</th>
-              <th className="text-right p-3">Total</th>
-              <th className="text-center p-3">Retur</th>
-              <th className="text-center p-3">Cetak</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
+        <Table className="min-w-[560px]">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent bg-gray-50">
+              <TableHead>No. Invoice</TableHead>
+              <TableHead>Tanggal</TableHead>
+              <TableHead>Pelanggan</TableHead>
+              <TableHead>Metode</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+              <TableHead className="text-center">Retur</TableHead>
+              <TableHead className="text-center">Cetak</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={7} className="p-6 text-center text-gray-400">{isFiltered ? 'Tidak ada transaksi yang cocok dengan pencarian/filter tanggal.' : 'Belum ada transaksi tercatat.'}</td></tr>
+              <TableRow><TableCell colSpan={7} className="p-6 text-center text-gray-400">{isFiltered ? 'Tidak ada transaksi yang cocok dengan pencarian/filter tanggal.' : 'Belum ada transaksi tercatat.'}</TableCell></TableRow>
             ) : (
               filtered.map((inv) => (
-                <tr key={inv.invoiceNumber} className="hover:bg-gray-50">
-                  <td className="p-3 font-bold text-gray-800 cursor-pointer" onClick={() => setSelected(inv)}>{inv.invoiceNumber}</td>
-                  <td className="p-3 text-gray-500 cursor-pointer" onClick={() => setSelected(inv)}>{inv.date}</td>
-                  <td className="p-3 text-gray-700 cursor-pointer" onClick={() => setSelected(inv)}>{inv.customerName}</td>
-                  <td className="p-3 text-gray-500 cursor-pointer" onClick={() => setSelected(inv)}>{inv.paymentMethod}</td>
-                  <td className="p-3 text-right font-bold text-gray-900 cursor-pointer" onClick={() => setSelected(inv)}>Rp {inv.total.toLocaleString('id-ID')}</td>
-                  <td className="p-3 text-center">
+                <TableRow key={inv.invoiceNumber}>
+                  <TableCell className="font-bold text-gray-800 cursor-pointer" onClick={() => setSelected(inv)}>{inv.invoiceNumber}</TableCell>
+                  <TableCell className="text-gray-500 cursor-pointer" onClick={() => setSelected(inv)}>{inv.date}</TableCell>
+                  <TableCell className="text-gray-700 cursor-pointer" onClick={() => setSelected(inv)}>{inv.customerName}</TableCell>
+                  <TableCell className="text-gray-500 cursor-pointer" onClick={() => setSelected(inv)}>{inv.paymentMethod}</TableCell>
+                  <TableCell className="text-right font-bold text-gray-900 cursor-pointer" onClick={() => setSelected(inv)}>Rp {inv.total.toLocaleString('id-ID')}</TableCell>
+                  <TableCell className="text-center">
                     {(() => {
                       const invReturns = returnsByInvoice.get(inv.invoiceNumber);
                       if (!invReturns || invReturns.length === 0) return <span className="text-gray-300 text-[10px]">—</span>;
                       // If any retur on this invoice is still pending, surface that first — it needs attention.
                       const priority = invReturns.find((r) => r.status === 'Pending') || invReturns[0];
                       return (
-                        <span className={`inline-flex items-center gap-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${returStatusStyle[priority.status]}`}>
+                        <Badge className={`border-transparent gap-1 ${returStatusStyle[priority.status]}`}>
                           <CornerUpLeft className="w-2.5 h-2.5" />
                           {returStatusLabel[priority.status]}
-                        </span>
+                        </Badge>
                       );
                     })()}
-                  </td>
-                  <td className="p-3">
+                  </TableCell>
+                  <TableCell>
                     <div className="flex items-center justify-center gap-1.5">
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={(e) => { e.stopPropagation(); setPrintTarget({ invoice: inv, docType: 'invoice' }); }}
                         title="Cetak Struk Pembelian"
-                        className="p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 cursor-pointer"
+                        className="w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-600"
                       >
                         <Printer className="w-3.5 h-3.5" />
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={(e) => { e.stopPropagation(); setPrintTarget({ invoice: inv, docType: 'delivery' }); }}
                         title="Cetak Struk Surat Jalan"
-                        className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-600 cursor-pointer"
+                        className="w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-600"
                       >
                         <Truck className="w-3.5 h-3.5" />
-                      </button>
+                      </Button>
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
-      <AnimatePresence>
-        {selected && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-4"
-            >
-              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                <h4 className="font-extrabold text-sm text-gray-900 flex items-center gap-1.5"><Receipt className="w-4 h-4 text-blue-600" /> {selected.invoiceNumber}</h4>
-                <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <DialogContent className="max-w-md">
+          {selected && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-sm normal-case tracking-normal">
+                  <Receipt className="w-4 h-4" /> {selected.invoiceNumber}
+                </DialogTitle>
+              </DialogHeader>
+
               <div className="text-xs space-y-1 text-gray-600">
                 <p><span className="text-gray-400">Tanggal:</span> {selected.date}</p>
                 <p><span className="text-gray-400">Pelanggan:</span> {selected.customerName}</p>
@@ -275,9 +274,9 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], st
                   {selectedReturns.map((r) => (
                     <div key={r.id} className="p-2.5 bg-gray-50 border border-gray-100 rounded-lg space-y-1">
                       <div className="flex justify-between items-center">
-                        <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${returStatusStyle[r.status]}`}>
+                        <Badge className={`border-transparent ${returStatusStyle[r.status]}`}>
                           {returStatusLabel[r.status]}
-                        </span>
+                        </Badge>
                         <span className="text-[10px] text-gray-400">{r.createdAt}</span>
                       </div>
                       <div className="text-[11px] text-gray-600 space-y-0.5">
@@ -298,25 +297,27 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], st
               )}
 
               <div className="grid grid-cols-2 gap-2 pt-1">
-                <button
+                <Button
+                  variant="secondary"
                   onClick={() => setPrintTarget({ invoice: selected, docType: 'invoice' })}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-xs font-bold cursor-pointer"
+                  className="w-full bg-blue-50 hover:bg-blue-100 text-blue-600"
                 >
                   <Receipt className="w-3.5 h-3.5" />
                   Struk Pembelian
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
                   onClick={() => setPrintTarget({ invoice: selected, docType: 'delivery' })}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg text-xs font-bold cursor-pointer"
+                  className="w-full bg-amber-50 hover:bg-amber-100 text-amber-600"
                 >
                   <Truck className="w-3.5 h-3.5" />
                   Surat Jalan
-                </button>
+                </Button>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {printTarget && (
         <InvoicePrintModal

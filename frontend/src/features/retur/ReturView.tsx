@@ -14,6 +14,14 @@ import { addMutation } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
+
+const numberInputClass =
+  'flex h-8 w-full rounded-lg border border-input bg-background px-2 py-1 text-xs font-bold outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20';
 
 interface ReturViewProps {
   products: Product[];
@@ -223,20 +231,16 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
         <p className="text-xs text-gray-500 font-medium mt-0.5">Proses pengembalian barang dari pelanggan (retur penjualan) atau ke pemasok (retur pembelian).</p>
       </div>
 
-      <div className="flex gap-2 bg-gray-100 rounded-xl p-1 w-fit">
-        <button
-          onClick={() => { setActiveTab('penjualan'); resetForm(); setSearchQuery(''); }}
-          className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer transition-all ${activeTab === 'penjualan' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
-        >
-          Retur Penjualan
-        </button>
-        <button
-          onClick={() => { setActiveTab('pembelian'); resetForm(); setSearchQuery(''); }}
-          className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider cursor-pointer transition-all ${activeTab === 'pembelian' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
-        >
-          Retur Pembelian
-        </button>
-      </div>
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as 'penjualan' | 'pembelian'); resetForm(); setSearchQuery(''); }}>
+        <TabsList className="bg-gray-100 p-1 rounded-xl w-fit gap-0">
+          <TabsTrigger value="penjualan" className="rounded-lg border-0 data-[state=active]:bg-white data-[state=active]:shadow data-[state=active]:text-blue-600 text-gray-500">
+            Retur Penjualan
+          </TabsTrigger>
+          <TabsTrigger value="pembelian" className="rounded-lg border-0 data-[state=active]:bg-white data-[state=active]:shadow data-[state=active]:text-blue-600 text-gray-500">
+            Retur Pembelian
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: search & form */}
@@ -244,13 +248,13 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
           {!selectedInvoice && !selectedPO ? (
             <>
               <div className="relative">
-                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
+                <Input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={activeTab === 'penjualan' ? 'Cari nomor invoice atau nama pelanggan...' : 'Cari nomor PO atau nama pemasok...'}
-                  className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl text-xs outline-none focus:border-blue-400"
+                  className="pl-9"
                 />
               </div>
 
@@ -261,12 +265,9 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
                       <div className="p-6 text-center space-y-3">
                         <p className="text-xs text-gray-400">Belum ada transaksi penjualan yang tercatat. Retur hanya bisa diajukan dari transaksi yang sudah ada.</p>
                         {onNavigateToPOS && (
-                          <button
-                            onClick={onNavigateToPOS}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold cursor-pointer"
-                          >
+                          <Button onClick={onNavigateToPOS} size="sm">
                             Buat Transaksi di Kasir (POS)
-                          </button>
+                          </Button>
                         )}
                       </div>
                     ) : (
@@ -323,9 +324,9 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
                   <p className="font-extrabold text-sm text-gray-900">{selectedInvoice ? selectedInvoice.invoiceNumber : selectedPO!.poNumber}</p>
                   <p className="text-[10px] text-gray-400">{selectedInvoice ? selectedInvoice.customerName : selectedPO!.supplier}</p>
                 </div>
-                <button onClick={resetForm} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                <Button variant="ghost" size="icon" onClick={resetForm} className="w-7 h-7 text-gray-400">
                   <X className="w-4 h-4" />
-                </button>
+                </Button>
               </div>
 
               <div className="space-y-3 max-h-[300px] overflow-y-auto">
@@ -339,25 +340,27 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Jumlah Retur</label>
+                        <Label className="text-[9px]">Jumlah Retur</Label>
                         <NumberInput
                           max={item.quantity}
                           value={returnQtys[item.sku] || 0}
                           onChange={(v) => setReturnQtys({ ...returnQtys, [item.sku]: v })}
                           placeholder="0"
-                          className="w-full border border-gray-200 rounded-lg p-2 text-xs font-bold outline-none"
+                          className={numberInputClass}
                         />
                       </div>
                       <div>
-                        <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Kondisi Barang</label>
-                        <select
+                        <Label className="text-[9px]">Kondisi Barang</Label>
+                        <Select
                           value={conditions[item.sku] || 'Baik'}
-                          onChange={(e) => setConditions({ ...conditions, [item.sku]: e.target.value as 'Baik' | 'Rusak' })}
-                          className="w-full border border-gray-200 rounded-lg p-2 text-xs font-bold outline-none"
+                          onValueChange={(v) => setConditions({ ...conditions, [item.sku]: v as 'Baik' | 'Rusak' })}
                         >
-                          <option value="Baik">Baik</option>
-                          <option value="Rusak">Rusak</option>
-                        </select>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Baik">Baik</SelectItem>
+                            <SelectItem value="Rusak">Rusak</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   </div>
@@ -366,24 +369,23 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
 
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Diskon Nilai Retur (IDR)</label>
+                  <Label className="text-[9px]">Diskon Nilai Retur (IDR)</Label>
                   <NumberInput
                     value={discount}
                     onChange={setDiscount}
-                    className="w-full border border-gray-200 rounded-lg p-2 text-xs font-bold outline-none"
+                    className={numberInputClass}
                     placeholder="0"
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] text-gray-400 font-bold uppercase mb-1">Metode Pengembalian</label>
-                  <select
-                    value={refundMethod}
-                    onChange={(e) => setRefundMethod(e.target.value as 'Tunai' | 'Transfer')}
-                    className="w-full border border-gray-200 rounded-lg p-2 text-xs font-bold outline-none"
-                  >
-                    <option value="Tunai">Tunai</option>
-                    <option value="Transfer">Transfer</option>
-                  </select>
+                  <Label className="text-[9px]">Metode Pengembalian</Label>
+                  <Select value={refundMethod} onValueChange={(v) => setRefundMethod(v as 'Tunai' | 'Transfer')}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Tunai">Tunai</SelectItem>
+                      <SelectItem value="Transfer">Transfer</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -392,12 +394,9 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
                 <span className="font-black text-gray-900">Rp {totalRefund.toLocaleString('id-ID')}</span>
               </div>
 
-              <button
-                onClick={handleSubmitReturn}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-extrabold text-xs cursor-pointer"
-              >
-                Ajukan Retur & Konfirmasi
-              </button>
+              <Button onClick={handleSubmitReturn} className="w-full">
+                Ajukan Retur &amp; Konfirmasi
+              </Button>
             </>
           )}
         </div>
@@ -424,18 +423,22 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
                     </div>
                     {canApproveRetur ? (
                       <div className="flex gap-2 mt-2.5">
-                        <button
+                        <Button
+                          size="sm"
+                          variant="secondary"
                           onClick={() => handleApprove(r.id)}
-                          className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-[10px] font-bold cursor-pointer"
+                          className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px]"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" /> Approve
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
                           onClick={() => handleReject(r.id)}
-                          className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-[10px] font-bold cursor-pointer"
+                          className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 text-[10px]"
                         >
                           <XCircle className="w-3.5 h-3.5" /> Reject
-                        </button>
+                        </Button>
                       </div>
                     ) : (
                       <p className="mt-2.5 text-[10px] text-gray-400 italic">Menunggu persetujuan Owner/Admin.</p>

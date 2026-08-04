@@ -17,6 +17,9 @@ import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { StaffMember } from '../../types';
 import { ROLE_DEFAULT_PERMISSIONS, CurrentUser } from '../../lib/permissions';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 
 interface LoginViewProps {
   onLoginSuccess: (user: CurrentUser) => void;
@@ -159,7 +162,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
 
   return (
-    <main className="min-h-screen bg-[#E0E5EC] flex flex-col items-center justify-center p-4 font-sans select-none">
+    <main className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4 font-sans select-none">
       
       {/* Animated container */}
       <AnimatePresence mode="wait">
@@ -170,10 +173,10 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -20 }}
-            className="w-full max-w-md nm-card rounded-3xl p-8 space-y-6"
+            className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-xl p-8 space-y-6"
           >
             <div className="text-center">
-              <div className="w-16 h-16 mx-auto rounded-full nm-inset flex items-center justify-center text-blue-600 mb-3">
+              <div className="w-16 h-16 mx-auto rounded-full bg-blue-50 flex items-center justify-center text-blue-600 mb-3">
                 <Store className="w-8 h-8" />
               </div>
               <h1 className="text-xl font-black text-gray-900 tracking-tight uppercase">REGISTRASI AKUN OWNER </h1>
@@ -182,74 +185,71 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
             <form onSubmit={handleRegister} className="space-y-4 text-xs">
               <div>
-                <label className="block text-[10px] text-gray-600 font-bold uppercase mb-1.5 ml-1">Nama Toko / Bisnis</label>
+                <Label>Nama Toko / Bisnis</Label>
                 <div className="relative">
-                  <Building className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
-                  <input
+                  <Building className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10" />
+                  <Input
                     type="text"
                     required
                     value={storeName}
                     onChange={(e) => setStoreName(e.target.value)}
                     placeholder="Contoh: TB Sinar Maju"
-                    className="w-full nm-input rounded-xl pl-10 pr-4 py-3 font-bold"
+                    className="pl-10 h-11"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] text-gray-600 font-bold uppercase mb-1.5 ml-1">Nama Pemilik (Owner)</label>
+                <Label>Nama Pemilik (Owner)</Label>
                 <div className="relative">
-                  <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
-                  <input
+                  <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10" />
+                  <Input
                     type="text"
                     required
                     value={ownerName}
                     onChange={(e) => setOwnerName(e.target.value)}
                     placeholder="Nama Lengkap Anda"
-                    className="w-full nm-input rounded-xl pl-10 pr-4 py-3 font-bold"
+                    className="pl-10 h-11"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] text-gray-600 font-bold uppercase mb-1.5 ml-1">Email Pemilik</label>
+                <Label>Email Pemilik</Label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
-                  <input
+                  <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10" />
+                  <Input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="owner@sinarmaju.com"
-                    className="w-full nm-input rounded-xl pl-10 pr-4 py-3 font-bold"
+                    className="pl-10 h-11"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] text-gray-600 font-bold uppercase mb-1.5 ml-1">PIN Keamanan (6 Digit)</label>
+                <Label>PIN Keamanan (6 Digit)</Label>
                 <div className="relative">
-                  <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
-                  <input
+                  <KeyRound className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10" />
+                  <Input
                     type="password"
                     maxLength={6}
                     required
                     value={ownerPin}
                     onChange={(e) => setOwnerPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     placeholder="Masukkan 6 angka rahasia"
-                    className="w-full nm-input rounded-xl pl-10 pr-4 py-3 font-mono text-center text-lg font-bold tracking-widest"
+                    className="pl-10 h-11 font-mono text-center text-lg tracking-widest"
                   />
                 </div>
               </div>
 
               <div className="pt-4">
-                <button
-                  type="submit"
-                  className="w-full py-4 rounded-xl nm-btn font-black uppercase text-xs tracking-widest text-blue-600 flex items-center justify-center gap-2 cursor-pointer"
-                >
+                <Button type="submit" size="lg" className="w-full">
                   <span>Daftarkan &amp; Mulai ERP</span>
                   <ChevronRight className="w-4 h-4" />
-                </button>
+                </Button>
               </div>
             </form>
           </motion.div>
@@ -260,7 +260,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -20 }}
-            className="w-full max-w-md nm-card rounded-3xl p-8 space-y-6"
+            className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-xl p-8 space-y-6"
           >
             <div className="text-center">
               <span className="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-black uppercase tracking-wider">
@@ -290,10 +290,10 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                           setPinInput('');
                           setPinError(false);
                         }}
-                        className="w-full flex items-center justify-between p-4 rounded-2xl nm-btn text-left group cursor-pointer"
+                        className="w-full flex items-center justify-between p-4 rounded-2xl border border-slate-200 bg-white hover:border-blue-600 hover:bg-blue-50/30 text-left group cursor-pointer transition-colors"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full nm-inset flex items-center justify-center text-gray-600">
+                          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-gray-600">
                             {staff.role === 'Owner' ? <Store className="w-5 h-5 text-blue-600" /> : <Users className="w-5 h-5 text-gray-600" />}
                           </div>
                           <div>
@@ -308,7 +308,8 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
                   {/* Reset store data option */}
                   <div className="pt-6 border-t border-gray-200 text-center">
-                    <button
+                    <Button
+                      variant="link"
                       onClick={async () => {
                         const conf = await dialog.confirm("Apakah Anda yakin ingin mereset data registrasi toko? Ini akan menghapus semua kredensial.");
                         if (conf) {
@@ -321,10 +322,10 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                           setOwnerPin('');
                         }
                       }}
-                      className="text-[9px] font-bold text-red-700 uppercase tracking-widest hover:underline"
+                      className="h-auto p-0 text-[9px] text-red-700 uppercase tracking-widest"
                     >
                       Reset Registrasi Toko
-                    </button>
+                    </Button>
                   </div>
                 </motion.div>
               ) : (
@@ -343,12 +344,14 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                       </div>
                       <span className="font-bold text-xs text-gray-800 uppercase tracking-wide">{selectedStaff.name}</span>
                     </div>
-                    <button
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setSelectedStaff(null)}
-                      className="text-[10px] text-gray-600 hover:text-gray-900 font-bold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                      className="h-auto p-0 text-[10px] text-gray-600 hover:text-gray-900 uppercase tracking-wider"
                     >
                       <X className="w-3.5 h-3.5" /> Ganti Akun
-                    </button>
+                    </Button>
                   </div>
 
                   {/* PIN Display Indicators */}
@@ -362,7 +365,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                           className={`w-4 h-4 rounded-full transition-all duration-150 ${
                             pinInput.length > index
                               ? 'bg-blue-600 scale-110 shadow-md shadow-blue-400'
-                              : 'nm-inset'
+                              : 'bg-slate-200'
                           }`}
                         />
                       ))}
@@ -382,39 +385,43 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                   {/* Keypad Grid */}
                   <div className="grid grid-cols-3 gap-4 max-w-[280px] mx-auto">
                     {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
-                      <button
+                      <Button
                         key={digit}
                         type="button"
+                        variant="secondary"
                         onClick={() => handlePinDigit(digit)}
-                        className="w-16 h-16 rounded-full nm-btn font-extrabold text-lg text-gray-800 flex items-center justify-center active:nm-btn-active cursor-pointer"
+                        className="w-16 h-16 rounded-full font-extrabold text-lg text-gray-800"
                       >
                         {digit}
-                      </button>
+                      </Button>
                     ))}
-                    
-                    <button
+
+                    <Button
                       type="button"
+                      variant="secondary"
                       onClick={() => setPinInput('')}
-                      className="w-16 h-16 rounded-full nm-btn font-bold text-xs text-gray-600 flex items-center justify-center active:nm-btn-active cursor-pointer"
+                      className="w-16 h-16 rounded-full font-bold text-xs text-gray-600"
                     >
                       C
-                    </button>
-                    
-                    <button
+                    </Button>
+
+                    <Button
                       type="button"
+                      variant="secondary"
                       onClick={() => handlePinDigit('0')}
-                      className="w-16 h-16 rounded-full nm-btn font-extrabold text-lg text-gray-800 flex items-center justify-center active:nm-btn-active cursor-pointer"
+                      className="w-16 h-16 rounded-full font-extrabold text-lg text-gray-800"
                     >
                       0
-                    </button>
-                    
-                    <button
+                    </Button>
+
+                    <Button
                       type="button"
+                      variant="secondary"
                       onClick={handleBackspace}
-                      className="w-16 h-16 rounded-full nm-btn font-bold text-gray-600 flex items-center justify-center active:nm-btn-active cursor-pointer"
+                      className="w-16 h-16 rounded-full text-gray-600"
                     >
                       <Delete className="w-5 h-5" />
-                    </button>
+                    </Button>
                   </div>
                 </motion.div>
               )}
