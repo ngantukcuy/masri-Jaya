@@ -46,6 +46,68 @@ export interface ResetAllDataResult {
   errors: string[];
 }
 
+export interface BackupResult {
+  ok: boolean;
+  errors: string[];
+  /** JSON string ready to write to a file, or null if the backup failed outright. */
+  json: string | null;
+}
+
+/**
+ * Snapshots every table that `resetAllBusinessData` is about to wipe into a
+ * single JSON blob, so a botched or accidental reset isn't unrecoverable.
+ * Read-only — safe to call any time, not just right before a reset.
+ */
+export async function backupAllBusinessData(): Promise<BackupResult> {
+  const errors: string[] = [];
+  const tables: Record<string, unknown> = {};
+
+  for (const table of LIST_TABLES_TO_WIPE) {
+    const { data, error } = await supabase.from(table).select('key, data');
+    if (error) {
+      errors.push(`${table}: ${error.message}`);
+      continue;
+    }
+    tables[table] = data ?? [];
+  }
+
+  for (const table of SINGLETON_TABLES_TO_WIPE) {
+    const { data, error } = await supabase.from(table).select('value').eq('id', 1).maybeSingle();
+    if (error) {
+      errors.push(`${table}: ${error.message}`);
+      continue;
+    }
+    tables[table] = data?.value ?? null;
+  }
+
+  // A backup where every single table errored out isn't worth downloading —
+  // surface it as a hard failure instead of a 0-byte "success".
+  if (errors.length >= LIST_TABLES_TO_WIPE.length + SINGLETON_TABLES_TO_WIPE.length) {
+    return { ok: false, errors, json: null };
+  }
+
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    tables,
+  };
+
+  return { ok: errors.length === 0, errors, json: JSON.stringify(payload, null, 2) };
+}
+
+/** Triggers a browser download of the backup JSON — call after `backupAllBusinessData()`. */
+export function downloadBackupJson(json: string) {
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  a.href = url;
+  a.download = `tokku-backup-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 /**
  * Wipes every business/transactional table (products, customers, sales,
  * expenses, cash sessions, etc.) back to empty. Login credentials

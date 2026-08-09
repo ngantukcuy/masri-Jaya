@@ -32,7 +32,7 @@ import {
 import { buildTestPrint } from '../../lib/printing/escpos';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { TAB_DEFS, FEATURE_PERMISSION_DEFS, ROLE_DEFAULT_PERMISSIONS, CurrentUser, hasPermission } from '../../lib/permissions';
-import { resetAllBusinessData } from '../../lib/resetAllData';
+import { resetAllBusinessData, backupAllBusinessData, downloadBackupJson } from '../../lib/resetAllData';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -492,6 +492,24 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     }
   };
 
+  const [backingUp, setBackingUp] = useState(false);
+  const handleDownloadBackup = async () => {
+    setBackingUp(true);
+    const result = await backupAllBusinessData();
+    setBackingUp(false);
+
+    if (!result.json) {
+      dialog.alert('Gagal membuat backup — semua tabel gagal diambil. Cek koneksi internet lalu coba lagi.');
+      return;
+    }
+    downloadBackupJson(result.json);
+    if (result.errors.length > 0) {
+      dialog.alert(`Backup berhasil diunduh, tapi ada ${result.errors.length} tabel yang gagal diambil (kemungkinan kosong/tidak ada masalah besar):\n\n${result.errors.join('\n')}`);
+    } else {
+      triggerToast('Backup data berhasil diunduh.');
+    }
+  };
+
   const [resettingData, setResettingData] = useState(false);
   const handleResetAllData = async () => {
     // Hard-coded to Owner only (not routed through the customizable
@@ -503,7 +521,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     }
     const CONFIRM_PHRASE = 'HAPUS SEMUA DATA';
     const typed = await dialog.prompt(
-      `Tindakan ini akan MENGHAPUS PERMANEN seluruh data produk, transaksi, pelanggan, pemasok, keuangan, retur, opname, dan sesi kas — TIDAK BISA dibatalkan.\n\nAkun login (Owner & staf) tidak akan terhapus.\n\nKetik "${CONFIRM_PHRASE}" untuk melanjutkan:`,
+      `Tindakan ini akan MENGHAPUS PERMANEN seluruh data produk, transaksi, pelanggan, pemasok, keuangan, retur, opname, dan sesi kas — TIDAK BISA dibatalkan.\n\nAkun login (Owner & staf) tidak akan terhapus.\n\nBackup JSON akan otomatis diunduh sebelum penghapusan dimulai.\n\nKetik "${CONFIRM_PHRASE}" untuk melanjutkan:`,
       '',
       { title: 'Hapus Seluruh Data', confirmLabel: 'Hapus Permanen' }
     );
@@ -514,11 +532,22 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     }
 
     setResettingData(true);
+
+    // Always back up first — if this fails outright, stop before touching
+    // any data so a broken backup never leads to unrecoverable data loss.
+    const backup = await backupAllBusinessData();
+    if (!backup.json) {
+      setResettingData(false);
+      dialog.alert('Backup otomatis GAGAL dibuat, jadi penghapusan DIBATALKAN demi keamanan data. Cek koneksi internet lalu coba lagi.');
+      return;
+    }
+    downloadBackupJson(backup.json);
+
     const result = await resetAllBusinessData();
     setResettingData(false);
 
     if (result.ok) {
-      dialog.alert('Seluruh data berhasil dihapus. Halaman akan dimuat ulang.');
+      dialog.alert('Backup sudah diunduh dan seluruh data berhasil dihapus. Halaman akan dimuat ulang.');
       window.location.reload();
     } else {
       dialog.alert(`Sebagian data gagal dihapus:\n${result.errors.join('\n')}`);
@@ -1277,6 +1306,36 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
               </div>
             </div>
 
+            {/* Manual backup — usable any time, not just right before a reset */}
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
+              <div className="flex items-start gap-2.5 text-emerald-900">
+                <Save className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <h5 className="font-bold">Backup Data Sekarang</h5>
+                  <p className="text-[10px] text-emerald-700 leading-relaxed mt-0.5">
+                    Unduh salinan seluruh data (produk, transaksi, pelanggan, keuangan, dll) sebagai file JSON ke perangkat kamu. Aman dijalankan kapan saja, tidak mengubah data apapun.
+                  </p>
+                </div>
+              </div>
+              <div className="pt-1">
+                <Button
+                  onClick={handleDownloadBackup}
+                  disabled={backingUp}
+                  variant="outline"
+                  className="w-full bg-white border-emerald-300 text-emerald-700 hover:bg-emerald-100"
+                >
+                  {backingUp ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Menyiapkan Backup...</span>
+                    </>
+                  ) : (
+                    <span>Download Backup (.json)</span>
+                  )}
+                </Button>
+              </div>
+            </div>
+
             {/* Danger Zone: reset all business data (Owner only) */}
             {currentUser?.role === 'Owner' && (
               <div className="p-4 bg-red-50 border border-red-200 rounded-xl space-y-2">
@@ -1285,7 +1344,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                   <div>
                     <h5 className="font-bold">Hapus Seluruh Data (Reset Pabrik)</h5>
                     <p className="text-[10px] text-red-700 leading-relaxed mt-0.5">
-                      Menghapus PERMANEN seluruh produk, transaksi penjualan, PO, pelanggan, pemasok, keuangan, retur, opname, dan sesi kas. Cocok dipakai untuk membersihkan data uji coba sebelum pakai serius. Akun login Owner &amp; staf TIDAK ikut terhapus — tidak akan ada yang ter-lockout.
+                      Menghapus PERMANEN seluruh produk, transaksi penjualan, PO, pelanggan, pemasok, keuangan, retur, opname, dan sesi kas. Backup JSON otomatis diunduh sebelum penghapusan dimulai. Cocok dipakai untuk membersihkan data uji coba sebelum pakai serius. Akun login Owner &amp; staf TIDAK ikut terhapus — tidak akan ada yang ter-lockout.
                     </p>
                   </div>
                 </div>

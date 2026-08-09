@@ -41,6 +41,60 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
 
+  // Brute-force throttle: after MAX_ATTEMPTS wrong PINs in a row for a given
+  // staff account, lock that account out for LOCKOUT_MS. Persisted to
+  // localStorage (keyed per staff id) so it survives switching accounts,
+  // reloading the page, or trying again after closing the tab — a 6-digit
+  // PIN is otherwise trivially brute-forceable by someone with physical
+  // access to the device.
+  const MAX_ATTEMPTS = 5;
+  const LOCKOUT_MS = 60_000;
+  const lockoutKey = (staffId: string) => `tokku_pin_lockout_${staffId}`;
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  const readLockout = (staffId: string): { attempts: number; lockedUntil: number | null } => {
+    try {
+      const raw = localStorage.getItem(lockoutKey(staffId));
+      if (!raw) return { attempts: 0, lockedUntil: null };
+      const parsed = JSON.parse(raw);
+      return { attempts: parsed.attempts || 0, lockedUntil: parsed.lockedUntil || null };
+    } catch {
+      return { attempts: 0, lockedUntil: null };
+    }
+  };
+
+  const writeLockout = (staffId: string, attempts: number, until: number | null) => {
+    try {
+      if (attempts === 0 && !until) {
+        localStorage.removeItem(lockoutKey(staffId));
+      } else {
+        localStorage.setItem(lockoutKey(staffId), JSON.stringify({ attempts, lockedUntil: until }));
+      }
+    } catch {
+      // Ignore storage failures — worst case the throttle just doesn't persist.
+    }
+  };
+
+  // Live countdown while locked out
+  useEffect(() => {
+    if (!lockedUntil) return;
+    const interval = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [lockedUntil]);
+
+  const secondsLeft = lockedUntil ? Math.max(0, Math.ceil((lockedUntil - nowTick) / 1000)) : 0;
+  const isLockedOut = !!lockedUntil && secondsLeft > 0;
+
+  // Lockout naturally expires once its countdown hits zero
+  useEffect(() => {
+    if (lockedUntil && secondsLeft === 0 && selectedStaff) {
+      setLockedUntil(null);
+      writeLockout(selectedStaff.id || selectedStaff.name, 0, null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [secondsLeft]);
+
   // React to the registered-owner / staff-list Supabase rows as they load or change
   useEffect(() => {
     if (registeredOwner) {
@@ -103,6 +157,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
   // PIN keyboard digit handler
   const handlePinDigit = (digit: string) => {
+    if (isLockedOut) return;
     if (pinInput.length < 6) {
       const nextPin = pinInput + digit;
       setPinInput(nextPin);
@@ -110,17 +165,29 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
       if (nextPin.length === 6 && selectedStaff) {
         if (nextPin === selectedStaff.pin) {
-          // Success login — carry the staff's saved permissions (or the
-          // role's default set, for older records saved before per-staff
-          // permissions existed) so the rest of the app can gate menus
-          // and actions accordingly.
+          // Success login — reset this account's throttle, and carry the
+          // staff's saved permissions (or the role's default set, for
+          // older records saved before per-staff permissions existed) so
+          // the rest of the app can gate menus and actions accordingly.
+          writeLockout(selectedStaff.id || selectedStaff.name, 0, null);
           const role = selectedStaff.role;
           const permissions = selectedStaff.permissions && selectedStaff.permissions.length > 0
             ? selectedStaff.permissions
             : (ROLE_DEFAULT_PERMISSIONS[role] || []);
           onLoginSuccess({ name: selectedStaff.name, role, permissions });
         } else {
-          // Wrong PIN
+          // Wrong PIN — count the attempt and lock the account out once
+          // MAX_ATTEMPTS is hit.
+          const { attempts } = readLockout(selectedStaff.id || selectedStaff.name);
+          const nextAttempts = attempts + 1;
+          if (nextAttempts >= MAX_ATTEMPTS) {
+            const until = Date.now() + LOCKOUT_MS;
+            writeLockout(selectedStaff.id || selectedStaff.name, nextAttempts, until);
+            setLockedUntil(until);
+            setNowTick(Date.now());
+          } else {
+            writeLockout(selectedStaff.id || selectedStaff.name, nextAttempts, null);
+          }
           setPinError(true);
           setPinInput('');
           // Play a small rumble vibration
@@ -289,6 +356,10 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                           setSelectedStaff(staff);
                           setPinInput('');
                           setPinError(false);
+                          const { lockedUntil: storedUntil } = readLockout(staff.id || staff.name);
+                          const stillLocked = storedUntil && storedUntil > Date.now();
+                          setLockedUntil(stillLocked ? storedUntil : null);
+                          setNowTick(Date.now());
                         }}
                         className="w-full flex items-center justify-between p-4 rounded-2xl border border-slate-200 bg-white hover:border-blue-600 hover:bg-blue-50/30 text-left group cursor-pointer transition-colors"
                       >
@@ -371,7 +442,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                       ))}
                     </div>
                     
-                    {pinError && (
+                    {pinError && !isLockedOut && (
                       <motion.div 
                         initial={{ opacity: 0, y: -5 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -380,10 +451,20 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                         <ShieldAlert className="w-4 h-4" /> PIN Salah! Silakan coba lagi.
                       </motion.div>
                     )}
+
+                    {isLockedOut && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-[10px] font-extrabold text-red-700 uppercase tracking-wider flex items-center justify-center gap-1.5"
+                      >
+                        <ShieldAlert className="w-4 h-4" /> Terlalu banyak percobaan. Coba lagi dalam {secondsLeft} detik.
+                      </motion.div>
+                    )}
                   </div>
 
                   {/* Keypad Grid */}
-                  <div className="grid grid-cols-3 gap-4 max-w-[280px] mx-auto">
+                  <div className={`grid grid-cols-3 gap-4 max-w-[280px] mx-auto ${isLockedOut ? 'opacity-40 pointer-events-none' : ''}`}>
                     {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
                       <Button
                         key={digit}
