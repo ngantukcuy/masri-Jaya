@@ -32,8 +32,32 @@ export const supabase = createClient(
       persistSession: true,
       autoRefreshToken: true,
     },
+    global: {
+      // Every request carries the name of whoever is currently logged in
+      // (see setAuditActorName below). The `audit_log_row_change` trigger
+      // (backend/supabase/audit_log.sql) reads this header back out via
+      // PostgREST's `request.headers` GUC and stores it as `actor_name` on
+      // every row it logs — this is how "siapa mengedit apa" is captured
+      // even though every staff member shares the same anonymous Supabase
+      // auth session (see SUPABASE_SETUP.md).
+      fetch: (input, init) => {
+        const headers = new Headers(init?.headers);
+        if (currentActorName) headers.set('X-Actor-Name', currentActorName);
+        return fetch(input, { ...init, headers });
+      },
+    },
   }
 );
+
+// Mutable module-level actor name — updated on login/logout (App.tsx) and
+// read fresh on every request by the custom `fetch` above. A plain
+// variable (not React state) on purpose: this file has no component
+// lifecycle, and every Supabase call anywhere in the app should pick up
+// the latest value immediately.
+let currentActorName: string | null = null;
+export function setAuditActorName(name: string | null) {
+  currentActorName = name;
+}
 
 // This app doesn't have real user accounts yet (LoginView.tsx does a local
 // PIN check, not Supabase Auth). Row Level Security still requires *some*

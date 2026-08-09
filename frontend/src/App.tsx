@@ -12,6 +12,7 @@ import { useSupabaseReady } from './lib/useSupabaseReady';
 import { useDialog } from './components/shared/DialogProvider';
 import { CurrentUser, canAccessTab, firstAccessibleTab } from './lib/permissions';
 import { initPushNotifications } from './lib/push/pushNotifications';
+import { setAuditActorName } from './lib/supabase';
 import PushToastListener from './components/shared/PushToastListener';
 
 // Feature views are only needed once a user is authenticated, and only one
@@ -113,7 +114,11 @@ function saveStoredSession(session: StoredSession | null) {
 }
 
 function AuthGate() {
-  const [session, setSession] = useState<StoredSession | null>(() => loadStoredSession());
+  const [session, setSession] = useState<StoredSession | null>(() => {
+    const stored = loadStoredSession();
+    if (stored) setAuditActorName(stored.user.name);
+    return stored;
+  });
 
   if (!session) {
     return (
@@ -122,6 +127,7 @@ function AuthGate() {
           const next = { user, loginAt: Date.now() };
           setSession(next);
           saveStoredSession(next);
+          setAuditActorName(user.name);
         }}
       />
     );
@@ -134,6 +140,7 @@ function AuthGate() {
       onLogout={() => {
         setSession(null);
         saveStoredSession(null);
+        setAuditActorName(null);
       }}
     />
   );

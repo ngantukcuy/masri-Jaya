@@ -16,6 +16,8 @@ import {
   Bluetooth,
   Usb,
   Loader2,
+  History,
+  Search,
 } from 'lucide-react';
 import { Branch, StoreProfile, StaffMember, BankAccount, SkuLocation, Printer, Customer } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -39,6 +41,9 @@ import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
+import { Badge } from '../../components/ui/badge';
+import { supabase } from '../../lib/supabase';
 
 interface SettingsViewProps {
   branches: Branch[];
@@ -63,7 +68,7 @@ const PERMISSION_DEFS = FEATURE_PERMISSION_DEFS;
 export default function SettingsView({ branches, onUpdateBranches, skuLocations, onUpdateSkuLocations, onAddActivity, currentUser, customers = [], defaultCustomerId = null, onUpdateDefaultCustomerId }: SettingsViewProps) {
   const dialog = useDialog();
   const can = (key: string) => hasPermission(currentUser, key);
-  const [activeTab, setActiveTab] = useState<'profile' | 'branches' | 'locations' | 'printers' | 'security' | 'accounts'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'branches' | 'locations' | 'printers' | 'security' | 'accounts' | 'audit'>('profile');
   const [storeProfile, setStoreProfile] = useState<StoreProfile>({
     storeName: 'TB Sinar Maju Pusat',
     ownerName: 'Owner',
@@ -493,6 +498,76 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   };
 
   const [backingUp, setBackingUp] = useState(false);
+
+  // Audit log viewer state — fetched on demand (only when the Owner opens
+  // the tab) rather than kept live/realtime, since this table can grow
+  // large and isn't needed for normal app operation.
+  interface AuditLogRow {
+    id: number;
+    table_name: string;
+    row_key: string | null;
+    action: 'INSERT' | 'UPDATE' | 'DELETE';
+    old_data: any;
+    new_data: any;
+    actor_name: string | null;
+    created_at: string;
+  }
+  const [auditRows, setAuditRows] = useState<AuditLogRow[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState<string | null>(null);
+  const [auditTableFilter, setAuditTableFilter] = useState('__all__');
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditExpandedId, setAuditExpandedId] = useState<number | null>(null);
+  const AUDIT_PAGE_SIZE = 50;
+
+  const fetchAuditLog = async (reset: boolean) => {
+    setAuditLoading(true);
+    setAuditError(null);
+    try {
+      let query = supabase
+        .from('audit_log')
+        .select('id, table_name, row_key, action, old_data, new_data, actor_name, created_at')
+        .order('created_at', { ascending: false })
+        .limit(AUDIT_PAGE_SIZE);
+
+      if (auditTableFilter !== '__all__') query = query.eq('table_name', auditTableFilter);
+      if (!reset && auditRows.length > 0) query = query.lt('created_at', auditRows[auditRows.length - 1].created_at);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setAuditRows(reset ? (data || []) : [...auditRows, ...(data || [])]);
+    } catch (err: any) {
+      setAuditError(err?.message || 'Gagal memuat log audit. Pastikan file backend/supabase/audit_log.sql sudah dijalankan di Supabase SQL Editor.');
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'audit') {
+      fetchAuditLog(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, auditTableFilter]);
+
+  const AUDIT_TABLE_OPTIONS = [
+    'products', 'purchase_orders', 'customers', 'suppliers', 'expenses',
+    'sales_invoices', 'returns', 'digital_orders', 'banners', 'sku_locations',
+    'staff_list', 'bank_accounts', 'printers', 'branches', 'store_owner',
+  ];
+
+  const actionBadgeClass: Record<string, string> = {
+    INSERT: 'bg-emerald-50 text-emerald-700',
+    UPDATE: 'bg-amber-50 text-amber-700',
+    DELETE: 'bg-red-50 text-red-700',
+  };
+  const actionLabel: Record<string, string> = { INSERT: 'Ditambah', UPDATE: 'Diubah', DELETE: 'Dihapus' };
+
+  const filteredAuditRows = auditRows.filter((r) => {
+    if (!auditSearch.trim()) return true;
+    const q = auditSearch.toLowerCase();
+    return (r.actor_name || '').toLowerCase().includes(q) || (r.row_key || '').toLowerCase().includes(q);
+  });
   const handleDownloadBackup = async () => {
     setBackingUp(true);
     const result = await backupAllBusinessData();
@@ -571,6 +646,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
           { key: 'printers', label: 'Printer Thermal', icon: PrinterIcon, show: true },
           { key: 'security', label: 'Staff', icon: ShieldCheck, show: can('manage_user_list') },
           { key: 'accounts', label: 'Daftar Rekening', icon: CreditCard, show: can('manage_rekening_list') },
+          { key: 'audit', label: 'Log Audit', icon: History, show: currentUser?.role === 'Owner' },
         ] as const).map((tab) => tab.show && (
           <Button
             key={tab.key}
@@ -1364,6 +1440,121 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                     )}
                   </Button>
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab: Audit Log */}
+        {activeTab === 'audit' && currentUser?.role === 'Owner' && (
+          <div className="space-y-4 text-xs">
+            <div className="border-b border-gray-100 pb-2 mb-1">
+              <h4 className="font-extrabold text-sm text-gray-800">Log Audit — Siapa Mengubah Apa</h4>
+              <p className="text-[10px] text-gray-400 mt-0.5">
+                Catatan otomatis setiap perubahan data (tambah/ubah/hapus) di seluruh sistem, lengkap dengan nama staf yang melakukannya.
+              </p>
+            </div>
+
+            {auditError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-[11px] leading-relaxed">
+                {auditError}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="w-48">
+                <Label className="text-[9px]">Filter Tabel</Label>
+                <Select value={auditTableFilter} onValueChange={setAuditTableFilter}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Semua Tabel</SelectItem>
+                    {AUDIT_TABLE_OPTIONS.map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="relative flex-1 min-w-[180px]">
+                <Label className="text-[9px]">Cari Nama Staf / ID Baris</Label>
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 z-10" />
+                  <Input
+                    type="text"
+                    value={auditSearch}
+                    onChange={(e) => setAuditSearch(e.target.value)}
+                    placeholder="Contoh: Fikri, SKU-001..."
+                    className="pl-8 h-9"
+                  />
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => fetchAuditLog(true)} disabled={auditLoading}>
+                {auditLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <History className="w-3.5 h-3.5" />}
+                <span>Muat Ulang</span>
+              </Button>
+            </div>
+
+            <div className="overflow-x-auto border border-gray-100 rounded-xl">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent bg-gray-50">
+                    <TableHead>Waktu</TableHead>
+                    <TableHead>Tabel</TableHead>
+                    <TableHead>Aksi</TableHead>
+                    <TableHead>ID Baris</TableHead>
+                    <TableHead>Oleh</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAuditRows.length === 0 && !auditLoading ? (
+                    <TableRow><TableCell colSpan={6} className="p-6 text-center text-gray-400">Belum ada log yang cocok.</TableCell></TableRow>
+                  ) : (
+                    filteredAuditRows.map((row) => (
+                      <React.Fragment key={row.id}>
+                        <TableRow
+                          className="cursor-pointer"
+                          onClick={() => setAuditExpandedId(auditExpandedId === row.id ? null : row.id)}
+                        >
+                          <TableCell className="text-gray-500 whitespace-nowrap">
+                            {new Date(row.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </TableCell>
+                          <TableCell className="font-mono text-gray-700">{row.table_name}</TableCell>
+                          <TableCell>
+                            <Badge className={`border-transparent ${actionBadgeClass[row.action]}`}>{actionLabel[row.action] || row.action}</Badge>
+                          </TableCell>
+                          <TableCell className="font-mono text-gray-500 truncate max-w-[140px]">{row.row_key || '-'}</TableCell>
+                          <TableCell className="font-bold text-gray-800">{row.actor_name || <span className="text-gray-300 font-normal">Tidak diketahui</span>}</TableCell>
+                          <TableCell className="text-gray-400">{auditExpandedId === row.id ? '▲' : '▼'}</TableCell>
+                        </TableRow>
+                        {auditExpandedId === row.id && (
+                          <TableRow className="hover:bg-transparent">
+                            <TableCell colSpan={6} className="bg-gray-50/70">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-2">
+                                <div>
+                                  <p className="text-[9px] font-black uppercase text-gray-400 mb-1">Sebelum</p>
+                                  <pre className="text-[10px] bg-white border border-gray-200 rounded-lg p-2 overflow-x-auto max-h-48 overflow-y-auto">{row.old_data ? JSON.stringify(row.old_data, null, 2) : '(tidak ada — baris baru)'}</pre>
+                                </div>
+                                <div>
+                                  <p className="text-[9px] font-black uppercase text-gray-400 mb-1">Sesudah</p>
+                                  <pre className="text-[10px] bg-white border border-gray-200 rounded-lg p-2 overflow-x-auto max-h-48 overflow-y-auto">{row.new_data ? JSON.stringify(row.new_data, null, 2) : '(tidak ada — baris dihapus)'}</pre>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </React.Fragment>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {auditRows.length > 0 && auditRows.length % AUDIT_PAGE_SIZE === 0 && (
+              <div className="flex justify-center">
+                <Button variant="outline" size="sm" onClick={() => fetchAuditLog(false)} disabled={auditLoading}>
+                  {auditLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  <span>Muat Lebih Banyak</span>
+                </Button>
               </div>
             )}
           </div>
