@@ -50,6 +50,8 @@ interface SettingsViewProps {
   onUpdateBranches: (updatedBranches: Branch[]) => void;
   skuLocations: SkuLocation[];
   onUpdateSkuLocations: (updatedLocations: SkuLocation[]) => void;
+  bankAccounts: BankAccount[];
+  onUpdateBankAccounts: (updatedAccounts: BankAccount[]) => void;
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
   currentUser?: CurrentUser;
   /** Daftar pelanggan, dipakai buat dropdown pemilihan pelanggan default POS. */
@@ -65,7 +67,7 @@ interface SettingsViewProps {
 // feature view read the exact same keys that get checked here.
 const PERMISSION_DEFS = FEATURE_PERMISSION_DEFS;
 
-export default function SettingsView({ branches, onUpdateBranches, skuLocations, onUpdateSkuLocations, onAddActivity, currentUser, customers = [], defaultCustomerId = null, onUpdateDefaultCustomerId }: SettingsViewProps) {
+export default function SettingsView({ branches, onUpdateBranches, skuLocations, onUpdateSkuLocations, bankAccounts, onUpdateBankAccounts, onAddActivity, currentUser, customers = [], defaultCustomerId = null, onUpdateDefaultCustomerId }: SettingsViewProps) {
   const dialog = useDialog();
   const can = (key: string) => hasPermission(currentUser, key);
   const [activeTab, setActiveTab] = useState<'profile' | 'branches' | 'locations' | 'printers' | 'security' | 'accounts' | 'audit'>('profile');
@@ -102,7 +104,6 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
       Minggu: { open: '08:00', close: '17:00', status: 'Open' as const }
     }
   });
-  const [bankAccounts, setBankAccounts] = useSupabaseTable<BankAccount>('bank_accounts', [], (b) => b.id);
   const [newBankAccount, setNewBankAccount] = useState({ name: '', type: 'Bank' as BankAccount['type'], accountNumber: '', holderName: '', notes: '', qrisImageUrl: '' });
   const [qrisImageUploading, setQrisImageUploading] = useState(false);
   const [qrisImageUploadError, setQrisImageUploadError] = useState<string | null>(null);
@@ -395,7 +396,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
       qrisImageUrl: newBankAccount.type === 'QRIS' ? (newBankAccount.qrisImageUrl.trim() || undefined) : undefined
     };
     const updated = [...bankAccounts, account];
-    setBankAccounts(updated);
+    onUpdateBankAccounts(updated);
     onAddActivity('Rekening Pembayaran Baru', `${account.name} (${account.type})`, 0, 'quote');
     setNewBankAccount({ name: '', type: 'Bank', accountNumber: '', holderName: '', notes: '', qrisImageUrl: '' });
     setQrisImageUploadError(null);
@@ -405,7 +406,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const handleDeleteBankAccount = (id: string) => {
     const account = bankAccounts.find((a) => a.id === id);
     const updated = bankAccounts.filter((account) => account.id !== id);
-    setBankAccounts(updated);
+    onUpdateBankAccounts(updated);
     onAddActivity('Rekening Pembayaran Dihapus', account?.name || id, 0, 'overdue');
     triggerToast('Rekening berhasil dihapus.');
   };

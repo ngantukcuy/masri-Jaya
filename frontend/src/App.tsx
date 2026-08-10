@@ -5,7 +5,7 @@ import Header from './components/layout/Header';
 import LoginView from './features/auth/LoginView';
 import { LayoutDashboard, ShoppingBag, Boxes, Menu, Receipt, ShieldOff } from 'lucide-react';
 
-import { Product, PO, Customer, Expense, Activity, Branch, Supplier, SalesInvoice, ReturnRecord, DigitalOrder, Banner, SkuLocation } from './types';
+import { Product, PO, Customer, Expense, Activity, Branch, Supplier, SalesInvoice, ReturnRecord, DigitalOrder, Banner, SkuLocation, BankAccount } from './types';
 import { useSupabaseState } from './lib/useSupabaseState';
 import { useSupabaseTable } from './lib/useSupabaseTable';
 import { useSupabaseReady } from './lib/useSupabaseReady';
@@ -13,7 +13,13 @@ import { useDialog } from './components/shared/DialogProvider';
 import { CurrentUser, canAccessTab, firstAccessibleTab } from './lib/permissions';
 import { initPushNotifications } from './lib/push/pushNotifications';
 import { setAuditActorName } from './lib/supabase';
+import { initOfflineSync } from './lib/offlineSync';
 import PushToastListener from './components/shared/PushToastListener';
+
+// Starts listening for connectivity changes and flushing any writes queued
+// while offline — global and session-independent, so it's fine (and
+// simplest) to kick off once here rather than inside a component effect.
+initOfflineSync();
 
 // Feature views are only needed once a user is authenticated, and only one
 // is ever visible at a time — code-split each into its own chunk so the
@@ -187,6 +193,9 @@ function Dashboard({
   const [digitalOrders, setDigitalOrders] = useSupabaseTable<DigitalOrder>('digital_orders', [], (d) => d.id);
   const [banners, setBanners] = useSupabaseTable<Banner>('banners', [], (b) => b.id);
   const [skuLocations, setSkuLocations] = useSupabaseTable<SkuLocation>('sku_locations', [], (s) => s.id);
+  // Lifted up from SettingsView so POSView can also read it (needed to show
+  // the store's real QRIS code during checkout — see QRISModal).
+  const [bankAccounts, setBankAccounts] = useSupabaseTable<BankAccount>('bank_accounts', [], (b) => b.id);
   const [ecommerceUsername, setEcommerceUsername] = useSupabaseState<string>('ecommerce_username', '');
   // ID pelanggan yang jadi default terpilih tiap buka POS. Disimpan
   // terpisah dari daftar customers itu sendiri supaya defaultnya tetap
@@ -321,6 +330,7 @@ function Dashboard({
                       products={products}
                       customers={customers}
                       defaultCustomerId={defaultCustomerId}
+                      bankAccounts={bankAccounts}
                       onUpdateProducts={setProducts}
                       onUpdateCustomers={setCustomers}
                       onAddActivity={handleAddActivity}
@@ -486,6 +496,8 @@ function Dashboard({
                       onUpdateBranches={setBranches}
                       skuLocations={skuLocations}
                       onUpdateSkuLocations={setSkuLocations}
+                      bankAccounts={bankAccounts}
+                      onUpdateBankAccounts={setBankAccounts}
                       onAddActivity={handleAddActivity}
                       currentUser={currentUser}
                       customers={customers}
