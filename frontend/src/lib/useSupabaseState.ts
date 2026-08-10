@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { enqueueOp } from './offlineQueue';
 
 type SingletonRow<T> = { id: 1; value: T };
 
@@ -108,7 +109,10 @@ export function useSupabaseState<T>(
         .from(table)
         .upsert({ id: 1, value: resolved as never }, { onConflict: 'id' })
         .then(({ error }) => {
-          if (error) console.error(`[supabase] Gagal menyimpan ke tabel "${table}":`, error);
+          if (error) {
+            console.warn(`[supabase] Gagal menyimpan ke tabel "${table}", disimpan ke antrian offline:`, error);
+            void enqueueOp({ kind: 'singleton_upsert', table, value: resolved, createdAt: Date.now() });
+          }
         });
       return resolved;
     });

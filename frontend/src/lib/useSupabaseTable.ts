@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { enqueueOp } from './offlineQueue';
 
 type TableRow<T> = { key: string; data: T };
 
@@ -158,11 +159,21 @@ export function useSupabaseTable<T>(
           const { error } = await supabase
             .from(table)
             .upsert(toUpsert as never, { onConflict: 'key' });
-          if (error) console.error(`[supabase] Gagal menyimpan ke tabel "${table}":`, error);
+          if (error) {
+            // Was probably offline (or a transient network error) — don't
+            // just lose this write. Queue it so offlineSync.ts can replay
+            // it once the connection is back, instead of the change
+            // silently disappearing after only updating local state.
+            console.warn(`[supabase] Gagal menyimpan ke tabel "${table}", disimpan ke antrian offline:`, error);
+            await enqueueOp({ kind: 'table_upsert', table, rows: toUpsert, createdAt: Date.now() });
+          }
         }
         if (toDelete.length > 0) {
           const { error } = await supabase.from(table).delete().in('key', toDelete);
-          if (error) console.error(`[supabase] Gagal menghapus dari tabel "${table}":`, error);
+          if (error) {
+            console.warn(`[supabase] Gagal menghapus dari tabel "${table}", disimpan ke antrian offline:`, error);
+            await enqueueOp({ kind: 'table_delete', table, keys: toDelete, createdAt: Date.now() });
+          }
         }
       })();
 

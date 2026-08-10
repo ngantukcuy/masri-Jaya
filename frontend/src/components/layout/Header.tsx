@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, MapPin, RotateCw, Bell, Menu, LogOut, Clock, Coins, Shield, X, AlertTriangle, PackageX, ShoppingBag, Wallet, Sun, Moon } from 'lucide-react';
+import { Search, MapPin, RotateCw, Bell, Menu, LogOut, Clock, Coins, Shield, X, AlertTriangle, PackageX, ShoppingBag, Wallet, Sun, Moon, WifiOff, CloudUpload } from 'lucide-react';
 import { getCurrentSession, getMutationTotals } from '../../lib/cashSession';
 import { useTheme } from '../../lib/ThemeContext';
+import { useOnlineStatus, usePendingSyncCount } from '../../lib/useOnlineStatus';
 import InstallAppButton from '../shared/InstallAppButton';
 import { CurrentUser, canSeeApproverNotifications } from '../../lib/permissions';
 import { Button } from '../ui/button';
@@ -122,6 +123,8 @@ export default function Header({
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const isOnline = useOnlineStatus();
+  const pendingSyncCount = usePendingSyncCount();
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [uptimeMs, setUptimeMs] = useState(0);
   const [kasLaci, setKasLaci] = useState<number | null>(null);
@@ -330,6 +333,20 @@ export default function Header({
 
         {/* Install App (PWA) — hides itself once installed or unsupported */}
         <InstallAppButton compact />
+
+        {/* Offline / pending-sync indicator — only shows up when relevant */}
+        {(!isOnline || pendingSyncCount > 0) && (
+          <div
+            className={cn(
+              'hidden sm:flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold',
+              !isOnline ? 'border-red-200 bg-red-50 text-red-600' : 'border-amber-200 bg-amber-50 text-amber-600'
+            )}
+            title={!isOnline ? 'Tidak ada koneksi internet — transaksi tetap disimpan di perangkat ini' : `${pendingSyncCount} perubahan menunggu disinkronkan ke server`}
+          >
+            {!isOnline ? <WifiOff className="w-3.5 h-3.5" /> : <CloudUpload className="w-3.5 h-3.5 animate-pulse" />}
+            <span>{!isOnline ? 'Offline' : `Sync ${pendingSyncCount}`}</span>
+          </div>
+        )}
 
         {/* Sync Button (Moderate Neumorphic Feel) */}
         <Button
