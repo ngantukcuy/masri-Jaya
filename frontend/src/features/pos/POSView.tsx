@@ -188,10 +188,10 @@ export default function POSView({
   const [newProductSku, setNewProductSku] = useState('');
   const [newProductCategory, setNewProductCategory] = useState('Cement & Mortar');
   const [newProductUnit, setNewProductUnit] = useState('pcs');
-  const [newProductRetailPrice, setNewProductRetailPrice] = useState('');
-  const [newProductWholesalePrice, setNewProductWholesalePrice] = useState('');
-  const [newProductProjectPrice, setNewProductProjectPrice] = useState('');
-  const [newProductStock, setNewProductStock] = useState('');
+  const [newProductRetailPrice, setNewProductRetailPrice] = useState(0);
+  const [newProductWholesalePrice, setNewProductWholesalePrice] = useState(0);
+  const [newProductProjectPrice, setNewProductProjectPrice] = useState(0);
+  const [newProductStock, setNewProductStock] = useState(0);
 
   // Filter Categories — derived from the products actually in stock, same
   // approach as the Stok (ProductsView) page, so a store never sees filter
@@ -303,10 +303,10 @@ export default function POSView({
     setNewProductSku('');
     setNewProductCategory('Cement & Mortar');
     setNewProductUnit('pcs');
-    setNewProductRetailPrice('');
-    setNewProductWholesalePrice('');
-    setNewProductProjectPrice('');
-    setNewProductStock('');
+    setNewProductRetailPrice(0);
+    setNewProductWholesalePrice(0);
+    setNewProductProjectPrice(0);
+    setNewProductStock(0);
 
     onAddActivity(
       'Barang Baru ditambahkan',
@@ -406,6 +406,22 @@ export default function POSView({
       dialog.alert(`Barcode SKU "${barcodeSku}" tidak ditemukan.`);
     }
   }, [products, playBeep, stopCameraPreview]);
+
+  const handleSetQty = (sku: string, nextQty: number) => {
+    const updated = cart.map((item) => {
+      if (item.product.sku !== sku) return item;
+
+      const safeQty = Math.max(1, nextQty);
+      if (safeQty > item.product.stock) {
+        dialog.alert("Jumlah tidak boleh melebihi stok fisik di gudang!");
+        return item;
+      }
+
+      return { ...item, quantity: safeQty };
+    });
+
+    setCart(updated);
+  };
 
   // Adjust cart item quantity
   const handleUpdateQty = (sku: string, delta: number) => {
@@ -1149,26 +1165,45 @@ export default function POSView({
 
                   {/* Quantity control */}
                   <div className="flex items-center justify-between pt-1">
-                    <div className="flex items-center gap-1 border border-gray-200 bg-white rounded-lg p-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleUpdateQty(item.product.sku, -1)}
-                        className="w-6 h-6 hover:bg-gray-100"
-                      >
-                        <Minus className="w-3.5 h-3.5 text-gray-500" />
-                      </Button>
-                      <span className="w-8 text-center text-xs font-black text-gray-800">{item.quantity}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleUpdateQty(item.product.sku, 1)}
-                        className="w-6 h-6 hover:bg-gray-100"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-gray-500" />
-                      </Button>
-                    </div>
-                  </div>
+                   <div className="flex items-center gap-1 border border-gray-200 bg-white rounded-lg p-1">
+                  <Button
+                   variant="ghost"
+                   size="icon"
+                  onClick={() => handleUpdateQty(item.product.sku, -1)}
+                   className="w-6 h-6 hover:bg-gray-100"
+                  >
+                  <Minus className="w-3.5 h-3.5 text-gray-500" />
+                  </Button>
+
+                  <input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      value={item.quantity}
+      onChange={(e) => {
+        const val = e.target.value.replace(/[^0-9]/g, "");
+        handleSetQty(item.product.sku, val === "" ? 0 : parseInt(val, 10));
+      }}
+      onBlur={(e) => {
+        // kalau kosong atau 0 pas blur, balikin minimal 1
+        if (e.target.value === "" || parseInt(e.target.value, 10) < 1) {
+          handleSetQty(item.product.sku, 1);
+        }
+      }}
+      onFocus={(e) => e.target.select()}
+      className="w-8 text-center text-xs font-black text-gray-800 bg-transparent outline-none border-none focus:ring-0"
+    />
+
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => handleUpdateQty(item.product.sku, 1)}
+      className="w-6 h-6 hover:bg-gray-100"
+    >
+      <Plus className="w-3.5 h-3.5 text-gray-500" />
+    </Button>
+  </div>
+</div>
                 </div>
               );
             })

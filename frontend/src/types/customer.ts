@@ -19,7 +19,7 @@ export interface Customer {
   customerType?: 'Toko' | 'Perusahaan' | 'Perusahaan Project' | 'Perorangan Retail';
   phone?: string;
   address?: string;
-  paymentTerms?: 'Tunai' | 'Tempo';
+  paymentTerms?: 'Tunai' | 'Kredit' | 'Tempo';
   tempoDays?: number;
   creditLimit?: number;
   depositBalance?: number;
