@@ -150,6 +150,7 @@ export default function POSView({
   }, [customers, defaultCustomerId]);
 
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [editingQty, setEditingQty] = useState<Record<string, string>>({});
   const [discountMode, setDiscountMode] = useState<'percent' | 'fixed'>('percent');
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [fulfillmentMethod, setFulfillmentMethod] = useState<'Pickup' | 'Delivery'>('Pickup');
@@ -422,6 +423,25 @@ export default function POSView({
 
     setCart(updated);
   };
+
+  const handleQtyInputChange = (sku: string, rawValue: string) => {
+  const val = rawValue.replace(/[^0-9]/g, '');
+  setEditingQty((prev) => ({ ...prev, [sku]: val }));
+};
+
+const commitQtyInput = (sku: string) => {
+  const rawValue = editingQty[sku];
+  if (rawValue === undefined) return;
+
+  const parsed = parseInt(rawValue, 10);
+  handleSetQty(sku, isNaN(parsed) ? 1 : parsed);
+
+  setEditingQty((prev) => {
+    const next = { ...prev };
+    delete next[sku];
+    return next;
+  });
+};
 
   // Adjust cart item quantity
   const handleUpdateQty = (sku: string, delta: number) => {
@@ -1164,34 +1184,29 @@ export default function POSView({
                   </div>
 
                   {/* Quantity control */}
-                  <div className="flex items-center justify-between pt-1">
-                   <div className="flex items-center gap-1 border border-gray-200 bg-white rounded-lg p-1">
-                  <Button
-                   variant="ghost"
-                   size="icon"
-                  onClick={() => handleUpdateQty(item.product.sku, -1)}
-                   className="w-6 h-6 hover:bg-gray-100"
-                  >
-                  <Minus className="w-3.5 h-3.5 text-gray-500" />
-                  </Button>
+<div className="flex items-center justify-between pt-1">
+  <div className="flex items-center gap-1 border border-gray-200 bg-white rounded-lg p-1">
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => handleUpdateQty(item.product.sku, -1)}
+      className="w-6 h-6 hover:bg-gray-100"
+    >
+      <Minus className="w-3.5 h-3.5 text-gray-500" />
+    </Button>
 
-                  <input
+    <input
       type="text"
       inputMode="numeric"
       pattern="[0-9]*"
-      value={item.quantity}
-      onChange={(e) => {
-        const val = e.target.value.replace(/[^0-9]/g, "");
-        handleSetQty(item.product.sku, val === "" ? 0 : parseInt(val, 10));
-      }}
-      onBlur={(e) => {
-        // kalau kosong atau 0 pas blur, balikin minimal 1
-        if (e.target.value === "" || parseInt(e.target.value, 10) < 1) {
-          handleSetQty(item.product.sku, 1);
-        }
+      value={editingQty[item.product.sku] ?? String(item.quantity)}
+      onChange={(e) => handleQtyInputChange(item.product.sku, e.target.value)}
+      onBlur={() => commitQtyInput(item.product.sku)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur();
       }}
       onFocus={(e) => e.target.select()}
-      className="w-8 text-center text-xs font-black text-gray-800 bg-transparent outline-none border-none focus:ring-0"
+      className="w-10 text-center text-xs font-black text-gray-800 bg-transparent outline-none border-none focus:ring-0"
     />
 
     <Button
