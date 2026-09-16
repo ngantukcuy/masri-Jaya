@@ -1366,9 +1366,10 @@ const commitQtyInput = (sku: string) => {
                       </SelectContent>
                     </Select>
                     <NumberInput
-                      value={discountValue}
-                      max={discountMode === 'percent' ? 100 : undefined}
-                      onChange={(v) => setDiscountValue(v)}
+                      value={fee.amount}
+                      onChange={(value) => setAdditionalFees((fees) => fees.map((currentFee, feeIndex) => feeIndex === index ? { ...currentFee, amount: Math.max(0, value) } : currentFee))}
+                      placeholder="Nominal"
+                      aria-label={`Nominal biaya tambahan ${index + 1}`}
                       className="w-16 bg-white border border-gray-200 rounded p-1 text-right font-bold text-xs"
                     />
                     {index > 0 && (
