@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { cn } from '../../lib/utils';
 
 
+
 interface HeaderProductLite {
   sku: string;
   name: string;
@@ -138,6 +139,9 @@ export default function Header({
     setKasLaci(session ? getMutationTotals(session).systemTotal : null);
   }, [showProfileModal]);
 
+  
+
+  
   const handleSyncClick = () => {
     setSyncing(true);
     onSync();
@@ -203,6 +207,8 @@ export default function Header({
     return list;
   }, [products, customers, activities, currentUser]);
 
+
+
   const notifIcon = (notif: HeaderNotification) => {
     if (notif.pending) return <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />;
     switch (notif.level) {
@@ -220,7 +226,7 @@ export default function Header({
 
   return (
     <header className="h-16 w-full bg-white/70 backdrop-blur-md border-b border-slate-200/50 sticky top-0 z-40 flex items-center justify-between px-4 md:px-8 shadow-sm">
-      {/* Menu Hamburger for mobile &*/}
+      {/* Menu Hamburger for mobile */}
       <div className="flex items-center gap-2 md:gap-6 flex-1 mr-4">
         {onMenuToggle && (
           <Button variant="ghost" size="icon" onClick={onMenuToggle} className="md:hidden text-slate-700 mr-1" aria-label="Buka Menu">
@@ -243,6 +249,16 @@ export default function Header({
       {/* Right Tools (Branch, Sync, Notify, Profile) */}
       <div className="flex items-center gap-2 md:gap-4 shrink-0">
         {/* Store name (real registered store, not a fixed dummy branch label) */}
+        {storeName && (
+          <div className="hidden sm:flex flex-col items-end mr-1">
+            <span className="text-[9px] text-slate-400 uppercase tracking-widest font-bold flex items-center gap-1">
+              <MapPin className="w-3 h-3 text-primary" /> Toko
+            </span>
+            <span className="text-xs font-extrabold text-primary mt-0.5">{storeName}</span>
+          </div>
+        )}
+
+        {/* Dark / Light Theme Toggle */}
 
         {/* Install App (PWA) — hides itself once installed or unsupported */}
         <InstallAppButton compact />
