@@ -34,8 +34,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
           <div className="text-center border-b border-dashed border-border pb-4">
             <span className="text-lg font-black text-foreground tracking-tight block">{storeName}</span>
             {storeProfile?.address && <span className="text-[10px] text-muted-foreground block mt-0.5">{storeProfile.address}</span>}
-            {storeProfile?.phone && <span className="text-[10px] text-muted-foreground block mt-1">Tel: {storeProfile.phone}</span>}
-            {storeProfile?.taxId && <span className="text-[10px] text-muted-foreground block mt-1">NPWP: {storeProfile.taxId}</span>}
+            {storeProfile?.phone && <span className="text-[10px] text-muted-foreground block mt-1">Telp: {storeProfile.phone}</span>}
           </div>
 
           <div className="space-y-1.5 text-[10px] py-3">
@@ -46,6 +45,10 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
             <div className="flex justify-between">
               <span>TANGGAL:</span>
               <span>{lastOrderDetails.date}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>WAKTU:</span>
+              <span>{lastOrderDetails.time}</span>
             </div>
             <div className="flex justify-between">
               <span>KASIR:</span>
@@ -109,7 +112,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
           {/* Summary Calculations */}
           <div className="space-y-1 text-right text-[11px] py-3">
             <div className="flex justify-between">
-              <span>SUBTOTAL:</span>
+            <span>SUBTOTAL {lastOrderDetails.items.length} PRODUK </span> 
               <span>Rp {lastOrderDetails.subtotal.toLocaleString('id-ID')}</span>
             </div>
             {lastOrderDetails.discount > 0 && (
