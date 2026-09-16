@@ -45,6 +45,7 @@ import {
   clearPersistedPOSState
 } from './lib/posCartStorage';
 import { useDialog } from '../../components/shared/DialogProvider';
+import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import NumberInput from '../../components/shared/NumberInput';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -52,6 +53,12 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select';
+
+interface ProductCategory {
+  id: string;
+  name: string;
+  level: 1 | 2 | 3;
+}
 
 /** ID pelanggan umum/walk-in "Customer" (lihat genericWalkInCustomer di
  * bawah) — bukan baris asli di tabel customers, jadi tidak punya tempat
@@ -195,29 +202,25 @@ export default function POSView({
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [newProductName, setNewProductName] = useState('');
   const [newProductSku, setNewProductSku] = useState('');
-  const [newProductCategory, setNewProductCategory] = useState('Cement & Mortar');
+  const [newProductCategory, setNewProductCategory] = useState('');
   const [newProductUnit, setNewProductUnit] = useState('pcs');
   const [newProductRetailPrice, setNewProductRetailPrice] = useState(0);
   const [newProductWholesalePrice, setNewProductWholesalePrice] = useState(0);
   const [newProductProjectPrice, setNewProductProjectPrice] = useState(0);
   const [newProductStock, setNewProductStock] = useState(0);
 
-  // Filter Categories — derived from the products actually in stock, same
-  // approach as the Stok (ProductsView) page, so a store never sees filter
-  // pills for categories it doesn't carry.
-  const categories = ['Semua Kategori', ...Array.from(new Set(products.map((p) => p.category)))];
+  const [productCategories] = useSupabaseTable<ProductCategory>('product_categories', [], (category) => category.id);
+  const categoryNames = productCategories
+    .slice()
+    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+    .map((category) => category.name);
+  const categories = ['Semua Kategori', ...categoryNames];
 
-  // Map category displays to Indonesian (for visual look)
-  const categoryTranslationMap: Record<string, string> = {
-    'Semua Kategori': 'Semua Kategori',
-    'Cement & Mortar': 'Semen & Semen Mortar',
-    'Paint & Coatings': 'Cat & Pelapis',
-    'Steel & Reinforcement': 'Besi & Baja Beton',
-    'Electrical': 'Alat Listrik',
-    'Metals': 'Logam Bangunan',
-    'Concrete': 'Beton Cor',
-    'Glazing': 'Kaca & Keramik'
-  };
+  useEffect(() => {
+    if (!newProductCategory && categoryNames.length > 0) {
+      setNewProductCategory(categoryNames[0]);
+    }
+  }, [categoryNames, newProductCategory]);
 
   // Filtered Products
   const filteredProducts = products.filter((prod) => {
@@ -267,8 +270,8 @@ export default function POSView({
     const projectPrice = Number(newProductProjectPrice) || 0;
     const stock = Math.max(0, Number(newProductStock) || 0);
 
-    if (!name || !sku) {
-      dialog.alert('Nama barang dan SKU wajib diisi.');
+    if (!name || !sku || !newProductCategory) {
+      dialog.alert('Nama barang, SKU, dan kategori dari database wajib diisi.');
       return;
     }
 
@@ -310,7 +313,7 @@ export default function POSView({
     setShowAddProductModal(false);
     setNewProductName('');
     setNewProductSku('');
-    setNewProductCategory('Cement & Mortar');
+    setNewProductCategory(categoryNames[0] || '');
     setNewProductUnit('pcs');
     setNewProductRetailPrice(0);
     setNewProductWholesalePrice(0);
@@ -707,6 +710,7 @@ const commitQtyInput = (sku: string) => {
       deliveryAddress,
       total: totalAmount,
       pointsEarned,
+      cashierName,
       paymentMethod: methodUsed,
       cashReceived: methodUsed === 'Cash' ? paymentDetails.cashReceived : undefined,
       changeAmount: methodUsed === 'Cash' ? paymentDetails.changeAmount : undefined,
@@ -1057,7 +1061,7 @@ const commitQtyInput = (sku: string) => {
                   <SelectTrigger className="w-full sm:max-w-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {categories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>{categoryTranslationMap[cat] || cat}</SelectItem>
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

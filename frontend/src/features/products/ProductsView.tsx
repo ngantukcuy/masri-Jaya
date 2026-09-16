@@ -40,6 +40,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/ta
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
 
+interface ProductCategory {
+  id: string;
+  name: string;
+  level: 1 | 2 | 3;
+}
+
 interface ProductsViewProps {
   products: Product[];
   onUpdateProducts: (updatedProducts: Product[]) => void;
@@ -78,7 +84,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   // Form states (shared by Create and Edit)
   const [formName, setFormName] = useState('');
   const [formSku, setFormSku] = useState('');
-  const [formCategory, setFormCategory] = useState('Concrete');
+  const [formCategory, setFormCategory] = useState('');
   const [formUnit, setFormUnit] = useState('Piece');
   const [formRetailPrice, setFormRetailPrice] = useState(0);
   const [formWholesalePrice, setFormWholesalePrice] = useState(0);
@@ -116,6 +122,15 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const [showSkuScanner, setShowSkuScanner] = useState(false);
 
   const [opnameSubmissions, setOpnameSubmissions] = useSupabaseTable<any>('opname_submissions', [], (s) => s.id);
+  const [productCategories] = useSupabaseTable<ProductCategory>('product_categories', [], (category) => category.id);
+  const categoryNames = productCategories
+    .slice()
+    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+    .map((category) => category.name);
+
+  React.useEffect(() => {
+    if (!formCategory && categoryNames.length > 0) setFormCategory(categoryNames[0]);
+  }, [categoryNames, formCategory]);
 
   const saveSubmissions = (subs: any[]) => {
     setOpnameSubmissions(subs);
@@ -178,20 +193,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     setTransferTargetLocationId('');
   };
 
-  // Map category displays to Indonesian
-  const categoryTranslationMap: Record<string, string> = {
-    'All': 'Semua Kategori',
-    'Cement & Mortar': 'Semen & Mortar',
-    'Paint & Coatings': 'Cat & Pelapis',
-    'Steel & Reinforcement': 'Besi & Baja Beton',
-    'Electrical': 'Alat Listrik',
-    'Metals': 'Logam Bangunan',
-    'Concrete': 'Beton Cor',
-    'Glazing': 'Kaca & Keramik'
-  };
-
-  // Available unique categories in local language
-  const categories = ['Semua', ...Array.from(new Set(products.map(p => p.category)))];
+  const categories = ['Semua', ...categoryNames];
 
   // Filters logic
   const filteredProducts = products.filter((prod) => {
@@ -226,7 +228,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     const rows = filteredProducts.map((p) => ({
       'Nama Material': p.name,
       'Kode SKU': p.sku,
-      'Kategori': categoryTranslationMap[p.category] || p.category,
+      'Kategori': p.category,
       'Unit': p.unit,
       'Harga Eceran': p.retailPrice,
       'Harga Grosir': p.wholesalePrice,
@@ -259,7 +261,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       <tr>
         <td>${p.name}</td>
         <td>${p.sku}</td>
-        <td>${categoryTranslationMap[p.category] || p.category}</td>
+        <td>${p.category}</td>
         <td style="text-align:right">Rp ${p.retailPrice.toLocaleString('id-ID')}</td>
         <td style="text-align:center">${p.stock} ${p.unit}</td>
         <td style="text-align:center">${statusLabel(p.stockStatus)}</td>
@@ -514,7 +516,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     // di-generate otomatis (karena itu memang harus unik per produk).
     setFormName('');
     setFormSku(generateSkuCode());
-    setFormCategory('Cement & Mortar');
+    setFormCategory(categoryNames[0] || '');
     setFormUnit('Sack');
     setFormRetailPrice(0);
     setFormWholesalePrice(0);
@@ -1130,7 +1132,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                       <SelectContent>
                         <SelectItem value="Semua">Semua Kategori</SelectItem>
                         {categories.filter(c => c !== 'Semua').map(cat => (
-                          <SelectItem key={cat} value={cat}>{categoryTranslationMap[cat] || cat}</SelectItem>
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -1188,7 +1190,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                           />
                           <div>
                             <p className="font-extrabold text-foreground/80 line-clamp-1">{prod.name}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5">{categoryTranslationMap[prod.category] || prod.category}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">{prod.category}</p>
                           </div>
                         </div>
                       </TableCell>
@@ -1298,7 +1300,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Kategori Bahan</span>
-                    <span className="font-bold text-foreground/80">{categoryTranslationMap[selectedProduct.category] || selectedProduct.category}</span>
+                    <span className="font-bold text-foreground/80">{selectedProduct.category}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Pemasok Utama</span>
@@ -1463,13 +1465,9 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 <Select value={formCategory} onValueChange={setFormCategory}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Cement & Mortar">Semen & Mortar</SelectItem>
-                    <SelectItem value="Steel & Reinforcement">Baja & Besi Beton</SelectItem>
-                    <SelectItem value="Concrete">Beton & Aggregate</SelectItem>
-                    <SelectItem value="Paint & Coatings">Cat & Pelapis</SelectItem>
-                    <SelectItem value="Electrical">Kelistrikan</SelectItem>
-                    <SelectItem value="Metals">Logam & Profil</SelectItem>
-                    <SelectItem value="Glazing">Kaca & Kusen</SelectItem>
+                    {categoryNames.map((category) => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -1619,13 +1617,9 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 <Select value={formCategory} onValueChange={setFormCategory}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Cement & Mortar">Semen & Mortar</SelectItem>
-                    <SelectItem value="Steel & Reinforcement">Baja & Besi Beton</SelectItem>
-                    <SelectItem value="Concrete">Beton & Aggregate</SelectItem>
-                    <SelectItem value="Paint & Coatings">Cat & Pelapis</SelectItem>
-                    <SelectItem value="Electrical">Kelistrikan</SelectItem>
-                    <SelectItem value="Metals">Logam & Profil</SelectItem>
-                    <SelectItem value="Glazing">Kaca & Kusen</SelectItem>
+                    {categoryNames.map((category) => (
+                      <SelectItem key={category} value={category}>{category}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

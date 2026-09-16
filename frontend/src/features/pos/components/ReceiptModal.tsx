@@ -28,7 +28,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
   const storeName = storeProfile?.storeName || 'Toko Saya';
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-sm p-6 font-mono text-xs text-muted-foreground print:p-0 print:shadow-none print:border-none print:static">
+      <DialogContent className="receipt-print max-w-sm p-6 font-mono text-xs text-muted-foreground print:p-0 print:shadow-none print:border-none print:static">
         {/* Printing paper feed animation wrapper */}
         <div className={`transition-all duration-500 ${isPrintingAnim ? 'animate-pulse scale-[0.99] border-t-4 border-primary' : ''}`}>
           <div className="text-center border-b border-dashed border-border pb-4">
@@ -48,6 +48,10 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
               <span>{lastOrderDetails.date}</span>
             </div>
             <div className="flex justify-between">
+              <span>KASIR:</span>
+              <span className="font-bold">{lastOrderDetails.cashierName || cashierName || 'Staff Aktif'}</span>
+            </div>
+            <div className="flex justify-between">
               <span>PELANGGAN:</span>
               <span className="font-bold">{lastOrderDetails.customerName}</span>
             </div>
@@ -55,6 +59,13 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
               <span>METODE:</span>
               <span className="font-bold uppercase text-primary">{lastOrderDetails.paymentMethod === 'Cash' ? 'TUNAI' : lastOrderDetails.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : lastOrderDetails.paymentMethod}</span>
             </div>
+            {lastOrderDetails.paymentMethod === 'Transfer' && lastOrderDetails.transferAccount && (
+              <div className="space-y-0.5 border-l-2 border-primary pl-2">
+                <div className="flex justify-between"><span>REKENING:</span><span className="font-bold">{lastOrderDetails.transferAccount.name}</span></div>
+                <div className="flex justify-between"><span>NOMOR:</span><span className="font-bold">{lastOrderDetails.transferAccount.accountNumber || '-'}</span></div>
+                {lastOrderDetails.transferAccount.holderName && <div className="flex justify-between"><span>PEMILIK:</span><span>{lastOrderDetails.transferAccount.holderName}</span></div>}
+              </div>
+            )}
             {lastOrderDetails.fulfillmentMethod && (
               <div className="flex justify-between">
                 <span>PENGAMBILAN:</span>
@@ -75,22 +86,21 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
           {/* Items breaking list */}
           <div className="border-t border-b border-dashed border-border py-3 space-y-2">
             {lastOrderDetails.items.map((item: any, idx: number) => {
-              const price = item.bonus
-                ? 0
-                : typeof item.customPrice === 'number' && item.customPrice > 0
+              const regularPrice = typeof item.customPrice === 'number' && item.customPrice > 0
                 ? item.customPrice
                 : item.selectedPriceType === 'retail' ? item.product.retailPrice :
                   item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice :
                   item.product.projectPrice;
+              const price = item.bonus ? 0 : regularPrice;
               return (
                 <div key={idx} className="flex justify-between text-[11px]">
                   <div className="flex-1 min-w-0 pr-2">
                     <p className="font-bold text-foreground truncate">{item.product.name}</p>
                     <p className="text-[9px] text-muted-foreground font-mono">
-                      {item.quantity} x Rp {price.toLocaleString('id-ID')} ({item.product.unit})
+                      {item.quantity} x {item.bonus ? <><span className="line-through">Rp {regularPrice.toLocaleString('id-ID')}</span> <span className="font-bold text-amber-600">BONUS</span> Rp 0</> : <>Rp {price.toLocaleString('id-ID')}</>} ({item.product.unit})
                     </p>
                   </div>
-                  <span className="font-bold text-foreground">Rp {(price * item.quantity).toLocaleString('id-ID')}</span>
+                  <span className="font-bold text-foreground">{item.bonus ? <><span className="line-through text-muted-foreground">Rp {(regularPrice * item.quantity).toLocaleString('id-ID')}</span> <span className="text-amber-600">Rp 0</span></> : `Rp ${(price * item.quantity).toLocaleString('id-ID')}`}</span>
                 </div>
               );
             })}
@@ -138,17 +148,8 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
             )}
           </div>
 
-          {/* Loyalty Reward Information */}
-          <div className="bg-primary/5 border border-primary/10 p-3 rounded-xl text-center text-[10px] space-y-1 print:hidden">
-            <p className="font-extrabold text-primary flex items-center justify-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" /> POIN LOYALITAS PELANGGAN
-            </p>
-            <p className="text-muted-foreground">Pelanggan mendapatkan <span className="font-bold text-primary">+{lastOrderDetails.pointsEarned} poin</span> baru.</p>
-          </div>
-
           <div className="text-center pt-3 text-[9px] text-muted-foreground border-t border-dashed border-border mt-3">
             <p>{storeProfile?.receiptNote || `Terima kasih telah berbelanja di ${storeName}!`}</p>
-            <p className="mt-1">Kasir: {cashierName || 'Staff Aktif'}</p>
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Coins, QrCode, CreditCard, Wallet, Landmark } from 'lucide-react';
 import { BankAccount, Customer } from '../../../types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog';
@@ -26,6 +26,7 @@ interface PaymentMethodModalProps {
 export default function PaymentMethodModal({ onClose, onSelect, totalAmount, customer, isGenericCustomer, bankAccounts }: PaymentMethodModalProps) {
   const depositBalance = customer.depositBalance || 0;
   const transferAccounts = bankAccounts.filter((account) => account.type === 'Bank' || account.type === 'E-Wallet');
+  const [showTransferAccounts, setShowTransferAccounts] = useState(false);
 
   const options: {
     method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit';
@@ -82,15 +83,33 @@ export default function PaymentMethodModal({ onClose, onSelect, totalAmount, cus
         <div className="space-y-2 mt-4">
           {options.map((opt) => {
             const disabled = (opt.method === 'Split' && isGenericCustomer) || (opt.method === 'Transfer' && transferAccounts.length === 0);
-            if (opt.method === 'Transfer' && transferAccounts.length > 0) {
+            if (opt.method === 'Transfer' && transferAccounts.length > 0 && !showTransferAccounts) {
               return (
-                <div key={opt.method} className="space-y-1.5">
-                  <div className="flex items-center gap-3 px-1">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-primary/10 text-primary">{opt.icon}</div>
-                    <div>
-                      <p className="font-black text-xs text-foreground">{opt.label}</p>
-                      <p className="text-[10px] text-muted-foreground">{opt.desc}</p>
+                <button
+                  key={opt.method}
+                  type="button"
+                  onClick={() => setShowTransferAccounts(true)}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border border-border bg-background hover:bg-primary/5 hover:border-primary text-left cursor-pointer"
+                >
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-primary/10 text-primary">{opt.icon}</div>
+                  <div className="min-w-0">
+                    <p className="font-black text-xs text-foreground">{opt.label}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{opt.desc}</p>
+                  </div>
+                </button>
+              );
+            }
+            if (opt.method === 'Transfer' && transferAccounts.length > 0 && showTransferAccounts) {
+              return (
+                <div key={opt.method} className="space-y-1.5 rounded-xl border border-primary/20 bg-primary/5 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Landmark className="w-4 h-4 text-primary" />
+                      <p className="font-black text-xs text-foreground">Pilih Rekening Transfer</p>
                     </div>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setShowTransferAccounts(false)} className="h-6 px-2 text-[10px]">
+                      Kembali
+                    </Button>
                   </div>
                   {transferAccounts.map((account) => (
                     <button

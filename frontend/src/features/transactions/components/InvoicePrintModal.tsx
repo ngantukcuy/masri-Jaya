@@ -189,6 +189,13 @@ export default function InvoicePrintModal({ invoice, docType, onClose, storeProf
                 <span className="font-bold uppercase text-blue-600">{printableInvoice.paymentMethod === 'Cash' ? 'TUNAI' : printableInvoice.paymentMethod}</span>
               </div>
             )}
+            {docType === 'invoice' && printableInvoice.paymentMethod === 'Transfer' && printableInvoice.paymentAccountName && (
+              <div className="space-y-0.5 border-l-2 border-blue-600 pl-2">
+                <div className="flex justify-between"><span>REKENING:</span><span className="font-bold">{printableInvoice.paymentAccountName}</span></div>
+                <div className="flex justify-between"><span>NOMOR:</span><span className="font-bold">{printableInvoice.paymentAccountNumber || '-'}</span></div>
+                {printableInvoice.paymentAccountHolder && <div className="flex justify-between"><span>PEMILIK:</span><span>{printableInvoice.paymentAccountHolder}</span></div>}
+              </div>
+            )}
             {printableInvoice.fulfillmentMethod && (
               <div className="flex justify-between">
                 <span>PENGAMBILAN:</span>
@@ -214,11 +221,11 @@ export default function InvoicePrintModal({ invoice, docType, onClose, storeProf
                   <p className="font-bold text-gray-900 truncate">{item.name}</p>
                   <p className="text-[9px] text-gray-400 font-mono">
                     {item.quantity} {item.unit || ''}
-                    {docType === 'invoice' && ` x Rp ${item.price.toLocaleString('id-ID')}`}
+                    {docType === 'invoice' && item.bonus ? <> x <span className="line-through">Rp {(item.originalPrice || 0).toLocaleString('id-ID')}</span> <span className="font-bold text-amber-600">BONUS Rp 0</span></> : docType === 'invoice' && ` x Rp ${item.price.toLocaleString('id-ID')}`}
                   </p>
                 </div>
                 {docType === 'invoice' && (
-                  <span className="font-bold text-gray-900">Rp {(item.price * item.quantity).toLocaleString('id-ID')}</span>
+                  <span className="font-bold text-gray-900">{item.bonus ? <><span className="line-through text-gray-400">Rp {((item.originalPrice || 0) * item.quantity).toLocaleString('id-ID')}</span> <span className="text-amber-600">Rp 0</span></> : `Rp ${(item.price * item.quantity).toLocaleString('id-ID')}`}</span>
                 )}
               </div>
             ))}

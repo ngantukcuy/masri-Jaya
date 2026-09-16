@@ -71,6 +71,11 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
   
   row('PELANGGAN:', orderDetails.customerName, false, 7.5);
   row('METODE:', orderDetails.paymentMethod === 'Cash' ? 'TUNAI' : orderDetails.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : orderDetails.paymentMethod, false, 7.5);
+  if (orderDetails.paymentMethod === 'Transfer' && orderDetails.transferAccount) {
+    row('REKENING:', orderDetails.transferAccount.name, true, 7.5);
+    row('NOMOR:', orderDetails.transferAccount.accountNumber || '-', false, 7.5);
+    if (orderDetails.transferAccount.holderName) row('PEMILIK:', orderDetails.transferAccount.holderName, false, 7.5);
+  }
   if (orderDetails.fulfillmentMethod) {
     row('PENGAMBILAN:', orderDetails.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI', false, 7.5);
     if (orderDetails.fulfillmentMethod === 'Delivery' && orderDetails.deliveryAddress) {
@@ -85,19 +90,18 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
 
   // Items
   orderDetails.items.forEach((item: any) => {
-    const price = item.bonus
-      ? 0
-      : typeof item.customPrice === 'number' && item.customPrice > 0
+    const regularPrice = typeof item.customPrice === 'number' && item.customPrice > 0
       ? item.customPrice
       : item.selectedPriceType === 'retail' ? item.product.retailPrice :
         item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice :
         item.product.projectPrice;
+    const price = item.bonus ? 0 : regularPrice;
     doc.setFontSize(7.5);
     doc.setFont('courier', 'bold');
     const nameLines = doc.splitTextToSize(item.product.name, contentWidth);
     doc.text(nameLines, marginX, y);
     y += nameLines.length * lineHeight;
-    row(`  ${item.quantity} x ${rupiah(price)} (${item.product.unit})`, rupiah(price * item.quantity), false, 7);
+    row(`  ${item.quantity} x ${item.bonus ? `${rupiah(regularPrice)} BONUS` : rupiah(price)} (${item.product.unit})`, rupiah(price * item.quantity), false, 7);
   });
   dashedLine();
 
@@ -203,6 +207,11 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
 
   row('PELANGGAN:', invoice.customerName, false, 7.5);
   row('METODE:', invoice.paymentMethod === 'Cash' ? 'TUNAI' : invoice.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : invoice.paymentMethod, false, 7.5);
+  if (invoice.paymentMethod === 'Transfer' && invoice.paymentAccountName) {
+    row('REKENING:', invoice.paymentAccountName, true, 7.5);
+    row('NOMOR:', invoice.paymentAccountNumber || '-', false, 7.5);
+    if (invoice.paymentAccountHolder) row('PEMILIK:', invoice.paymentAccountHolder, false, 7.5);
+  }
   if (invoice.fulfillmentMethod) {
     row('PENGAMBILAN:', invoice.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI', false, 7.5);
     if (invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress) {
@@ -221,7 +230,7 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
     const nameLines = doc.splitTextToSize(item.name, contentWidth);
     doc.text(nameLines, marginX, y);
     y += nameLines.length * lineHeight;
-    row(`  ${item.quantity} x ${rupiah(item.price)}${item.unit ? ` (${item.unit})` : ''}`, rupiah(item.price * item.quantity), false, 7);
+    row(`  ${item.quantity} x ${item.bonus ? `${rupiah(item.originalPrice || 0)} BONUS` : rupiah(item.price)}${item.unit ? ` (${item.unit})` : ''}`, rupiah(item.price * item.quantity), false, 7);
   });
   dashedLine();
 
