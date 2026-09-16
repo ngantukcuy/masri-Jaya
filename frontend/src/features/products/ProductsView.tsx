@@ -681,6 +681,10 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                   <div className="w-11 h-11 rounded-xl bg-pink-50 flex items-center justify-center shrink-0">
                     <Boxes className="w-5 h-5 text-pink-600" />
                   </div>
+                  <div className="min-w-0">
+                    <p className="font-extrabold text-sm text-foreground">Stok Pemasok</p>
+                    <p className="text-xs text-muted-foreground">Stok yang ada pada pemasok (PO belum diterima)</p>
+                  </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto shrink-0" />
                 </Card>
 
@@ -704,6 +708,10 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 >
                   <div className="w-11 h-11 rounded-xl bg-cyan-50 flex items-center justify-center shrink-0">
                     <ChevronRight className="w-5 h-5 text-cyan-600 rotate-45" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-extrabold text-sm text-foreground">Transfer Stok</p>
+                    <p className="text-xs text-muted-foreground">Transfer stok dari lokasi SKU satu ke lokasi SKU lain.</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto shrink-0" />
                 </Card>
@@ -898,10 +906,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
         <Button variant="ghost" size="sm" onClick={() => setStokView('hub')} className="text-muted-foreground -ml-2">
           <ChevronRight className="w-3.5 h-3.5 rotate-180" /> Kembali ke Stok
         </Button>
-        <div>
-          <h2 className="text-2xl font-black text-foreground tracking-tight">Stok Pemasok</h2>
-          <p className="text-muted-foreground text-sm">Barang yang sudah dipesan (PO) tapi belum diterima ke gudang &mdash; masih tercatat sebagai stok di pemasok.</p>
-        </div>
         {pemasokStockRecap.length === 0 ? (
           <Card className="p-10 text-center text-xs text-muted-foreground">
             Tidak ada purchase order yang masih berstatus belum diterima dari pemasok.
@@ -940,10 +944,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
         <Button variant="ghost" size="sm" onClick={() => setStokView('hub')} className="text-muted-foreground -ml-2">
           <ChevronRight className="w-3.5 h-3.5 rotate-180" /> Kembali ke Stok
         </Button>
-        <div>
-          <h2 className="text-2xl font-black text-foreground tracking-tight">Transfer Stok</h2>
-          <p className="text-muted-foreground text-sm">Pindahkan produk dari satu lokasi SKU ke lokasi SKU lainnya.</p>
-        </div>
         <Card className="p-5 max-w-md space-y-4">
           <div>
             <Label>Pilih Produk</Label>

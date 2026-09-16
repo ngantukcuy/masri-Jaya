@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { MapPin, RotateCw, Bell, Menu, LogOut, Clock, Coins, Shield, X, AlertTriangle, PackageX, ShoppingBag, Wallet, Sun, Moon, WifiOff, CloudUpload } from 'lucide-react';
+import { MapPin, RotateCw, Bell, Menu, LogOut, Clock, Coins, Shield, X, AlertTriangle, PackageX, ShoppingBag, Wallet, WifiOff, CloudUpload } from 'lucide-react';
 import { getCurrentSession, getMutationTotals } from '../../lib/cashSession';
-import { useTheme } from '../../lib/ThemeContext';
 import { useOnlineStatus, usePendingSyncCount } from '../../lib/useOnlineStatus';
 import InstallAppButton from '../shared/InstallAppButton';
 import { CurrentUser, canSeeApproverNotifications } from '../../lib/permissions';
@@ -103,7 +102,6 @@ export default function Header({
   customers = [],
   activities = [],
 }: HeaderProps) {
-  const { theme, toggleTheme } = useTheme();
   const [showNotifications, setShowNotifications] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const isOnline = useOnlineStatus();
@@ -256,8 +254,6 @@ export default function Header({
             <span className="text-xs font-extrabold text-primary mt-0.5">{storeName}</span>
           </div>
         )}
-
-        {/* Dark / Light Theme Toggle */}
 
         {/* Install App (PWA) — hides itself once installed or unsupported */}
         <InstallAppButton compact />

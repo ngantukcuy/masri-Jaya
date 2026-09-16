@@ -3,7 +3,6 @@ import {createRoot} from 'react-dom/client';
 import {Capacitor} from '@capacitor/core';
 import App from './App.tsx';
 import { DialogProvider } from './components/shared/DialogProvider.tsx';
-import { ThemeProvider } from './lib/ThemeContext.tsx';
 import './index.css';
 
 // After a new deploy, the hashed chunk filenames (DashboardView-xxxx.js etc.)
@@ -49,10 +48,8 @@ if ('serviceWorker' in navigator && !Capacitor.isNativePlatform()) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ThemeProvider>
-      <DialogProvider>
-        <App />
-      </DialogProvider>
-    </ThemeProvider>
+    <DialogProvider>
+      <App />
+    </DialogProvider>
   </StrictMode>,
 );
