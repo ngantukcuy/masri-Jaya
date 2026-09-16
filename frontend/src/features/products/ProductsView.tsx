@@ -1098,7 +1098,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
               />
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto top-3 "> 
+            <div className="flex items-center gap-2 w-full sm:w-auto top-5" > 
               <Button
                 variant={showFiltersDrawer ? 'default' : 'outline'}
                 size="sm"
@@ -1110,11 +1110,11 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
               </Button>
 
               <Button variant="outline" size="icon" onClick={handleExportExcel} title="Ekspor ke Excel (.xlsx)">
-                <Download className="w-4 h-4" />
+                <Download className="w-4 h-4 top-5" />
               </Button>
 
               <Button variant="outline" size="icon" onClick={handlePrintStock} title="Cetak Laporan Stok">
-                <Printer className="w-4 h-4" />
+                <Printer className="w-4 h-4 top-5" />
               </Button>
             </div>
           </Card>
