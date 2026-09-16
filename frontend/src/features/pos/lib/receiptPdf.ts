@@ -60,13 +60,15 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
   center(storeName, 12, true);
   if (storeProfile?.address) center(storeProfile.address, 7);
   if (storeProfile?.phone) center(`Tel: ${storeProfile.phone}`, 7);
-  if (storeProfile?.taxId) center(`NPWP: ${storeProfile.taxId}`, 7);
   y += 1;
   dashedLine();
 
   // Meta
   row('INVOICE:', orderDetails.invoice, true, 7.5);
   row('TANGGAL:', orderDetails.date, false, 7.5);
+  row('KASIR:', cashierName || 'Staff Aktif', false, 7.5);
+  dashedLine();
+  
   row('PELANGGAN:', orderDetails.customerName, false, 7.5);
   row('METODE:', orderDetails.paymentMethod === 'Cash' ? 'TUNAI' : orderDetails.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : orderDetails.paymentMethod, false, 7.5);
   if (orderDetails.fulfillmentMethod) {
@@ -134,7 +136,7 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
   y += 1;
   dashedLine();
   center(storeProfile?.receiptNote || `Terima kasih telah berbelanja di ${storeName}!`, 7);
-  center(`Kasir: ${cashierName || 'Staff Aktif'}`, 7);
+  
 
   await savePdfDoc(doc, `Struk_${orderDetails.invoice}.pdf`);
 }
@@ -191,12 +193,14 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   center(storeName, 12, true);
   if (storeProfile?.address) center(storeProfile.address, 7);
   if (storeProfile?.phone) center(`Tel: ${storeProfile.phone}`, 7);
-  if (storeProfile?.taxId) center(`NPWP: ${storeProfile.taxId}`, 7);
   y += 1;
   dashedLine();
 
   row('INVOICE:', invoice.invoiceNumber, true, 7.5);
   row('TANGGAL:', invoice.date, false, 7.5);
+  row('KASIR:', cashierName || 'Staff Aktif', false, 7.5);
+  dashedLine();
+
   row('PELANGGAN:', invoice.customerName, false, 7.5);
   row('METODE:', invoice.paymentMethod === 'Cash' ? 'TUNAI' : invoice.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : invoice.paymentMethod, false, 7.5);
   if (invoice.fulfillmentMethod) {
@@ -248,7 +252,6 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   y += 1;
   dashedLine();
   center(storeProfile?.receiptNote || `Terima kasih telah berbelanja di ${storeName}!`, 7);
-  center(`Kasir: ${cashierName || 'Staff Aktif'}`, 7);
   center('(Cetak ulang dari Riwayat Transaksi)', 6.5);
 
   await savePdfDoc(doc, `Struk_${invoice.invoiceNumber}.pdf`);

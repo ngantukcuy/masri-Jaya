@@ -72,6 +72,12 @@ const getCartItemPrice = (item: CartItem) => {
          item.product.projectPrice;
 };
 
+const getCartItemRegularPrice = (item: CartItem) =>
+  typeof item.customPrice === 'number' && item.customPrice > 0 ? item.customPrice :
+  item.selectedPriceType === 'retail' ? item.product.retailPrice :
+  item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice :
+  item.product.projectPrice;
+
 interface StoreProfileLite {
   storeName: string;
   address?: string;
@@ -157,7 +163,7 @@ export default function POSView({
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [fulfillmentMethod, setFulfillmentMethod] = useState<'Pickup' | 'Delivery'>('Pickup');
   const [deliveryAddress, setDeliveryAddress] = useState<string>('');
-  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'QRIS' | 'Split' | 'Deposit'>('Cash');
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit'>('Cash');
   const [isCartPersistenceEnabled, setIsCartPersistenceEnabled] = useState(false);
   const [showCheckoutReceipt, setShowCheckoutReceipt] = useState(false);
   const [lastOrderDetails, setLastOrderDetails] = useState<any>(null);
@@ -527,7 +533,7 @@ const commitQtyInput = (sku: string) => {
     setShowPaymentMethodModal(true);
   };
 
-  const handleSelectPaymentMethod = (method: 'Cash' | 'QRIS' | 'Split' | 'Deposit') => {
+  const handleSelectPaymentMethod = (method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit', transferAccount?: BankAccount) => {
     setPaymentMethod(method);
     setShowPaymentMethodModal(false);
 
@@ -543,6 +549,12 @@ const commitQtyInput = (sku: string) => {
 
     if (method === 'QRIS') {
       setShowQRISModal(true);
+      return;
+    }
+
+    if (method === 'Transfer') {
+      if (!transferAccount) return;
+      executeFinalCheckout(method, { transferAccount });
       return;
     }
 
@@ -570,10 +582,11 @@ const commitQtyInput = (sku: string) => {
     changeAmount?: number;
     splitPaidAmount?: number;
     splitRemainingDebt?: number;
+    transferAccount?: BankAccount;
   };
 
   const executeFinalCheckout = (
-    methodUsed: 'Cash' | 'QRIS' | 'Split' | 'Deposit' = paymentMethod,
+    methodUsed: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' = paymentMethod,
     paymentDetails: PaymentExecutionDetails = {}
   ) => {
     // Generate Invoice ID
@@ -659,7 +672,9 @@ const commitQtyInput = (sku: string) => {
           name: item.product.name,
           quantity: item.quantity,
           price: getCartItemPrice(item),
-          unit: item.product.unit
+          originalPrice: getCartItemRegularPrice(item),
+          unit: item.product.unit,
+          bonus: item.bonus
         })),
         total: totalAmount,
         paymentMethod: methodUsed,
@@ -672,7 +687,10 @@ const commitQtyInput = (sku: string) => {
         cashReceived: methodUsed === 'Cash' ? paymentDetails.cashReceived : undefined,
         changeAmount: methodUsed === 'Cash' ? paymentDetails.changeAmount : undefined,
         splitPaidAmount: methodUsed === 'Split' ? paymentDetails.splitPaidAmount : undefined,
-        splitRemainingDebt: methodUsed === 'Split' ? splitRemainingDebt : undefined
+        splitRemainingDebt: methodUsed === 'Split' ? splitRemainingDebt : undefined,
+        paymentAccountName: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.name : undefined,
+        paymentAccountNumber: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.accountNumber : undefined,
+        paymentAccountHolder: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.holderName : undefined
       });
     }
 
@@ -694,6 +712,7 @@ const commitQtyInput = (sku: string) => {
       changeAmount: methodUsed === 'Cash' ? paymentDetails.changeAmount : undefined,
       splitPaidAmount: methodUsed === 'Split' ? paymentDetails.splitPaidAmount : undefined,
       splitRemainingDebt: methodUsed === 'Split' ? splitRemainingDebt : undefined,
+      transferAccount: methodUsed === 'Transfer' ? paymentDetails.transferAccount : undefined,
       date: new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     };
 
@@ -1232,13 +1251,16 @@ const commitQtyInput = (sku: string) => {
     <span className={`text-[10px] font-bold ${item.bonus ? 'text-amber-700' : 'text-gray-500'}`}>Bonus</span>
     <Button
       type="button"
-      variant={item.bonus ? 'default' : 'outline'}
-      size="sm"
+      variant="ghost"
+      size="icon"
       onClick={() => handleToggleBonus(item.product.sku)}
+      role="switch"
+      aria-checked={item.bonus}
       aria-label={`${item.bonus ? 'Matikan' : 'Aktifkan'} bonus untuk ${item.product.name}`}
-      className={`h-6 px-2 text-[9px] font-black uppercase ${item.bonus ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'text-gray-500'}`}
+      title={item.bonus ? 'Bonus aktif' : 'Aktifkan bonus'}
+      className={`w-9 h-5 rounded-full p-0.5 justify-start transition-colors ${item.bonus ? 'bg-amber-500 hover:bg-amber-600' : 'bg-gray-300 hover:bg-gray-400'}`}
     >
-      {item.bonus ? 'ON' : 'OFF'}
+      <span className={`block w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${item.bonus ? 'translate-x-4' : 'translate-x-0'}`} />
     </Button>
   </div>
 </div>
@@ -1389,6 +1411,7 @@ const commitQtyInput = (sku: string) => {
             totalAmount={totalAmount}
             customer={selectedCustomer}
             isGenericCustomer={selectedCustomer.id === GENERIC_CUSTOMER_ID}
+            bankAccounts={bankAccounts}
           />
         )}
 

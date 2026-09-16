@@ -4,7 +4,9 @@ export interface SalesInvoiceItem {
   name: string;
   quantity: number;
   price: number;
+  originalPrice?: number;
   unit?: string;
+  bonus?: boolean;
 }
 
 export interface SalesInvoice {
@@ -39,6 +41,10 @@ export interface SalesInvoice {
   /** Only meaningful when paymentMethod is 'Split': remaining amount
    * recorded as the customer's receivable/debt (piutang). */
   splitRemainingDebt?: number;
+  /** Rekening toko yang dipilih saat pembayaran Transfer. */
+  paymentAccountName?: string;
+  paymentAccountNumber?: string;
+  paymentAccountHolder?: string;
 }
 
 // ---- Retur (Sales & Purchase Returns) ----

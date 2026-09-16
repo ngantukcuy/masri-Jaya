@@ -21,7 +21,7 @@ export type PersistedPOSState = {
   selectedCustomerId: string | null;
   discountMode: 'percent' | 'fixed';
   discountValue: number;
-  paymentMethod: 'Cash' | 'QRIS' | 'Split' | 'Deposit';
+  paymentMethod: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit';
   fulfillmentMethod: 'Pickup' | 'Delivery';
   deliveryAddress: string;
 };
@@ -45,7 +45,7 @@ export const readPersistedPOSState = (): PersistedPOSState => {
     selectedCustomerId: typeof parsed.selectedCustomerId === 'string' ? parsed.selectedCustomerId : null,
     discountMode: parsed.discountMode === 'fixed' ? 'fixed' : 'percent',
     discountValue: typeof parsed.discountValue === 'number' ? parsed.discountValue : 0,
-    paymentMethod: parsed.paymentMethod === 'QRIS' || parsed.paymentMethod === 'Split' || parsed.paymentMethod === 'Deposit'
+    paymentMethod: parsed.paymentMethod === 'QRIS' || parsed.paymentMethod === 'Transfer' || parsed.paymentMethod === 'Split' || parsed.paymentMethod === 'Deposit'
       ? parsed.paymentMethod
       : 'Cash',
     fulfillmentMethod: parsed.fulfillmentMethod === 'Delivery' ? 'Delivery' : 'Pickup',

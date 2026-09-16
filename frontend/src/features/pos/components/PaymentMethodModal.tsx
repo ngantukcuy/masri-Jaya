@@ -1,18 +1,19 @@
 import { ReactNode } from 'react';
-import { Coins, QrCode, CreditCard, Wallet } from 'lucide-react';
-import { Customer } from '../../../types';
+import { Coins, QrCode, CreditCard, Wallet, Landmark } from 'lucide-react';
+import { BankAccount, Customer } from '../../../types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog';
 import { Button } from '../../../components/ui/button';
 
 interface PaymentMethodModalProps {
   onClose: () => void;
-  onSelect: (method: 'Cash' | 'QRIS' | 'Split' | 'Deposit') => void;
+  onSelect: (method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit', account?: BankAccount) => void;
   totalAmount: number;
   customer: Customer;
   /** True kalau customer yang dipilih masih pelanggan umum "Customer"
    * (bukan baris pelanggan asli) — opsi "Split" (cicil) ditahan karena
    * sisa hutangnya tidak ada pelanggan tujuannya. */
   isGenericCustomer?: boolean;
+  bankAccounts: BankAccount[];
 }
 
 /**
@@ -22,11 +23,12 @@ interface PaymentMethodModalProps {
  * Deposit) — menggantikan tombol toggle metode yang dulu terpisah di atas
  * tombol Bayar.
  */
-export default function PaymentMethodModal({ onClose, onSelect, totalAmount, customer, isGenericCustomer }: PaymentMethodModalProps) {
+export default function PaymentMethodModal({ onClose, onSelect, totalAmount, customer, isGenericCustomer, bankAccounts }: PaymentMethodModalProps) {
   const depositBalance = customer.depositBalance || 0;
+  const transferAccounts = bankAccounts.filter((account) => account.type === 'Bank' || account.type === 'E-Wallet');
 
   const options: {
-    method: 'Cash' | 'QRIS' | 'Split' | 'Deposit';
+    method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit';
     label: string;
     desc: string;
     icon: ReactNode;
@@ -42,6 +44,12 @@ export default function PaymentMethodModal({ onClose, onSelect, totalAmount, cus
       label: 'QRIS',
       desc: 'Pindai kode QR, bayar lewat e-wallet/m-banking',
       icon: <QrCode className="w-5 h-5" />,
+    },
+    {
+      method: 'Transfer',
+      label: 'Transfer',
+      desc: transferAccounts.length > 0 ? 'Pilih rekening toko untuk pembayaran transfer' : 'Belum ada rekening Bank/E-Wallet di Pengaturan',
+      icon: <Landmark className="w-5 h-5" />,
     },
     {
       method: 'Split',
@@ -73,7 +81,31 @@ export default function PaymentMethodModal({ onClose, onSelect, totalAmount, cus
 
         <div className="space-y-2 mt-4">
           {options.map((opt) => {
-            const disabled = opt.method === 'Split' && isGenericCustomer;
+            const disabled = (opt.method === 'Split' && isGenericCustomer) || (opt.method === 'Transfer' && transferAccounts.length === 0);
+            if (opt.method === 'Transfer' && transferAccounts.length > 0) {
+              return (
+                <div key={opt.method} className="space-y-1.5">
+                  <div className="flex items-center gap-3 px-1">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-primary/10 text-primary">{opt.icon}</div>
+                    <div>
+                      <p className="font-black text-xs text-foreground">{opt.label}</p>
+                      <p className="text-[10px] text-muted-foreground">{opt.desc}</p>
+                    </div>
+                  </div>
+                  {transferAccounts.map((account) => (
+                    <button
+                      key={account.id}
+                      type="button"
+                      onClick={() => onSelect('Transfer', account)}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left hover:bg-primary/5 hover:border-primary cursor-pointer"
+                    >
+                      <p className="text-xs font-bold text-foreground">{account.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{account.type} • {account.accountNumber || 'Nomor rekening belum diisi'}{account.holderName ? ` • ${account.holderName}` : ''}</p>
+                    </button>
+                  ))}
+                </div>
+              );
+            }
             return (
               <button
                 key={opt.method}
