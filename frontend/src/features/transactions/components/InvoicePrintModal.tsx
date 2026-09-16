@@ -234,8 +234,12 @@ export default function InvoicePrintModal({ invoice, docType, onClose, storeProf
           {docType === 'invoice' ? (
             <div className="space-y-1 text-right text-[11px] py-3">
               <div className="flex justify-between">
-                <span>SUBTOTAL:</span>
+                <span>SUBTOTAL  </span> 
                 <span>Rp {subtotal.toLocaleString('id-ID')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Biaya Tambahan</span>
+                <span>Rp {(printableInvoice.additionalFees?.reduce((acc, fee) => acc + fee.amount, 0) || printableInvoice.additionalFee || 0).toLocaleString('id-ID')}</span>
               </div>
               {!!printableInvoice.discountAmount && (
                 <div className="flex justify-between text-red-600 font-bold">

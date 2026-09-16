@@ -117,6 +117,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
                 <span>-Rp {lastOrderDetails.discount.toLocaleString('id-ID')}</span>
               </div>
             )}
+            <span> BIAYA TAMBAHAN </span>
             {(lastOrderDetails.additionalFees?.length > 0 ? lastOrderDetails.additionalFees : [{ name: lastOrderDetails.additionalFeeName || 'BIAYA TAMBAHAN', amount: lastOrderDetails.additionalFee || 0 }])
               .filter((fee: { name: string; amount: number }) => fee.amount > 0)
               .map((fee: { name: string; amount: number }, index: number) => (

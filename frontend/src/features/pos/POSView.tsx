@@ -68,6 +68,7 @@ interface ProductCategory {
  * asli dulu — kalau tidak, sisa hutangnya nggak ke-track ke siapa pun. */
 const GENERIC_CUSTOMER_ID = 'CUST-01';
 const emptyAdditionalFee = (): AdditionalFee => ({ name: '', amount: 0 });
+const additionalFeeOptions = ['Ongkir', 'Packing', 'Biaya Admin', 'Biaya Kirim', 'Jasa/Service', 'Lainnya'];
 
 /** Resolves the actual unit price to charge for a cart line: the cashier's
  * edited price when present, otherwise falls back to the tier derived from
@@ -897,7 +898,6 @@ const commitQtyInput = (sku: string) => {
         <div className="flex items-center justify-between shrink-0">
           <Button variant="outline" size="sm" onClick={onExitFullScreen} className="text-gray-600">
             <X className="w-4 h-4" />
-            <span>Kembali</span>
           </Button>
           <div className="flex items-center gap-3 text-xs font-bold text-gray-500">
             {storeProfile?.storeName && <span className="text-gray-800">{storeProfile.storeName}</span>}
@@ -1351,13 +1351,20 @@ const commitQtyInput = (sku: string) => {
               <div className="space-y-1">
                 {additionalFees.map((fee, index) => (
                   <div key={index} className="flex items-center gap-1">
-                    <Input
-                      value={fee.name}
-                      onChange={(event) => setAdditionalFees((fees) => fees.map((currentFee, feeIndex) => feeIndex === index ? { ...currentFee, name: event.target.value } : currentFee))}
-                      placeholder="Nama biaya"
-                      aria-label={`Nama biaya tambahan ${index + 1}`}
-                      className="w-28 h-7 bg-white border border-gray-200 rounded p-1 text-xs"
-                    />
+                    <Select
+                      value={fee.name || 'none'}
+                      onValueChange={(value) => setAdditionalFees((fees) => fees.map((currentFee, feeIndex) => feeIndex === index ? { ...currentFee, name: value === 'none' ? '' : value } : currentFee))}
+                    >
+                      <SelectTrigger className="w-32 h-7 bg-white border border-gray-200 rounded p-1 text-xs">
+                        <SelectValue placeholder="Pilih biaya" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Pilih biaya</SelectItem>
+                        {additionalFeeOptions.map((option) => (
+                          <SelectItem key={option} value={option}>{option}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <NumberInput
                       value={fee.amount}
                       onChange={(value) => setAdditionalFees((fees) => fees.map((currentFee, feeIndex) => feeIndex === index ? { ...currentFee, amount: Math.max(0, value) } : currentFee))}
