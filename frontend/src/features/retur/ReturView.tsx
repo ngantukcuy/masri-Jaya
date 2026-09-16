@@ -35,6 +35,32 @@ interface ReturViewProps {
   currentUser?: CurrentUser | null;
 }
 
+const INDO_MONTHS: Record<string, number> = {
+  januari: 0, februari: 1, maret: 2, april: 3, mei: 4, juni: 5,
+  juli: 6, agustus: 7, september: 8, oktober: 9, november: 10, desember: 11,
+};
+
+function parseIndonesianDate(value: string): Date | null {
+  const isoDate = new Date(value);
+  if (!isNaN(isoDate.getTime())) return isoDate;
+
+  const match = value.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})(?:,?\s+(\d{1,2}):(\d{2}))?/);
+  if (!match) return null;
+  const month = INDO_MONTHS[match[2].toLowerCase()];
+  if (month === undefined) return null;
+  return new Date(
+    Number(match[3]),
+    month,
+    Number(match[1]),
+    Number(match[4] || 0),
+    Number(match[5] || 0)
+  );
+}
+
+function getDateValue(value: string | undefined): number {
+  return value ? parseIndonesianDate(value)?.getTime() || 0 : 0;
+}
+
 export default function ReturView({ products, onUpdateProducts, salesInvoices, pos, returns, onUpdateReturns, onAddActivity, onNavigateToPOS, currentUser }: ReturViewProps) {
   const dialog = useDialog();
   const canApproveRetur = hasPermission(currentUser, 'manage_retur_approve');
@@ -74,14 +100,16 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
     .filter(inv =>
       inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       inv.customerName.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    )
+    .sort((a, b) => getDateValue(b.createdAt || b.date) - getDateValue(a.createdAt || a.date));
 
   const filteredPOs = receivedPOs
     .filter(po => hasReturnableQty(po.poNumber, po.items))
     .filter(po =>
       po.poNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       po.supplier.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    )
+    .sort((a, b) => getDateValue(b.createdDate) - getDateValue(a.createdDate));
 
   const resetForm = () => {
     setSelectedInvoice(null);
@@ -218,8 +246,12 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
     onAddActivity(`Retur ${record.type} Ditolak`, record.refNumber, 0, 'quote');
   };
 
-  const pendingReturns = returns.filter(r => r.status === 'Pending');
-  const historyReturns = returns.filter(r => r.status !== 'Pending');
+  const pendingReturns = returns
+    .filter(r => r.status === 'Pending')
+    .sort((a, b) => getDateValue(b.createdAt) - getDateValue(a.createdAt));
+  const historyReturns = returns
+    .filter(r => r.status !== 'Pending')
+    .sort((a, b) => getDateValue(b.createdAt) - getDateValue(a.createdAt));
 
   return (
     <div className="space-y-6">
