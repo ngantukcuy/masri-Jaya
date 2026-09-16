@@ -7,6 +7,8 @@ export interface SalesInvoiceItem {
   originalPrice?: number;
   unit?: string;
   bonus?: boolean;
+  /** Quantity already included in a printed delivery note. */
+  deliveredQuantity?: number;
 }
 
 export interface SalesInvoice {

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { History, Search, Receipt, Printer, Truck, CornerUpLeft, CalendarRange } from 'lucide-react';
+import { History, Search, Receipt, Printer, Truck, CornerUpLeft, CalendarRange, CheckCircle2 } from 'lucide-react';
 import { SalesInvoice, ReturnRecord } from '../../types';
 import InvoicePrintModal from './components/InvoicePrintModal';
 import { Button } from '../../components/ui/button';
@@ -20,6 +20,7 @@ interface StoreProfileLite {
 interface TransactionHistoryViewProps {
   salesInvoices: SalesInvoice[];
   returns?: ReturnRecord[];
+  onUpdateSalesInvoice: (invoice: SalesInvoice) => void;
   storeProfile?: StoreProfileLite;
   cashierName?: string;
 }
@@ -59,7 +60,7 @@ function parseInvoiceDate(inv: SalesInvoice): Date | null {
   return null;
 }
 
-export default function TransactionHistoryView({ salesInvoices, returns = [], storeProfile, cashierName }: TransactionHistoryViewProps) {
+export default function TransactionHistoryView({ salesInvoices, returns = [], onUpdateSalesInvoice, storeProfile, cashierName }: TransactionHistoryViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selected, setSelected] = useState<SalesInvoice | null>(null);
   const [dateFrom, setDateFrom] = useState('');
@@ -85,7 +86,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], st
     return map;
   }, [returns]);
 
-  const filtered = salesInvoices.filter(inv => {
+  const filtered = [...salesInvoices].filter(inv => {
     const matchesSearch =
       inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       inv.customerName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -98,7 +99,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], st
       if (dateTo && invDate > new Date(`${dateTo}T23:59:59`)) return false;
     }
     return true;
-  });
+  }).sort((a, b) => (parseInvoiceDate(b)?.getTime() || 0) - (parseInvoiceDate(a)?.getTime() || 0));
 
   const isFiltered = Boolean(dateFrom || dateTo || searchQuery);
   const totalOmzet = filtered.reduce((acc, inv) => acc + inv.total, 0);
@@ -218,9 +219,12 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], st
                         size="icon"
                         onClick={(e) => { e.stopPropagation(); setPrintTarget({ invoice: inv, docType: 'delivery' }); }}
                         title="Cetak Struk Surat Jalan"
-                        className="w-7 h-7 bg-amber-50 hover:bg-amber-100 text-amber-600"
+                        className={`w-7 h-7 ${inv.items.every((item) => (item.deliveredQuantity || 0) >= item.quantity) ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}
                       >
                         <Truck className="w-3.5 h-3.5" />
+                        {inv.items.every((item) => (item.deliveredQuantity || 0) >= item.quantity) && (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        )}
                       </Button>
                     </div>
                   </TableCell>
@@ -317,6 +321,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], st
           invoice={printTarget.invoice}
           docType={printTarget.docType}
           onClose={() => setPrintTarget(null)}
+            onDeliveryComplete={onUpdateSalesInvoice}
           storeProfile={storeProfile}
           cashierName={cashierName}
         />

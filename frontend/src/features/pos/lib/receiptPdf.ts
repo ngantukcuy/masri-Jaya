@@ -24,12 +24,62 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
   }
 
   if (document.fonts?.ready) await document.fonts.ready;
-  const canvas = await html2canvas(receiptElement, {
-    backgroundColor: '#ffffff',
-    scale: 2,
-    useCORS: true,
-    logging: false,
-  });
+  let canvas: HTMLCanvasElement;
+  try {
+    canvas = await html2canvas(receiptElement, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    });
+  } catch (standardRenderError) {
+    console.warn('[receiptPdf] Snapshot standar gagal, mencoba renderer browser:', standardRenderError);
+    try {
+      canvas = await html2canvas(receiptElement, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        foreignObjectRendering: true,
+        logging: false,
+      });
+    } catch (browserRenderError) {
+      console.error('[receiptPdf] Snapshot modal gagal, memakai fallback PDF teks:', browserRenderError);
+      const fallbackInvoice: SalesInvoice = {
+        invoiceNumber: orderDetails.invoice,
+        customerName: orderDetails.customerName,
+        date: orderDetails.date,
+        items: orderDetails.items.map((item: any) => ({
+          sku: item.product.sku,
+          name: item.product.name,
+          quantity: item.quantity,
+          price: item.bonus ? 0 : (item.customPrice || (item.selectedPriceType === 'retail' ? item.product.retailPrice : item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice : item.product.projectPrice)),
+          originalPrice: item.customPrice || (item.selectedPriceType === 'retail' ? item.product.retailPrice : item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice : item.product.projectPrice),
+          unit: item.product.unit,
+          bonus: item.bonus,
+        })),
+        total: orderDetails.total,
+        paymentMethod: orderDetails.paymentMethod,
+        subtotal: orderDetails.subtotal,
+        discountAmount: orderDetails.discount,
+        discountType: orderDetails.discountType,
+        discountValue: orderDetails.discountValue,
+        additionalFees: orderDetails.additionalFees,
+        additionalFeeName: orderDetails.additionalFeeName,
+        additionalFee: orderDetails.additionalFee,
+        fulfillmentMethod: orderDetails.fulfillmentMethod,
+        deliveryAddress: orderDetails.deliveryAddress,
+        cashReceived: orderDetails.cashReceived,
+        changeAmount: orderDetails.changeAmount,
+        splitPaidAmount: orderDetails.splitPaidAmount,
+        splitRemainingDebt: orderDetails.splitRemainingDebt,
+        paymentAccountName: orderDetails.transferAccount?.name,
+        paymentAccountNumber: orderDetails.transferAccount?.accountNumber,
+        paymentAccountHolder: orderDetails.transferAccount?.holderName,
+      };
+      await generateInvoiceReceiptPDF(fallbackInvoice, storeProfile, cashierName);
+      return;
+    }
+  }
   const pageWidth = 80;
   const pageHeight = Math.max(40, (canvas.height / canvas.width) * pageWidth);
   const doc = new jsPDF({ unit: 'mm', format: [pageWidth, pageHeight] });

@@ -257,6 +257,10 @@ function Dashboard({
     setSalesInvoices((prev) => [invoice, ...prev]);
   };
 
+  const handleUpdateSalesInvoice = (updatedInvoice: SalesInvoice) => {
+    setSalesInvoices((prev) => prev.map((invoice) => invoice.invoiceNumber === updatedInvoice.invoiceNumber ? updatedInvoice : invoice));
+  };
+
   const handleTabChange = (tab: string) => {
     setCurrentTab(tab);
     setIsMobileMenuOpen(false);
@@ -418,6 +422,7 @@ function Dashboard({
                     <TransactionHistoryView
                       salesInvoices={salesInvoices}
                       returns={returns}
+                      onUpdateSalesInvoice={handleUpdateSalesInvoice}
                       cashierName={currentUser?.name}
                       storeProfile={registeredOwner ? {
                         storeName: registeredOwner.storeName,

@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { Printer, FileDown, Truck, Store, X, CheckSquare, Square, ArrowLeft } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Printer, FileDown, Truck, Store, X, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { motion } from 'motion/react';
 import { SalesInvoice } from '../../../types';
 import { generateInvoiceReceiptPDF, generateDeliveryNotePDF } from '../../pos/lib/receiptPdf';
 import { getSupabaseTableCache } from '../../../lib/supabaseCache';
+import NumberInput from '../../../components/shared/NumberInput';
 
 interface StoreProfileLite {
   storeName: string;
@@ -22,11 +23,12 @@ interface InvoicePrintModalProps {
   invoice: SalesInvoice;
   docType: 'invoice' | 'delivery';
   onClose: () => void;
+  onDeliveryComplete?: (invoice: SalesInvoice) => void;
   storeProfile?: StoreProfileLite;
   cashierName?: string;
 }
 
-export default function InvoicePrintModal({ invoice, docType, onClose, storeProfile, cashierName }: InvoicePrintModalProps) {
+export default function InvoicePrintModal({ invoice, docType, onClose, onDeliveryComplete, storeProfile, cashierName }: InvoicePrintModalProps) {
   const [isPrintingAnim, setIsPrintingAnim] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [activePrinterName, setActivePrinterName] = useState('');
@@ -34,28 +36,24 @@ export default function InvoicePrintModal({ invoice, docType, onClose, storeProf
 
   // For surat jalan, let the user pick which items are actually being sent out
   // before printing — a single transaksi is often delivered in more than one trip.
-  const [selectedItemIdx, setSelectedItemIdx] = useState<Set<number>>(
-    () => new Set(invoice.items.map((_, idx) => idx))
+  const [deliveryQuantities, setDeliveryQuantities] = useState<Record<number, number>>(
+    () => Object.fromEntries(invoice.items.map((item, idx) => [idx, 0]))
   );
+  const deliveryRecordedRef = useRef(false);
   const [pickerStep, setPickerStep] = useState(docType === 'delivery');
 
-  const toggleItem = (idx: number) => {
-    setSelectedItemIdx((prev) => {
-      const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx);
-      else next.add(idx);
-      return next;
-    });
-  };
-
-  const toggleAll = () => {
-    setSelectedItemIdx((prev) =>
-      prev.size === invoice.items.length ? new Set() : new Set(invoice.items.map((_, idx) => idx))
-    );
+  const setDeliveryQuantity = (idx: number, value: number) => {
+    const delivered = invoice.items[idx].deliveredQuantity || 0;
+    const remaining = Math.max(0, invoice.items[idx].quantity - delivered);
+    setDeliveryQuantities((prev) => ({ ...prev, [idx]: Math.min(remaining, Math.max(0, Math.round(value))) }));
   };
 
   const deliveryItems =
-    docType === 'delivery' ? invoice.items.filter((_, idx) => selectedItemIdx.has(idx)) : invoice.items;
+    docType === 'delivery'
+      ? invoice.items
+        .map((item, idx) => ({ ...item, quantity: deliveryQuantities[idx] || 0, sourceIndex: idx }))
+        .filter((item) => item.quantity > 0)
+      : invoice.items;
   const printableInvoice: SalesInvoice = docType === 'delivery' ? { ...invoice, items: deliveryItems } : invoice;
 
   const subtotal = printableInvoice.subtotal ?? printableInvoice.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
@@ -68,7 +66,21 @@ export default function InvoicePrintModal({ invoice, docType, onClose, storeProf
     setTimeout(() => {
       setIsPrintingAnim(false);
       window.print();
+      markDeliveryComplete();
     }, 1400);
+  };
+
+  const markDeliveryComplete = () => {
+    if (deliveryRecordedRef.current || docType !== 'delivery' || deliveryItems.length === 0) return;
+    deliveryRecordedRef.current = true;
+    const updatedInvoice: SalesInvoice = {
+      ...invoice,
+      items: invoice.items.map((item, idx) => ({
+        ...item,
+        deliveredQuantity: Math.min(item.quantity, (item.deliveredQuantity || 0) + (deliveryQuantities[idx] || 0)),
+      })),
+    };
+    onDeliveryComplete?.(updatedInvoice);
   };
 
   const handlePrintPDF = async () => {
@@ -78,6 +90,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, storeProf
         await generateInvoiceReceiptPDF(invoice, storeProfile, cashierName);
       } else {
         await generateDeliveryNotePDF(invoice, storeProfile, deliveryItems);
+        markDeliveryComplete();
       }
     } catch (err) {
       console.error('[InvoicePrintModal] Gagal membuat/membagikan PDF:', err);
@@ -107,41 +120,45 @@ export default function InvoicePrintModal({ invoice, docType, onClose, storeProf
           <p className="text-[11px] text-gray-500">
             Centang barang yang benar-benar dibawa dalam pengiriman ini. Berguna kalau satu transaksi diantar bertahap.
           </p>
-          <button
-            onClick={toggleAll}
-            className="flex items-center gap-1.5 text-[11px] font-bold text-blue-600 cursor-pointer"
-          >
-            {selectedItemIdx.size === invoice.items.length ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
-            Pilih Semua
-          </button>
           <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden max-h-64 overflow-y-auto">
             {invoice.items.map((item, idx) => {
-              const checked = selectedItemIdx.has(idx);
+              const delivered = item.deliveredQuantity || 0;
+              const remaining = Math.max(0, item.quantity - delivered);
+              const complete = remaining === 0;
               return (
-                <button
+                <div
                   key={idx}
-                  onClick={() => toggleItem(idx)}
-                  className="w-full flex items-center gap-2.5 p-2.5 text-left hover:bg-gray-50 cursor-pointer"
+                  className="w-full flex items-center gap-2.5 p-2.5 text-left"
                 >
-                  {checked ? (
-                    <CheckSquare className="w-4 h-4 text-amber-600 shrink-0" />
+                  {complete ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                   ) : (
-                    <Square className="w-4 h-4 text-gray-300 shrink-0" />
+                    <Truck className="w-4 h-4 text-amber-600 shrink-0" />
                   )}
                   <span className="flex-1 min-w-0">
-                    <p className={`truncate font-semibold ${checked ? 'text-gray-900' : 'text-gray-400'}`}>{item.name}</p>
-                    <p className="text-[10px] text-gray-400">{item.quantity} {item.unit || ''}</p>
+                    <p className={`truncate font-semibold ${complete ? 'text-emerald-700' : 'text-gray-900'}`}>{item.name}</p>
+                    <p className="text-[10px] text-gray-400">Terkirim {delivered} / {item.quantity} {item.unit || ''} {complete ? '• Selesai' : `• Sisa ${remaining}`}</p>
                   </span>
-                </button>
+                  {!complete && (
+                    <NumberInput
+                      value={deliveryQuantities[idx] || 0}
+                      min={0}
+                      max={remaining}
+                      onChange={(value) => setDeliveryQuantity(idx, value)}
+                      aria-label={`Jumlah ${item.name} yang diantar`}
+                      className="w-20 h-8 text-right font-bold"
+                    />
+                  )}
+                </div>
               );
             })}
           </div>
           <button
             onClick={() => setPickerStep(false)}
-            disabled={selectedItemIdx.size === 0}
+            disabled={deliveryItems.length === 0}
             className="w-full flex items-center justify-center gap-1.5 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-lg text-xs font-bold cursor-pointer"
           >
-            Lanjut ke Cetak ({selectedItemIdx.size} barang)
+            Lanjut ke Cetak ({deliveryItems.length} barang)
           </button>
         </motion.div>
       </div>
