@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { MapPin, RotateCw, Bell, Menu, LogOut, Clock, Coins, Shield, X, AlertTriangle, PackageX, ShoppingBag, Wallet, WifiOff, CloudUpload } from 'lucide-react';
+import { MapPin, RotateCw, Bell, Menu, LogOut, Clock, Coins, Shield, X, AlertTriangle, PackageX, ShoppingBag, Wallet, WifiOff, CloudUpload, Search } from 'lucide-react';
 import { getCurrentSession, getMutationTotals } from '../../lib/cashSession';
 import { useOnlineStatus, usePendingSyncCount } from '../../lib/useOnlineStatus';
 import InstallAppButton from '../shared/InstallAppButton';
@@ -43,8 +43,21 @@ interface HeaderNotification {
   pending?: boolean;
 }
 
+interface HeaderSearchResult {
+  id: string;
+  label: string;
+  sublabel: string;
+  category: string;
+  tab: string;
+}
+
 interface HeaderProps {
   currentTab: string;
+  searchValue?: string;
+  onSearch?: (value: string) => void;
+  searchResults?: HeaderSearchResult[];
+  onSearchResultSelect?: (tab: string) => void;
+  searchPlaceholder?: string;
   onTabChange: (tab: string) => void;
   onSync: () => void;
   currentUser: CurrentUser | null;
@@ -91,6 +104,11 @@ function formatRupiah(n: number): string {
 
 export default function Header({
   currentTab,
+  searchValue = '',
+  onSearch,
+  searchResults = [],
+  onSearchResultSelect,
+  searchPlaceholder = 'Cari...',
   onTabChange,
   onSync,
   currentUser,
@@ -232,15 +250,47 @@ export default function Header({
           </Button>
         )}
         <div className="relative w-full max-w-xs md:max-w-md group">
-          <Button
-                      onClick={() => onTabChange('pos')}
-                      size="lg"
-                      className="w-full sm:w-auto shadow-md shadow-blue-500/15 active:scale-[0.98]"
-                    >
-                      <ShoppingBag className="w-4 h-4" />
-                      <span>Kasir</span>
-                    </Button>
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Input
+              type="text"
+              value={searchValue}
+              onChange={(e) => onSearch?.(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="pl-9 h-10 bg-slate-50 border-slate-200 text-xs text-slate-700 placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-primary/20"
+            />
+          </div>
+
+          {searchResults.length > 0 && onSearchResultSelect && (
+            <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-50 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+              {searchResults.map((result) => (
+                <button
+                  key={result.id}
+                  type="button"
+                  onClick={() => onSearchResultSelect(result.tab)}
+                  className="w-full text-left px-3 py-2.5 border-b border-slate-100 last:border-b-0 hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-700 truncate">{result.label}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{result.sublabel}</p>
+                    </div>
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{result.category}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
+        <Button
+          onClick={() => onTabChange('pos')}
+          size="lg"
+          className="w-full sm:w-auto shadow-md shadow-blue-500/15 active:scale-[0.98]"
+        >
+          <ShoppingBag className="w-4 h-4" />
+          <span>Kasir</span>
+        </Button>
       </div>
 
       {/* Right Tools (Branch, Sync, Notify, Profile) */}

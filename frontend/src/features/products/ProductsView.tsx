@@ -136,10 +136,14 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     setOpnameSubmissions(subs);
   };
 
+  const sortedProducts = [...products].sort((a, b) =>
+    (a.name || '').localeCompare(b.name || '', 'id', { sensitivity: 'base' })
+  );
+
   // ---- Data turunan buat hub Stok ----
-  const lowStockList = products.filter((p) => p.stockStatus === 'Low Stock' || p.stockStatus === 'Out of Stock' || p.stock < 0);
+  const lowStockList = sortedProducts.filter((p) => p.stockStatus === 'Low Stock' || p.stockStatus === 'Out of Stock' || p.stock < 0);
   const pendingOpnameSkus = new Set(opnameSubmissions.filter((s) => s.status === 'Pending').map((s) => s.productSku));
-  const sedangOpnameList = products.filter((p) => pendingOpnameSkus.has(p.sku));
+  const sedangOpnameList = sortedProducts.filter((p) => pendingOpnameSkus.has(p.sku));
   const terlarisList = (() => {
     const now = new Date();
     const qtyBySku = new Map<string, number>();
@@ -196,7 +200,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const categories = ['Semua', ...categoryNames];
 
   // Filters logic
-  const filteredProducts = products.filter((prod) => {
+  const filteredProducts = sortedProducts.filter((prod) => {
     const matchesSearch = prod.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           prod.sku.toLowerCase().includes(searchQuery.toLowerCase());
     
@@ -831,7 +835,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 <Select value={adjustProductSku} onValueChange={setAdjustProductSku}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {products.map(p => (
+                    {sortedProducts.map(p => (
                       <SelectItem key={p.sku} value={p.sku}>{p.name} ({p.sku})</SelectItem>
                     ))}
                   </SelectContent>
@@ -952,7 +956,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
             <Select value={transferSku} onValueChange={setTransferSku}>
               <SelectTrigger><SelectValue placeholder="Pilih produk..." /></SelectTrigger>
               <SelectContent>
-                {products.map((p) => <SelectItem key={p.sku} value={p.sku}>{p.name} ({p.sku})</SelectItem>)}
+                {sortedProducts.map((p) => <SelectItem key={p.sku} value={p.sku}>{p.name} ({p.sku})</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
