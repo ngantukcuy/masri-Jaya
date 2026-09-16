@@ -1316,6 +1316,16 @@ const commitQtyInput = (sku: string) => {
                   className="w-16 bg-white border border-gray-200 rounded p-1 text-right font-bold text-xs"
                 />
               </div>
+              <span className="flex items-center gap-1">
+                {discountMode === 'percent' ? <BadgePercent className="w-4 h-4 text-primary" /> : <Banknote className="w-4 h-4 text-primary" />}
+                Biaya Tambahan
+              </span>
+              <NumberInput
+                  value={discountValue}
+                  max={discountMode === 'percent' ? 100 : undefined}
+                  onChange={(v) => setDiscountValue(v)}
+                  className="w-16 bg-white border border-gray-200 rounded p-1 text-right font-bold text-xs"
+                />
             </div>
             <div className="flex justify-between text-primary font-black text-sm pt-2.5 border-t border-gray-200">
               <span>Total Akhir</span>
