@@ -198,9 +198,8 @@ export default function DashboardView({
     <div className="space-y-6">
       
       {/* Upper Welcome Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 position-center ">
         <div>
-          <div>
                 <Label className="text-[9px]">Dari Tanggal</Label>
                 <Input
                   type="date"
@@ -209,8 +208,6 @@ export default function DashboardView({
                   onChange={(e) => setChartDateFrom(e.target.value)}
                   className="h-8 text-[11px] w-auto"
                 />
-              </div>
-              <div>
                 <Label className="text-[9px]">Sampai Tanggal</Label>
                 <Input
                   type="date"
@@ -220,7 +217,6 @@ export default function DashboardView({
                   onChange={(e) => setChartDateTo(e.target.value)}
                   className="h-8 text-[11px] w-auto"
                 />
-              </div>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <Button
@@ -303,31 +299,6 @@ export default function DashboardView({
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
-            </div>
-
-            {/* Custom chart date range */}
-            <div className="flex items-end gap-2">
-              <div>
-                <Label className="text-[9px]">Dari Tanggal</Label>
-                <Input
-                  type="date"
-                  value={chartDateFrom}
-                  max={chartDateTo}
-                  onChange={(e) => setChartDateFrom(e.target.value)}
-                  className="h-8 text-[11px] w-auto"
-                />
-              </div>
-              <div>
-                <Label className="text-[9px]">Sampai Tanggal</Label>
-                <Input
-                  type="date"
-                  value={chartDateTo}
-                  min={chartDateFrom}
-                  max={toDateInputValue(new Date())}
-                  onChange={(e) => setChartDateTo(e.target.value)}
-                  className="h-8 text-[11px] w-auto"
-                />
-              </div>
             </div>
           </div>
 
