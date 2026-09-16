@@ -47,10 +47,6 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
               <span>{lastOrderDetails.date}</span>
             </div>
             <div className="flex justify-between">
-              <span>WAKTU:</span>
-              <span>{lastOrderDetails.time}</span>
-            </div>
-            <div className="flex justify-between">
               <span>KASIR:</span>
               <span className="font-bold">{lastOrderDetails.cashierName || cashierName || 'Staff Aktif'}</span>
             </div>
@@ -119,6 +115,12 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
               <div className="flex justify-between text-red-600 font-bold">
                 <span>DISKON {lastOrderDetails.discountType === 'fixed' ? '(Rp)' : `(${lastOrderDetails.discountValue || 0}%)`}:</span>
                 <span>-Rp {lastOrderDetails.discount.toLocaleString('id-ID')}</span>
+              </div>
+            )}
+            {lastOrderDetails.additionalFee > 0 && (
+              <div className="flex justify-between font-bold">
+                <span>BIAYA TAMBAHAN:</span>
+                <span>Rp {lastOrderDetails.additionalFee.toLocaleString('id-ID')}</span>
               </div>
             )}
             <div className="flex justify-between font-black text-xs text-foreground pt-2 border-t border-dashed border-border mt-1">

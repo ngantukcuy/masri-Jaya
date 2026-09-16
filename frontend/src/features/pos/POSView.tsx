@@ -167,6 +167,7 @@ export default function POSView({
   const [cart, setCart] = useState<CartItem[]>([]);
   const [editingQty, setEditingQty] = useState<Record<string, string>>({});
   const [discountMode, setDiscountMode] = useState<'percent' | 'fixed'>('percent');
+  const [additionalFee, setAdditionalFee] = useState<number>(0);
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [fulfillmentMethod, setFulfillmentMethod] = useState<'Pickup' | 'Delivery'>('Pickup');
   const [deliveryAddress, setDeliveryAddress] = useState<string>('');
@@ -489,7 +490,7 @@ const commitQtyInput = (sku: string) => {
 
     if (nextState) {
       const persistedState = readPersistedPOSState();
-      if (persistedState.cart.length > 0 || persistedState.selectedCustomerId || persistedState.discountValue > 0 || persistedState.paymentMethod !== 'Cash') {
+      if (persistedState.cart.length > 0 || persistedState.selectedCustomerId || persistedState.discountValue > 0 || persistedState.additionalFee > 0 || persistedState.paymentMethod !== 'Cash') {
         setCart(persistedState.cart);
         const restoredCustomer = persistedState.selectedCustomerId
           ? customers.find((customer) => customer.id === persistedState.selectedCustomerId)
@@ -499,6 +500,7 @@ const commitQtyInput = (sku: string) => {
         }
         setDiscountMode(persistedState.discountMode);
         setDiscountValue(persistedState.discountValue);
+        setAdditionalFee(persistedState.additionalFee);
         setPaymentMethod(persistedState.paymentMethod);
         setFulfillmentMethod(persistedState.fulfillmentMethod);
         setDeliveryAddress(persistedState.deliveryAddress);
@@ -522,7 +524,7 @@ const commitQtyInput = (sku: string) => {
   const discountAmount = discountMode === 'fixed'
     ? Math.min(discountValue, subtotal)
     : subtotal * (Math.min(100, Math.max(0, discountValue)) / 100);
-  const totalAmount = subtotal - discountAmount;
+  const totalAmount = subtotal - discountAmount + additionalFee;
 
   // Checkout Execution — klik "Bayar & Cetak Struk" cuma membuka pemilihan
   // metode pembayaran dulu; alur per-metode (nominal tunai, QRIS, cicil)
@@ -685,6 +687,7 @@ const commitQtyInput = (sku: string) => {
         discountAmount,
         discountType: discountMode,
         discountValue,
+        additionalFee,
         fulfillmentMethod,
         deliveryAddress: fulfillmentMethod === 'Delivery' ? deliveryAddress : undefined,
         cashReceived: methodUsed === 'Cash' ? paymentDetails.cashReceived : undefined,
@@ -706,6 +709,7 @@ const commitQtyInput = (sku: string) => {
       discount: discountAmount,
       discountType: discountMode,
       discountValue,
+      additionalFee,
       fulfillmentMethod,
       deliveryAddress,
       total: totalAmount,
@@ -736,6 +740,7 @@ const commitQtyInput = (sku: string) => {
     setCart([]);
     setDiscountMode('percent');
     setDiscountValue(0);
+    setAdditionalFee(0);
     setFulfillmentMethod('Pickup');
     setDeliveryAddress('');
     setShowQRISModal(false);
@@ -867,13 +872,14 @@ const commitQtyInput = (sku: string) => {
       selectedCustomerId: selectedCustomer.id,
       discountMode,
       discountValue,
+      additionalFee,
       paymentMethod,
       fulfillmentMethod,
       deliveryAddress
     };
 
     writePersistedPOSState(payload);
-  }, [cart, discountMode, discountValue, isCartPersistenceEnabled, paymentMethod, fulfillmentMethod, deliveryAddress, selectedCustomer.id]);
+  }, [cart, discountMode, discountValue, additionalFee, isCartPersistenceEnabled, paymentMethod, fulfillmentMethod, deliveryAddress, selectedCustomer.id]);
 
   return (
     <div className="flex flex-col gap-4 h-screen p-4 md:p-6 relative">
@@ -1316,16 +1322,17 @@ const commitQtyInput = (sku: string) => {
                   className="w-16 bg-white border border-gray-200 rounded p-1 text-right font-bold text-xs"
                 />
               </div>
+            </div>
+            <div className="flex justify-between items-center text-gray-500">
               <span className="flex items-center gap-1">
-                {discountMode === 'percent' ? <BadgePercent className="w-4 h-4 text-primary" /> : <Banknote className="w-4 h-4 text-primary" />}
+                <Banknote className="w-4 h-4 text-primary" />
                 Biaya Tambahan
               </span>
               <NumberInput
-                  value={discountValue}
-                  max={discountMode === 'percent' ? 100 : undefined}
-                  onChange={(v) => setDiscountValue(v)}
-                  className="w-16 bg-white border border-gray-200 rounded p-1 text-right font-bold text-xs"
-                />
+                value={additionalFee}
+                onChange={(value) => setAdditionalFee(Math.max(0, value))}
+                className="w-24 bg-white border border-gray-200 rounded p-1 text-right font-bold text-xs"
+              />
             </div>
             <div className="flex justify-between text-primary font-black text-sm pt-2.5 border-t border-gray-200">
               <span>Total Akhir</span>

@@ -113,6 +113,9 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
       : `DISKON (${orderDetails.discountValue || 0}%):`;
     row(label, `-${rupiah(orderDetails.discount)}`, false, 7.5);
   }
+  if (orderDetails.additionalFee > 0) {
+    row('BIAYA TAMBAHAN:', rupiah(orderDetails.additionalFee), false, 7.5);
+  }
   y += 0.5;
   doc.setLineWidth(0.3);
   doc.line(marginX, y, pageWidth - marginX, y);
@@ -199,6 +202,7 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   if (storeProfile?.phone) center(`Tel: ${storeProfile.phone}`, 7);
   y += 1;
   dashedLine();
+  dashedLine();
 
   row('INVOICE:', invoice.invoiceNumber, true, 7.5);
   row('TANGGAL:', invoice.date, false, 7.5);
@@ -241,6 +245,9 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
       ? 'DISKON (Rp):'
       : `DISKON (${invoice.discountValue || 0}%):`;
     row(label, `-${rupiah(invoice.discountAmount)}`, false, 7.5);
+  }
+  if ((invoice.additionalFee ?? 0) > 0) {
+    row('BIAYA TAMBAHAN:', rupiah(invoice.additionalFee ?? 0), false, 7.5);
   }
   y += 0.5;
   doc.setLineWidth(0.3);
@@ -375,8 +382,8 @@ export async function generateDeliveryNotePDF(
   doc.line(marginX, y, marginX + boxWidth, y);
   doc.line(marginX + boxWidth + 8, y, marginX + boxWidth + 8 + boxWidth, y);
   y += 4;
-  doc.text('( Nama & Tanggal )', marginX, y);
-  doc.text('( Nama & Tanggal )', marginX + boxWidth + 8, y);
+  doc.text('( Nama )', marginX, y);
+  doc.text('( Nama )', marginX + boxWidth + 8, y);
 
   await savePdfDoc(doc, `SuratJalan_${invoice.invoiceNumber}.pdf`);
 }
