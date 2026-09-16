@@ -60,7 +60,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
         setDeliveryQuantities((quantities) => ({ ...quantities, [idx]: 0 }));
       } else {
         next.add(idx);
-        setDeliveryQuantities((quantities) => ({ ...quantities, [idx]: quantities[idx] || 1 }));
+        setDeliveryQuantities((quantities) => ({ ...quantities, [idx]: quantities[idx] || 0 }));
       }
       return next;
     });
@@ -74,7 +74,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
     setSelectedItemIdx(selectAll ? new Set(available.map(({ idx }) => idx)) : new Set());
     setDeliveryQuantities((quantities) => {
       const next = { ...quantities };
-      available.forEach(({ idx, remaining }) => { next[idx] = selectAll ? quantities[idx] || 1 : 0; });
+      available.forEach(({ idx }) => { next[idx] = selectAll ? quantities[idx] || 0 : 0; });
       return next;
     });
   };
@@ -82,7 +82,11 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
   const deliveryItems =
     docType === 'delivery'
       ? invoice.items
-        .map((item, idx) => ({ ...item, quantity: deliveryQuantities[idx] || 0, sourceIndex: idx }))
+        .map((item, idx) => ({
+          ...item,
+          quantity: deliveryQuantities[idx] || (item.quantity === 1 && selectedItemIdx.has(idx) ? 1 : 0),
+          sourceIndex: idx,
+        }))
         .filter((item) => selectedItemIdx.has(item.sourceIndex) && item.quantity > 0)
       : invoice.items;
   const printableInvoice: SalesInvoice = docType === 'delivery' ? { ...invoice, items: deliveryItems } : invoice;
@@ -214,7 +218,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white rounded-2xl max-w-sm w-full p-6 border border-gray-200 shadow-2xl space-y-4 font-mono text-xs text-gray-700 relative overflow-hidden print:p-0 print:shadow-none print:border-none print:static"
+        className="receipt-print bg-white rounded-2xl max-w-sm w-full p-6 border border-gray-200 shadow-2xl space-y-4 font-mono text-xs text-gray-700 relative overflow-hidden print:p-0 print:shadow-none print:border-none print:static"
       >
         <div className={`transition-all duration-500 ${isPrintingAnim ? 'animate-pulse scale-[0.99] border-t-4 border-blue-600' : ''}`}>
           <div className="text-center border-b border-dashed border-gray-300 pb-4">

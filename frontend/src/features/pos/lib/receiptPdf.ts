@@ -18,7 +18,50 @@ interface StoreProfileFull extends StoreProfileLite {
 // The PDF uses the same rendered receipt content as ReceiptModal so the
 // downloaded/printed PDF cannot drift from the on-screen receipt styling.
 export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreProfileLite | undefined, cashierName: string | undefined) {
-  const receiptElement = document.querySelector<HTMLElement>('[data-receipt-content="true"]');
+  // ReceiptModal is a browser DOM surface and can be hidden behind the dialog
+  // portal when html2canvas runs, which produces a valid but white PDF. Use
+  // the deterministic invoice renderer for the downloadable receipt instead.
+  const invoice: SalesInvoice = {
+    invoiceNumber: orderDetails.invoice,
+    customerName: orderDetails.customerName,
+    date: orderDetails.date,
+    items: orderDetails.items.map((item: any) => {
+      const originalPrice = item.customPrice || (item.selectedPriceType === 'retail'
+        ? item.product.retailPrice
+        : item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice : item.product.projectPrice);
+      return {
+        sku: item.product.sku,
+        name: item.product.name,
+        quantity: item.quantity,
+        price: item.bonus ? 0 : originalPrice,
+        originalPrice,
+        unit: item.product.unit,
+        bonus: item.bonus,
+      };
+    }),
+    total: orderDetails.total,
+    paymentMethod: orderDetails.paymentMethod,
+    subtotal: orderDetails.subtotal,
+    discountAmount: orderDetails.discount,
+    discountType: orderDetails.discountType,
+    discountValue: orderDetails.discountValue,
+    additionalFees: orderDetails.additionalFees,
+    additionalFeeName: orderDetails.additionalFeeName,
+    additionalFee: orderDetails.additionalFee,
+    fulfillmentMethod: orderDetails.fulfillmentMethod,
+    deliveryAddress: orderDetails.deliveryAddress,
+    cashReceived: orderDetails.cashReceived,
+    changeAmount: orderDetails.changeAmount,
+    splitPaidAmount: orderDetails.splitPaidAmount,
+    splitRemainingDebt: orderDetails.splitRemainingDebt,
+    paymentAccountName: orderDetails.transferAccount?.name,
+    paymentAccountNumber: orderDetails.transferAccount?.accountNumber,
+    paymentAccountHolder: orderDetails.transferAccount?.holderName,
+  };
+  await generateInvoiceReceiptPDF(invoice, storeProfile, cashierName);
+  return;
+
+  const receiptElement = document.querySelector<HTMLElement>('[data-receipt-content="true"]') as HTMLElement;
   if (!receiptElement) {
     throw new Error('Tampilan struk belum tersedia untuk dibuat menjadi PDF.');
   }
@@ -82,10 +125,9 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
   }
   const pageWidth = 80;
   const pixelData = canvas.getContext('2d')?.getImageData(0, 0, canvas.width, canvas.height).data;
-  const hasVisibleContent = pixelData
-    ? Array.from({ length: Math.floor(pixelData.length / 4) }, (_, index) => index * 4)
-      .some((index) => pixelData[index] < 245 || pixelData[index + 1] < 245 || pixelData[index + 2] < 245)
-    : false;
+  const pixels = pixelData ?? new Uint8ClampedArray();
+  const hasVisibleContent = pixels.length > 0 && Array.from({ length: Math.floor(pixels.length / 4) }, (_, index) => index * 4)
+    .some((index) => pixels[index] < 245 || pixels[index + 1] < 245 || pixels[index + 2] < 245);
   if (!hasVisibleContent) {
     console.warn('[receiptPdf] Snapshot struk kosong, memakai fallback PDF teks.');
     const fallbackInvoice: SalesInvoice = {
