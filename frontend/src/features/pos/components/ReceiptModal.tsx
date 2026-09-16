@@ -75,7 +75,9 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
           {/* Items breaking list */}
           <div className="border-t border-b border-dashed border-border py-3 space-y-2">
             {lastOrderDetails.items.map((item: any, idx: number) => {
-              const price = typeof item.customPrice === 'number' && item.customPrice > 0
+              const price = item.bonus
+                ? 0
+                : typeof item.customPrice === 'number' && item.customPrice > 0
                 ? item.customPrice
                 : item.selectedPriceType === 'retail' ? item.product.retailPrice :
                   item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice :

@@ -19,7 +19,8 @@ import {
   Play,
   X,
   Package,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Gift
 } from 'lucide-react';
 import { Product, Customer, SalesInvoice, Printer, BankAccount } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -64,6 +65,7 @@ const GENERIC_CUSTOMER_ID = 'CUST-01';
  * selectedPriceType (kept for carts/invoices persisted before per-line
  * price editing existed). */
 const getCartItemPrice = (item: CartItem) => {
+  if (item.bonus) return 0;
   if (typeof item.customPrice === 'number' && item.customPrice > 0) return item.customPrice;
   return item.selectedPriceType === 'retail' ? item.product.retailPrice :
          item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice :
@@ -465,6 +467,12 @@ const commitQtyInput = (sku: string) => {
   // Delete from cart
   const handleDeleteCartItem = (sku: string) => {
     setCart(cart.filter(item => item.product.sku !== sku));
+  };
+
+  const handleToggleBonus = (sku: string) => {
+    setCart((currentCart) => currentCart.map((item) =>
+      item.product.sku === sku ? { ...item, bonus: !item.bonus } : item
+    ));
   };
 
   const handleToggleCartPersistence = () => {
@@ -1173,6 +1181,7 @@ const commitQtyInput = (sku: string) => {
                         value={price}
                         min={minPrice}
                         max={maxPrice}
+                        disabled={item.bonus}
                         onChange={(v) => {
                           const updated = cart.map(it => it.product.sku === item.product.sku ? { ...it, customPrice: v } : it);
                           setCart(updated);
@@ -1183,8 +1192,8 @@ const commitQtyInput = (sku: string) => {
                     </div>
                   </div>
 
-                  {/* Quantity control */}
-<div className="flex items-center justify-between pt-1">
+                  {/* Quantity and bonus controls */}
+<div className="flex items-center justify-between gap-2 pt-1">
   <div className="flex items-center gap-1 border border-gray-200 bg-white rounded-lg p-1">
     <Button
       variant="ghost"
@@ -1216,6 +1225,20 @@ const commitQtyInput = (sku: string) => {
       className="w-6 h-6 hover:bg-gray-100"
     >
       <Plus className="w-3.5 h-3.5 text-gray-500" />
+    </Button>
+  </div>
+  <div className="flex items-center gap-1.5">
+    <Gift className={`w-3.5 h-3.5 ${item.bonus ? 'text-amber-600' : 'text-gray-400'}`} />
+    <span className={`text-[10px] font-bold ${item.bonus ? 'text-amber-700' : 'text-gray-500'}`}>Bonus</span>
+    <Button
+      type="button"
+      variant={item.bonus ? 'default' : 'outline'}
+      size="sm"
+      onClick={() => handleToggleBonus(item.product.sku)}
+      aria-label={`${item.bonus ? 'Matikan' : 'Aktifkan'} bonus untuk ${item.product.name}`}
+      className={`h-6 px-2 text-[9px] font-black uppercase ${item.bonus ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'text-gray-500'}`}
+    >
+      {item.bonus ? 'ON' : 'OFF'}
     </Button>
   </div>
 </div>

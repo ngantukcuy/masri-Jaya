@@ -83,7 +83,9 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
 
   // Items
   orderDetails.items.forEach((item: any) => {
-    const price = typeof item.customPrice === 'number' && item.customPrice > 0
+    const price = item.bonus
+      ? 0
+      : typeof item.customPrice === 'number' && item.customPrice > 0
       ? item.customPrice
       : item.selectedPriceType === 'retail' ? item.product.retailPrice :
         item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice :

@@ -12,6 +12,7 @@ export interface CartItem {
    * carts / invoices from before this field existed).
    */
   customPrice?: number;
+  bonus?: boolean;
   notes: string;
 }
 
