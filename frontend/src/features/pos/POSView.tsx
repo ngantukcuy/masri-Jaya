@@ -167,6 +167,7 @@ export default function POSView({
   const [cart, setCart] = useState<CartItem[]>([]);
   const [editingQty, setEditingQty] = useState<Record<string, string>>({});
   const [discountMode, setDiscountMode] = useState<'percent' | 'fixed'>('percent');
+  const [additionalFeeName, setAdditionalFeeName] = useState<string>('');
   const [additionalFee, setAdditionalFee] = useState<number>(0);
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [fulfillmentMethod, setFulfillmentMethod] = useState<'Pickup' | 'Delivery'>('Pickup');
@@ -490,7 +491,7 @@ const commitQtyInput = (sku: string) => {
 
     if (nextState) {
       const persistedState = readPersistedPOSState();
-      if (persistedState.cart.length > 0 || persistedState.selectedCustomerId || persistedState.discountValue > 0 || persistedState.additionalFee > 0 || persistedState.paymentMethod !== 'Cash') {
+      if (persistedState.cart.length > 0 || persistedState.selectedCustomerId || persistedState.discountValue > 0 || persistedState.additionalFee > 0 || persistedState.additionalFeeName || persistedState.paymentMethod !== 'Cash') {
         setCart(persistedState.cart);
         const restoredCustomer = persistedState.selectedCustomerId
           ? customers.find((customer) => customer.id === persistedState.selectedCustomerId)
@@ -500,6 +501,7 @@ const commitQtyInput = (sku: string) => {
         }
         setDiscountMode(persistedState.discountMode);
         setDiscountValue(persistedState.discountValue);
+        setAdditionalFeeName(persistedState.additionalFeeName);
         setAdditionalFee(persistedState.additionalFee);
         setPaymentMethod(persistedState.paymentMethod);
         setFulfillmentMethod(persistedState.fulfillmentMethod);
@@ -687,6 +689,7 @@ const commitQtyInput = (sku: string) => {
         discountAmount,
         discountType: discountMode,
         discountValue,
+        additionalFeeName,
         additionalFee,
         fulfillmentMethod,
         deliveryAddress: fulfillmentMethod === 'Delivery' ? deliveryAddress : undefined,
@@ -709,6 +712,7 @@ const commitQtyInput = (sku: string) => {
       discount: discountAmount,
       discountType: discountMode,
       discountValue,
+      additionalFeeName,
       additionalFee,
       fulfillmentMethod,
       deliveryAddress,
@@ -740,6 +744,7 @@ const commitQtyInput = (sku: string) => {
     setCart([]);
     setDiscountMode('percent');
     setDiscountValue(0);
+    setAdditionalFeeName('');
     setAdditionalFee(0);
     setFulfillmentMethod('Pickup');
     setDeliveryAddress('');
@@ -872,6 +877,7 @@ const commitQtyInput = (sku: string) => {
       selectedCustomerId: selectedCustomer.id,
       discountMode,
       discountValue,
+      additionalFeeName,
       additionalFee,
       paymentMethod,
       fulfillmentMethod,
@@ -879,7 +885,7 @@ const commitQtyInput = (sku: string) => {
     };
 
     writePersistedPOSState(payload);
-  }, [cart, discountMode, discountValue, additionalFee, isCartPersistenceEnabled, paymentMethod, fulfillmentMethod, deliveryAddress, selectedCustomer.id]);
+  }, [cart, discountMode, discountValue, additionalFeeName, additionalFee, isCartPersistenceEnabled, paymentMethod, fulfillmentMethod, deliveryAddress, selectedCustomer.id]);
 
   return (
     <div className="flex flex-col gap-4 h-screen p-4 md:p-6 relative">
@@ -1328,11 +1334,22 @@ const commitQtyInput = (sku: string) => {
                 <Banknote className="w-4 h-4 text-primary" />
                 Biaya Tambahan
               </span>
-              <NumberInput
-                value={additionalFee}
-                onChange={(value) => setAdditionalFee(Math.max(0, value))}
-                className="w-24 bg-white border border-gray-200 rounded p-1 text-right font-bold text-xs"
-              />
+              <div className="flex items-center gap-1">
+                <Input
+                  value={additionalFeeName}
+                  onChange={(event) => setAdditionalFeeName(event.target.value)}
+                  placeholder="Nama biaya"
+                  aria-label="Nama biaya tambahan"
+                  className="w-28 h-7 bg-white border border-gray-200 rounded p-1 text-xs"
+                />
+                <NumberInput
+                  value={additionalFee}
+                  onChange={(value) => setAdditionalFee(Math.max(0, value))}
+                  placeholder="Nominal"
+                  aria-label="Nominal biaya tambahan"
+                  className="w-24 bg-white border border-gray-200 rounded p-1 text-right font-bold text-xs"
+                />
+              </div>
             </div>
             <div className="flex justify-between text-primary font-black text-sm pt-2.5 border-t border-gray-200">
               <span>Total Akhir</span>

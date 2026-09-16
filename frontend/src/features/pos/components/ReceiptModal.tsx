@@ -119,7 +119,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
             )}
             {lastOrderDetails.additionalFee > 0 && (
               <div className="flex justify-between font-bold">
-                <span>BIAYA TAMBAHAN:</span>
+                <span>{lastOrderDetails.additionalFeeName || 'BIAYA TAMBAHAN'}:</span>
                 <span>Rp {lastOrderDetails.additionalFee.toLocaleString('id-ID')}</span>
               </div>
             )}

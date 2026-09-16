@@ -27,6 +27,7 @@ export interface SalesInvoice {
   /** Raw value the cashier entered — a percent (0-100) or a flat Rupiah amount, depending on discountType. */
   discountValue?: number;
   /** Fixed Rupiah fee added after the discount. */
+  additionalFeeName?: string;
   additionalFee?: number;
   fulfillmentMethod?: 'Pickup' | 'Delivery';
   /** Only meaningful when fulfillmentMethod is 'Delivery'. */

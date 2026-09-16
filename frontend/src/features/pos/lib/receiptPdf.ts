@@ -114,7 +114,7 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
     row(label, `-${rupiah(orderDetails.discount)}`, false, 7.5);
   }
   if (orderDetails.additionalFee > 0) {
-    row('BIAYA TAMBAHAN:', rupiah(orderDetails.additionalFee), false, 7.5);
+    row(`${orderDetails.additionalFeeName || 'BIAYA TAMBAHAN'}:`, rupiah(orderDetails.additionalFee), false, 7.5);
   }
   y += 0.5;
   doc.setLineWidth(0.3);
@@ -247,7 +247,7 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
     row(label, `-${rupiah(invoice.discountAmount)}`, false, 7.5);
   }
   if ((invoice.additionalFee ?? 0) > 0) {
-    row('BIAYA TAMBAHAN:', rupiah(invoice.additionalFee ?? 0), false, 7.5);
+    row(`${invoice.additionalFeeName || 'BIAYA TAMBAHAN'}:`, rupiah(invoice.additionalFee ?? 0), false, 7.5);
   }
   y += 0.5;
   doc.setLineWidth(0.3);
