@@ -1098,7 +1098,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
               />
             </div>
 
-            <div className="flex items-center gap-8 w-full sm:w-auto">
+            <div className="flex items-center gap-2 w-full sm:w-auto top-3 "> 
               <Button
                 variant={showFiltersDrawer ? 'default' : 'outline'}
                 size="sm"
