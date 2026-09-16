@@ -30,7 +30,10 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="receipt-print max-w-sm p-6 font-mono text-xs text-muted-foreground print:p-0 print:shadow-none print:border-none print:static">
         {/* Printing paper feed animation wrapper */}
-        <div className={`transition-all duration-500 ${isPrintingAnim ? 'animate-pulse scale-[0.99] border-t-4 border-primary' : ''}`}>
+          <div
+            data-receipt-content="true"
+            className={`transition-all duration-500 ${isPrintingAnim ? 'animate-pulse scale-[0.99] border-t-4 border-primary' : ''}`}
+          >
           <div className="text-center border-b border-dashed border-border pb-4">
             <span className="text-lg font-black text-foreground tracking-tight block">{storeName}</span>
             {storeProfile?.address && <span className="text-[10px] text-muted-foreground block mt-0.5">{storeProfile.address}</span>}
@@ -164,7 +167,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
         </div>
 
         {/* Actions Footer - Hidden during print */}
-        <div className="pt-4 border-t border-border space-y-1.5 font-sans print:hidden">
+        <div data-receipt-actions="true" className="pt-4 border-t border-border space-y-1.5 font-sans print:hidden">
           {isPrintingAnim && activePrinterName && (
             <p className="text-center text-[9px] text-muted-foreground">Mengirim ke {activePrinterName}...</p>
           )}

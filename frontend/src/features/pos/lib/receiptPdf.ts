@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { SalesInvoice } from '../../../types';
 import { savePdfDoc } from '../../../lib/savePdf';
 
@@ -14,140 +15,25 @@ interface StoreProfileFull extends StoreProfileLite {
   taxId?: string;
 }
 
-// Kept loose (any) to match the shape POSView builds lastOrderDetails in —
-// see executeFinalCheckout in POSView.tsx.
+// The PDF uses the same rendered receipt content as ReceiptModal so the
+// downloaded/printed PDF cannot drift from the on-screen receipt styling.
 export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreProfileLite | undefined, cashierName: string | undefined) {
-  const storeName = storeProfile?.storeName || 'Toko Saya';
-  const pageWidth = 80; // mm — matches common 80mm thermal paper width
-  const marginX = 5;
-  const contentWidth = pageWidth - marginX * 2;
-
-  // Estimate page height from content so the PDF isn't mostly blank space,
-  // then create the doc once we know it.
-  const lineHeight = 4.2;
-  const itemLines = orderDetails.items.length * 2; // name line + qty/price line
-  const baseLines = 26; // header, meta rows, totals, footer, spacing
-  const estimatedHeight = Math.max(120, (baseLines + itemLines) * lineHeight);
-
-  const doc = new jsPDF({ unit: 'mm', format: [pageWidth, estimatedHeight] });
-  let y = 8;
-
-  const center = (text: string, size: number, bold = false) => {
-    doc.setFontSize(size);
-    doc.setFont('courier', bold ? 'bold' : 'normal');
-    doc.text(text, pageWidth / 2, y, { align: 'center' });
-    y += lineHeight;
-  };
-
-  const row = (left: string, right: string, bold = false, size = 8) => {
-    doc.setFontSize(size);
-    doc.setFont('courier', bold ? 'bold' : 'normal');
-    doc.text(left, marginX, y);
-    doc.text(right, pageWidth - marginX, y, { align: 'right' });
-    y += lineHeight;
-  };
-
-  const dashedLine = () => {
-    doc.setLineDashPattern([1, 1], 0);
-    doc.line(marginX, y, pageWidth - marginX, y);
-    doc.setLineDashPattern([], 0);
-    y += lineHeight;
-  };
-
-  const rupiah = (n: number) => `Rp ${Math.round(n).toLocaleString('id-ID')}`;
-
-  // Header
-  center(storeName, 12, true);
-  if (storeProfile?.address) center(storeProfile.address, 7);
-  if (storeProfile?.phone) center(`Tel: ${storeProfile.phone}`, 7);
-  y += 1;
-  dashedLine();
-
-  // Meta
-  row('INVOICE:', orderDetails.invoice, true, 7.5);
-  row('TANGGAL:', orderDetails.date, false, 7.5);
-  row('KASIR:', cashierName || 'Staff Aktif', false, 7.5);
-  dashedLine();
-  
-  row('PELANGGAN:', orderDetails.customerName, false, 7.5);
-  row('METODE:', orderDetails.paymentMethod === 'Cash' ? 'TUNAI' : orderDetails.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : orderDetails.paymentMethod, false, 7.5);
-  if (orderDetails.paymentMethod === 'Transfer' && orderDetails.transferAccount) {
-    row('REKENING:', orderDetails.transferAccount.name, true, 7.5);
-    row('NOMOR:', orderDetails.transferAccount.accountNumber || '-', false, 7.5);
-    if (orderDetails.transferAccount.holderName) row('PEMILIK:', orderDetails.transferAccount.holderName, false, 7.5);
+  const receiptElement = document.querySelector<HTMLElement>('[data-receipt-content="true"]');
+  if (!receiptElement) {
+    throw new Error('Tampilan struk belum tersedia untuk dibuat menjadi PDF.');
   }
-  if (orderDetails.fulfillmentMethod) {
-    row('PENGAMBILAN:', orderDetails.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI', false, 7.5);
-    if (orderDetails.fulfillmentMethod === 'Delivery' && orderDetails.deliveryAddress) {
-      doc.setFontSize(7);
-      doc.setFont('courier', 'normal');
-      const wrapped = doc.splitTextToSize(`Alamat: ${orderDetails.deliveryAddress}`, contentWidth);
-      doc.text(wrapped, marginX, y);
-      y += wrapped.length * lineHeight;
-    }
-  }
-  dashedLine();
 
-  // Items
-  orderDetails.items.forEach((item: any) => {
-    const regularPrice = typeof item.customPrice === 'number' && item.customPrice > 0
-      ? item.customPrice
-      : item.selectedPriceType === 'retail' ? item.product.retailPrice :
-        item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice :
-        item.product.projectPrice;
-    const price = item.bonus ? 0 : regularPrice;
-    doc.setFontSize(7.5);
-    doc.setFont('courier', 'bold');
-    const nameLines = doc.splitTextToSize(item.product.name, contentWidth);
-    doc.text(nameLines, marginX, y);
-    y += nameLines.length * lineHeight;
-    row(`  ${item.quantity} x ${item.bonus ? `${rupiah(regularPrice)} BONUS` : rupiah(price)} (${item.product.unit})`, rupiah(price * item.quantity), false, 7);
+  if (document.fonts?.ready) await document.fonts.ready;
+  const canvas = await html2canvas(receiptElement, {
+    backgroundColor: '#ffffff',
+    scale: 2,
+    useCORS: true,
+    logging: false,
   });
-  dashedLine();
-
-  // Totals
-  row('SUBTOTAL:', rupiah(orderDetails.subtotal), false, 7.5);
-  if (orderDetails.discount > 0) {
-    const label = orderDetails.discountType === 'fixed'
-      ? 'DISKON (Rp):'
-      : `DISKON (${orderDetails.discountValue || 0}%):`;
-    row(label, `-${rupiah(orderDetails.discount)}`, false, 7.5);
-  }
-  const orderFees = orderDetails.additionalFees?.length > 0
-    ? orderDetails.additionalFees
-    : [{ name: orderDetails.additionalFeeName || 'BIAYA TAMBAHAN', amount: orderDetails.additionalFee || 0 }];
-  orderFees.forEach((fee: { name: string; amount: number }) => {
-    if (fee.amount > 0) row(`${fee.name || 'BIAYA TAMBAHAN'}:`, rupiah(fee.amount), false, 7.5);
-  });
-  y += 0.5;
-  doc.setLineWidth(0.3);
-  doc.line(marginX, y, pageWidth - marginX, y);
-  y += lineHeight;
-  row('TOTAL AKHIR:', rupiah(orderDetails.total), true, 9);
-
-  // Same "Tunai Diterima/Kembalian" (Cash) and "Dibayar Sekarang/Sisa
-  // Piutang" (Split) rows already shown in ReceiptModal.tsx — previously
-  // missing here, so the downloaded/printed PDF never showed how much was
-  // actually paid vs. still owed on a split (cicil/DP) transaction.
-  if (orderDetails.paymentMethod === 'Cash' && typeof orderDetails.cashReceived === 'number') {
-    row('TUNAI DITERIMA:', rupiah(orderDetails.cashReceived), false, 7.5);
-    row('KEMBALIAN:', rupiah(orderDetails.changeAmount || 0), true, 7.5);
-  }
-  if (orderDetails.paymentMethod === 'Split' && typeof orderDetails.splitPaidAmount === 'number') {
-    row('DIBAYAR SEKARANG:', rupiah(orderDetails.splitPaidAmount), false, 7.5);
-    row('SISA (PIUTANG):', rupiah(orderDetails.splitRemainingDebt || 0), true, 7.5);
-  }
-  y += 2;
-
-  // if (orderDetails.pointsEarned) {
-  //   center(`+${orderDetails.pointsEarned} Poin Loyalitas`, 7.5, true);
-  // }
-
-  y += 1;
-  dashedLine();
-  center(storeProfile?.receiptNote || `Terima kasih telah berbelanja di ${storeName}!`, 7);
-  
-
+  const pageWidth = 80;
+  const pageHeight = Math.max(40, (canvas.height / canvas.width) * pageWidth);
+  const doc = new jsPDF({ unit: 'mm', format: [pageWidth, pageHeight] });
+  doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, pageHeight);
   await savePdfDoc(doc, `Struk_${orderDetails.invoice}.pdf`);
 }
 
