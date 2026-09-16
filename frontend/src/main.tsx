@@ -1,5 +1,6 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
+import {Capacitor} from '@capacitor/core';
 import App from './App.tsx';
 import { DialogProvider } from './components/shared/DialogProvider.tsx';
 import { ThemeProvider } from './lib/ThemeContext.tsx';
@@ -27,7 +28,17 @@ sessionStorage.removeItem(RELOAD_FLAG);
 // Register the service worker so the browser recognizes this app as an
 // installable PWA (Add to Home Screen / Install app). Registered after
 // load so it never competes with the initial page render for bandwidth.
-if ('serviceWorker' in navigator) {
+//
+// SKIP THIS ENTIRELY when running inside the native Android/iOS app
+// (Capacitor). Terbukti dari debugging: fetch() yang dipanggil DARI DALAM
+// service worker selalu gagal total di WebView Capacitor (walau fetch
+// yang sama dari halaman utama berhasil normal) — begitu SW ini aktif
+// dan mulai meng-intercept request, JS/CSS yang tadinya sudah termuat
+// benar jadi gagal di-refetch, browser dapat balasan error, dan hasilnya
+// layar putih total. Di dalam APK ini juga sama sekali tidak dibutuhkan:
+// semua file sudah ikut ter-bundle langsung di dalam aplikasi, jadi tidak
+// perlu caching lewat service worker supaya bisa jalan offline.
+if ('serviceWorker' in navigator && !Capacitor.isNativePlatform()) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {
       // Non-fatal: the app works fine without an active service worker,

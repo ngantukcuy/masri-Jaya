@@ -4,7 +4,7 @@
 // It deliberately does NOT try to cache/replay API calls (Supabase) — data
 // freshness matters more than offline writes for a POS.
 
-const CACHE_NAME = 'masrijaya-shell-v1';
+const CACHE_NAME = 'masrijaya-shell-v2';
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
@@ -40,7 +40,20 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
         return response;
       })
-      .catch(() => caches.match(request).then((cached) => cached || caches.match('/index.html')))
+      .catch(() => {
+        // SPA-fallback ke index.html HANYA untuk navigasi buka halaman.
+        // Kalau ini dibiarkan berlaku untuk semua request (termasuk file
+        // JS/CSS), request file JS yang gagal/hilang (mis. nama file
+        // hash lama dari build sebelumnya, sudah tidak ada lagi setelah
+        // build baru) akan diam-diam dibalas dengan HTML index.html,
+        // bukan error 404 yang wajar — browser lalu menolaknya dengan
+        // error "Failed to load module script... MIME type text/html",
+        // yang keliatannya seperti app crash jadi layar putih.
+        if (request.mode === 'navigate') {
+          return caches.match('/index.html').then((cached) => cached || Response.error());
+        }
+        return caches.match(request).then((cached) => cached || Response.error());
+      })
   );
 });
 

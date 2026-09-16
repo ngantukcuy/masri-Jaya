@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, MapPin, RotateCw, Bell, Menu, LogOut, Clock, Coins, Shield, X, AlertTriangle, PackageX, ShoppingBag, Wallet, Sun, Moon, WifiOff, CloudUpload } from 'lucide-react';
+import { MapPin, RotateCw, Bell, Menu, LogOut, Clock, Coins, Shield, X, AlertTriangle, PackageX, ShoppingBag, Wallet, Sun, Moon, WifiOff, CloudUpload } from 'lucide-react';
 import { getCurrentSession, getMutationTotals } from '../../lib/cashSession';
 import { useTheme } from '../../lib/ThemeContext';
 import { useOnlineStatus, usePendingSyncCount } from '../../lib/useOnlineStatus';
@@ -11,13 +11,6 @@ import { Badge } from '../ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { cn } from '../../lib/utils';
 
-interface SearchResultItem {
-  id: string;
-  label: string;
-  sublabel: string;
-  category: string;
-  tab: string;
-}
 
 interface HeaderProductLite {
   sku: string;
@@ -52,12 +45,7 @@ interface HeaderNotification {
 
 interface HeaderProps {
   currentTab: string;
-  searchValue?: string;
-  onSearch: (query: string) => void;
-  searchResults?: SearchResultItem[];
-  onSearchResultSelect?: (tab: string) => void;
   onTabChange: (tab: string) => void;
-  searchPlaceholder?: string;
   onSync: () => void;
   currentUser: CurrentUser | null;
   onMenuToggle?: () => void;
@@ -103,12 +91,7 @@ function formatRupiah(n: number): string {
 
 export default function Header({
   currentTab,
-  searchValue,
-  onSearch,
-  searchResults = [],
-  onSearchResultSelect,
   onTabChange,
-  searchPlaceholder,
   onSync,
   currentUser,
   onMenuToggle,
@@ -120,7 +103,6 @@ export default function Header({
   activities = [],
 }: HeaderProps) {
   const { theme, toggleTheme } = useTheme();
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const isOnline = useOnlineStatus();
@@ -155,15 +137,6 @@ export default function Header({
     const session = getCurrentSession();
     setKasLaci(session ? getMutationTotals(session).systemTotal : null);
   }, [showProfileModal]);
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onSearch(e.target.value);
-  };
-
-  const handleResultClick = (tab: string) => {
-    setIsSearchFocused(false);
-    onSearchResultSelect?.(tab);
-  };
 
   const handleSyncClick = () => {
     setSyncing(true);
@@ -230,9 +203,6 @@ export default function Header({
     return list;
   }, [products, customers, activities, currentUser]);
 
-  const defaultPlaceholder = "Cari pesanan, stok bahan, atau pemasok...";
-  const actualPlaceholder = searchPlaceholder || defaultPlaceholder;
-
   const notifIcon = (notif: HeaderNotification) => {
     if (notif.pending) return <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />;
     switch (notif.level) {
@@ -250,49 +220,13 @@ export default function Header({
 
   return (
     <header className="h-16 w-full bg-white/70 backdrop-blur-md border-b border-slate-200/50 sticky top-0 z-40 flex items-center justify-between px-4 md:px-8 shadow-sm">
-      {/* Menu Hamburger for mobile & Search Input */}
+      {/* Menu Hamburger for mobile &*/}
       <div className="flex items-center gap-2 md:gap-6 flex-1 mr-4">
         {onMenuToggle && (
           <Button variant="ghost" size="icon" onClick={onMenuToggle} className="md:hidden text-slate-700 mr-1" aria-label="Buka Menu">
             <Menu className="w-5 h-5" />
           </Button>
         )}
-
-        <div className="relative w-full max-w-xs md:max-w-md group">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors z-10" />
-          <Input
-            type="text"
-            value={searchValue || ''}
-            onChange={handleSearchChange}
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setTimeout(() => setIsSearchFocused(false), 150)}
-            placeholder={actualPlaceholder}
-            className="glass-input rounded-xl pl-11 pr-4 py-2 h-9 text-xs text-slate-900 placeholder-slate-400 border-none"
-          />
-
-          {isSearchFocused && searchValue && (
-            <div className="absolute left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1.5 max-h-80 overflow-y-auto">
-              {searchResults.length === 0 ? (
-                <p className="px-4 py-3 text-[11px] text-slate-400">Tidak ada hasil untuk "{searchValue}"</p>
-              ) : (
-                searchResults.map((result) => (
-                  <button
-                    key={result.id}
-                    type="button"
-                    onMouseDown={() => handleResultClick(result.tab)}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-50 transition-colors flex items-center justify-between gap-2 cursor-pointer"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-800 truncate">{result.label}</p>
-                      <p className="text-[10px] text-slate-400 truncate">{result.sublabel}</p>
-                    </div>
-                    <Badge variant="secondary" className="shrink-0 bg-primary/10 text-primary normal-case">{result.category}</Badge>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
 
         <nav className="hidden lg:flex items-center gap-6 ml-4">
           <Button variant="ghost" onClick={() => onTabChange('pos')} className={navTabCls(currentTab === 'pos')}>
@@ -310,26 +244,6 @@ export default function Header({
       {/* Right Tools (Branch, Sync, Notify, Profile) */}
       <div className="flex items-center gap-2 md:gap-4 shrink-0">
         {/* Store name (real registered store, not a fixed dummy branch label) */}
-        {storeName && (
-          <div className="hidden sm:flex flex-col items-end mr-1">
-            <span className="text-[9px] text-slate-400 uppercase tracking-widest font-bold flex items-center gap-1">
-              <MapPin className="w-3 h-3 text-primary" /> Toko
-            </span>
-            <span className="text-xs font-extrabold text-primary mt-0.5">{storeName}</span>
-          </div>
-        )}
-
-        {/* Dark / Light Theme Toggle */}
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={toggleTheme}
-          className="text-slate-600 bg-white"
-          title={theme === 'dark' ? 'Ganti ke Mode Terang' : 'Ganti ke Mode Gelap'}
-          aria-label="Ganti Tema"
-        >
-          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-        </Button>
 
         {/* Install App (PWA) — hides itself once installed or unsupported */}
         <InstallAppButton compact />
