@@ -233,7 +233,7 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   dashedLine();
 
   row('PELANGGAN:', invoice.customerName, false, 7.5);
-  row('METODE:', invoice.paymentMethod === 'Cash' ? 'TUNAI' : invoice.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : invoice.paymentMethod, false, 7.5);
+  row('PEMBAYARAN:', invoice.paymentMethod === 'Cash' ? 'TUNAI' : invoice.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : invoice.paymentMethod, false, 7.5);
   if (invoice.paymentMethod === 'Transfer' && invoice.paymentAccountName) {
     row('REKENING:', invoice.paymentAccountName, true, 7.5);
     row('NOMOR:', invoice.paymentAccountNumber || '-', false, 7.5);
