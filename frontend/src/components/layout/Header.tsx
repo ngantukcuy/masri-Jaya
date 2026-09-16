@@ -243,17 +243,6 @@ export default function Header({
                       <span>Kasir</span>
                     </Button>
         </div>
-
-        <nav className="hidden lg:flex items-center gap-6 ml-4">
-          <Button
-                      onClick={() => onTabChange('pos')}
-                      size="lg"
-                      className="w-full sm:w-auto shadow-md shadow-blue-500/15 active:scale-[0.98]"
-                    >
-                      <ShoppingBag className="w-4 h-4" />
-                      <span>Kasir</span>
-                    </Button>
-        </nav>
       </div>
 
       {/* Right Tools (Branch, Sync, Notify, Profile) */}
