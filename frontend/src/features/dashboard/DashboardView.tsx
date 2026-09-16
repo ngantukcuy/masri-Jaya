@@ -199,8 +199,9 @@ export default function DashboardView({
       
       {/* Upper Welcome Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 position-center ">
-        <div>
-                <Label className="text-[9px]">Dari Tanggal</Label>
+        <div className="flex items-end gap-3">
+          <div className="flex flex-col gap-1">
+          <Label className="text-[9px]">Dari Tanggal</Label>
                 <Input
                   type="date"
                   value={chartDateFrom}
@@ -208,6 +209,8 @@ export default function DashboardView({
                   onChange={(e) => setChartDateFrom(e.target.value)}
                   className="h-8 text-[11px] w-auto"
                 />
+                </div>
+                <div className="flex flex-col gap-1">
                 <Label className="text-[9px]">Sampai Tanggal</Label>
                 <Input
                   type="date"
@@ -217,7 +220,9 @@ export default function DashboardView({
                   onChange={(e) => setChartDateTo(e.target.value)}
                   className="h-8 text-[11px] w-auto"
                 />
+                </div>
         </div>
+        
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <Button
             onClick={() => onTabChange('pos')}

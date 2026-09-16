@@ -70,7 +70,6 @@ export default function Sidebar({
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'DASHBOARD', icon: LayoutDashboard },
     { id: 'kas-harian', label: 'KAS HARIAN', icon: Wallet },
-    { id: 'pos', label: 'POS KASIR', icon: Calculator },
     { id: 'riwayat-transaksi', label: 'RIWAYAT TRANSAKSI', icon: History },
     { id: 'products', label: 'STOK', icon: Boxes },
     {
