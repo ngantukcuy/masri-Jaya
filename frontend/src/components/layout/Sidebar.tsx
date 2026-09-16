@@ -69,8 +69,9 @@ export default function Sidebar({
   // Deposit, Utang & Piutang, Pembayaran
   const navItems: NavItem[] = [
     { id: 'dashboard', label: 'DASHBOARD', icon: LayoutDashboard },
-    { id: 'kas-harian', label: 'KAS HARIAN', icon: Wallet },
     { id: 'riwayat-transaksi', label: 'RIWAYAT TRANSAKSI', icon: History },
+    { id: 'kas-harian', label: 'KAS HARIAN', icon: Wallet },
+    { id: 'retur', label: 'RETUR', icon: CornerUpLeft },
     { id: 'products', label: 'STOK', icon: Boxes },
     {
       id: 'master-data',
@@ -100,7 +101,6 @@ export default function Sidebar({
   // Fitur tambahan (di luar daftar utama PRD) tetap disediakan agar tidak hilang
   const extraItems: NavItem[] = [
     { id: 'purchase', label: 'PESANAN BARANG', icon: ShoppingCart },
-    { id: 'retur', label: 'RETUR', icon: CornerUpLeft },
     { id: 'toko-digital', label: 'TOKO DIGITAL', icon: Store },
     { id: 'reports', label: 'LAPORAN', icon: FileBarChart2 },
   ];
@@ -192,17 +192,6 @@ export default function Sidebar({
           </Button>
         )}
       </div>
-
-      {/* New Transaction CTA Button (Tasteful Neumorphic Button in Moderation) */}
-      {canStartNewTransaction && (
-        <Button
-          onClick={onNewTransaction}
-          className="mb-6 w-full h-auto neu-btn text-primary py-3 px-4 font-extrabold uppercase tracking-widest text-xs rounded-xl bg-transparent shadow-none hover:bg-transparent"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>Transaksi Baru</span>
-        </Button>
-      )}
 
       {/* Nav Menu */}
       <nav className="flex-1 space-y-1.5 overflow-y-auto pr-1">
