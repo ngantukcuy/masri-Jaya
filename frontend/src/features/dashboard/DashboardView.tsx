@@ -200,8 +200,27 @@ export default function DashboardView({
       {/* Upper Welcome Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">Ringkasan Dasbor</h2>
-          <p className="text-slate-500 text-xs md:text-sm">Pemantauan real-time penjualan kasir, logistik semen, dan analisis profitabilitas cabang.</p>
+          <div>
+                <Label className="text-[9px]">Dari Tanggal</Label>
+                <Input
+                  type="date"
+                  value={chartDateFrom}
+                  max={chartDateTo}
+                  onChange={(e) => setChartDateFrom(e.target.value)}
+                  className="h-8 text-[11px] w-auto"
+                />
+              </div>
+              <div>
+                <Label className="text-[9px]">Sampai Tanggal</Label>
+                <Input
+                  type="date"
+                  value={chartDateTo}
+                  min={chartDateFrom}
+                  max={toDateInputValue(new Date())}
+                  onChange={(e) => setChartDateTo(e.target.value)}
+                  className="h-8 text-[11px] w-auto"
+                />
+              </div>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <Button
