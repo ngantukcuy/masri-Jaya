@@ -233,6 +233,16 @@ export default function Header({
             <Menu className="w-5 h-5" />
           </Button>
         )}
+        <div className="relative w-full max-w-xs md:max-w-md group">
+          <Button
+                      onClick={() => onTabChange('pos')}
+                      size="lg"
+                      className="w-full sm:w-auto shadow-md shadow-blue-500/15 active:scale-[0.98]"
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                      <span>Kasir</span>
+                    </Button>
+        </div>
 
         <nav className="hidden lg:flex items-center gap-6 ml-4">
           <Button
