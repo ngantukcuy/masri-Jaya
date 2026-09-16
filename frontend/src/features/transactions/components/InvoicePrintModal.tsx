@@ -176,6 +176,10 @@ export default function InvoicePrintModal({ invoice, docType, onClose, storeProf
               <span>{printableInvoice.date}</span>
             </div>
             <div className="flex justify-between">
+              <span>KASIR:</span>
+              <span className="font-bold">{cashierName || 'Staff Aktif'}</span>
+            </div>
+            <div className="flex justify-between">
               <span>PELANGGAN:</span>
               <span className="font-bold">{printableInvoice.customerName}</span>
             </div>
@@ -281,7 +285,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, storeProf
             {docType === 'invoice' ? (
               <>
                 <p>{storeProfile?.receiptNote || `Terima kasih telah berbelanja di ${storeName}!`}</p>
-                <p className="mt-1">Kasir: {cashierName || 'Staff Aktif'}</p>
+                
               </>
             ) : (
               <p>No: SJ-{printableInvoice.invoiceNumber}</p>

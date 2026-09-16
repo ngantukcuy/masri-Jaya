@@ -122,11 +122,6 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-.dark body {
-  background: linear-gradient(135deg, #0a0f1a 0%, #0f1b30 50%, #0d1420 100%) !important;
-  color: #f1f5f9 !important;
-}
-
 /* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 6px;

@@ -659,7 +659,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
           {/* Left: Pengaturan Stok */}
           <div className="lg:col-span-5 space-y-5">
             <div>
-              <h3 className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider mb-3">Pengaturan Stok</h3>
               <div className="space-y-3">
                 <Card
                   onClick={() => setStokView('list')}
@@ -681,10 +680,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 >
                   <div className="w-11 h-11 rounded-xl bg-pink-50 flex items-center justify-center shrink-0">
                     <Boxes className="w-5 h-5 text-pink-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-extrabold text-sm text-foreground">Stok Pemasok</p>
-                    <p className="text-xs text-muted-foreground">Stok yang ada pada pemasok (PO belum diterima)</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto shrink-0" />
                 </Card>
@@ -709,10 +704,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 >
                   <div className="w-11 h-11 rounded-xl bg-cyan-50 flex items-center justify-center shrink-0">
                     <ChevronRight className="w-5 h-5 text-cyan-600 rotate-45" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-extrabold text-sm text-foreground">Transfer Stok</p>
-                    <p className="text-xs text-muted-foreground">Transfer stok dari lokasi SKU satu ke lokasi SKU lain.</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto shrink-0" />
                 </Card>
@@ -994,10 +985,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       </Button>
       {/* Title Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-foreground tracking-tight">Bahan Bangunan &amp; Inventori</h2>
-          <p className="text-muted-foreground text-sm">Tinjau daftar bahan bangunan, nomor SKU, pemetaan barcode, dan lokasi fisik gudang.</p>
-        </div>
+       
         <div className="flex gap-2">
           {can('manage_product_add') && (
           <Button onClick={openCreateProductModal} size="lg">
