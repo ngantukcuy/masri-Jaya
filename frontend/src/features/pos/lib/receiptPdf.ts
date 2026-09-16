@@ -81,6 +81,48 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
     }
   }
   const pageWidth = 80;
+  const pixelData = canvas.getContext('2d')?.getImageData(0, 0, canvas.width, canvas.height).data;
+  const hasVisibleContent = pixelData
+    ? Array.from({ length: Math.floor(pixelData.length / 4) }, (_, index) => index * 4)
+      .some((index) => pixelData[index] < 245 || pixelData[index + 1] < 245 || pixelData[index + 2] < 245)
+    : false;
+  if (!hasVisibleContent) {
+    console.warn('[receiptPdf] Snapshot struk kosong, memakai fallback PDF teks.');
+    const fallbackInvoice: SalesInvoice = {
+      invoiceNumber: orderDetails.invoice,
+      customerName: orderDetails.customerName,
+      date: orderDetails.date,
+      items: orderDetails.items.map((item: any) => ({
+        sku: item.product.sku,
+        name: item.product.name,
+        quantity: item.quantity,
+        price: item.bonus ? 0 : (item.customPrice || (item.selectedPriceType === 'retail' ? item.product.retailPrice : item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice : item.product.projectPrice)),
+        originalPrice: item.customPrice || (item.selectedPriceType === 'retail' ? item.product.retailPrice : item.selectedPriceType === 'wholesale' ? item.product.wholesalePrice : item.product.projectPrice),
+        unit: item.product.unit,
+        bonus: item.bonus,
+      })),
+      total: orderDetails.total,
+      paymentMethod: orderDetails.paymentMethod,
+      subtotal: orderDetails.subtotal,
+      discountAmount: orderDetails.discount,
+      discountType: orderDetails.discountType,
+      discountValue: orderDetails.discountValue,
+      additionalFees: orderDetails.additionalFees,
+      additionalFeeName: orderDetails.additionalFeeName,
+      additionalFee: orderDetails.additionalFee,
+      fulfillmentMethod: orderDetails.fulfillmentMethod,
+      deliveryAddress: orderDetails.deliveryAddress,
+      cashReceived: orderDetails.cashReceived,
+      changeAmount: orderDetails.changeAmount,
+      splitPaidAmount: orderDetails.splitPaidAmount,
+      splitRemainingDebt: orderDetails.splitRemainingDebt,
+      paymentAccountName: orderDetails.transferAccount?.name,
+      paymentAccountNumber: orderDetails.transferAccount?.accountNumber,
+      paymentAccountHolder: orderDetails.transferAccount?.holderName,
+    };
+    await generateInvoiceReceiptPDF(fallbackInvoice, storeProfile, cashierName);
+    return;
+  }
   const pageHeight = Math.max(40, (canvas.height / canvas.width) * pageWidth);
   const doc = new jsPDF({ unit: 'mm', format: [pageWidth, pageHeight] });
   doc.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, pageHeight);

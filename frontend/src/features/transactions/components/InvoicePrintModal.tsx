@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Printer, FileDown, Truck, Store, X, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Printer, FileDown, Truck, Store, X, CheckCircle2, ArrowLeft, Square, CheckSquare } from 'lucide-react';
 import { motion } from 'motion/react';
 import { SalesInvoice } from '../../../types';
 import { generateInvoiceReceiptPDF, generateDeliveryNotePDF } from '../../pos/lib/receiptPdf';
@@ -39,6 +39,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
   const [deliveryQuantities, setDeliveryQuantities] = useState<Record<number, number>>(
     () => Object.fromEntries(invoice.items.map((item, idx) => [idx, 0]))
   );
+  const [selectedItemIdx, setSelectedItemIdx] = useState<Set<number>>(new Set());
   const deliveryRecordedRef = useRef(false);
   const [pickerStep, setPickerStep] = useState(docType === 'delivery');
 
@@ -48,11 +49,41 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
     setDeliveryQuantities((prev) => ({ ...prev, [idx]: Math.min(remaining, Math.max(0, Math.round(value))) }));
   };
 
+  const toggleItem = (idx: number) => {
+    const delivered = invoice.items[idx].deliveredQuantity || 0;
+    const remaining = Math.max(0, invoice.items[idx].quantity - delivered);
+    if (remaining === 0) return;
+    setSelectedItemIdx((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) {
+        next.delete(idx);
+        setDeliveryQuantities((quantities) => ({ ...quantities, [idx]: 0 }));
+      } else {
+        next.add(idx);
+        setDeliveryQuantities((quantities) => ({ ...quantities, [idx]: quantities[idx] || 1 }));
+      }
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    const available = invoice.items
+      .map((item, idx) => ({ item, idx, remaining: Math.max(0, item.quantity - (item.deliveredQuantity || 0)) }))
+      .filter(({ remaining }) => remaining > 0);
+    const selectAll = selectedItemIdx.size !== available.length;
+    setSelectedItemIdx(selectAll ? new Set(available.map(({ idx }) => idx)) : new Set());
+    setDeliveryQuantities((quantities) => {
+      const next = { ...quantities };
+      available.forEach(({ idx, remaining }) => { next[idx] = selectAll ? quantities[idx] || 1 : 0; });
+      return next;
+    });
+  };
+
   const deliveryItems =
     docType === 'delivery'
       ? invoice.items
         .map((item, idx) => ({ ...item, quantity: deliveryQuantities[idx] || 0, sourceIndex: idx }))
-        .filter((item) => item.quantity > 0)
+        .filter((item) => selectedItemIdx.has(item.sourceIndex) && item.quantity > 0)
       : invoice.items;
   const printableInvoice: SalesInvoice = docType === 'delivery' ? { ...invoice, items: deliveryItems } : invoice;
 
@@ -118,8 +149,18 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
             </button>
           </div>
           <p className="text-[11px] text-gray-500">
-            Centang barang yang benar-benar dibawa dalam pengiriman ini. Berguna kalau satu transaksi diantar bertahap.
+            Centang barang yang diantar. Untuk jumlah 1, cukup centang; jumlah yang lebih banyak bisa diubah pada kolom kirim.
           </p>
+          <button
+            type="button"
+            onClick={toggleAll}
+            className="flex items-center gap-1.5 text-[11px] font-bold text-blue-600 cursor-pointer"
+          >
+            {selectedItemIdx.size > 0 && selectedItemIdx.size === invoice.items.filter((item) => (item.quantity - (item.deliveredQuantity || 0)) > 0).length
+              ? <CheckSquare className="w-3.5 h-3.5" />
+              : <Square className="w-3.5 h-3.5" />}
+            Pilih semua yang belum diantar
+          </button>
           <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden max-h-64 overflow-y-auto">
             {invoice.items.map((item, idx) => {
               const delivered = item.deliveredQuantity || 0;
@@ -133,20 +174,22 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
                   {complete ? (
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                   ) : (
-                    <Truck className="w-4 h-4 text-amber-600 shrink-0" />
+                    <button type="button" onClick={() => toggleItem(idx)} aria-label={`Pilih ${item.name}`} className="shrink-0">
+                      {selectedItemIdx.has(idx) ? <CheckSquare className="w-4 h-4 text-amber-600" /> : <Square className="w-4 h-4 text-gray-300" />}
+                    </button>
                   )}
                   <span className="flex-1 min-w-0">
                     <p className={`truncate font-semibold ${complete ? 'text-emerald-700' : 'text-gray-900'}`}>{item.name}</p>
                     <p className="text-[10px] text-gray-400">Terkirim {delivered} / {item.quantity} {item.unit || ''} {complete ? '• Selesai' : `• Sisa ${remaining}`}</p>
                   </span>
-                  {!complete && (
+                  {!complete && selectedItemIdx.has(idx) && (
                     <NumberInput
                       value={deliveryQuantities[idx] || 0}
                       min={0}
                       max={remaining}
                       onChange={(value) => setDeliveryQuantity(idx, value)}
                       aria-label={`Jumlah ${item.name} yang diantar`}
-                      className="w-20 h-8 text-right font-bold"
+                      className="w-24 h-8 text-right font-bold border-2 border-amber-400 bg-amber-50 text-gray-900 rounded-md px-2"
                     />
                   )}
                 </div>
