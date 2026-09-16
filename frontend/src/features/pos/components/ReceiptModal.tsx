@@ -107,7 +107,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
 
           {/* Summary Calculations */}
           <div className="space-y-1 text-right text-[11px] py-3">
-            <div className="flex justify-between">
+            <div className="flex justify-between font-bold text-foreground">
             <span>SUBTOTAL {lastOrderDetails.items.length} PRODUK </span> 
               <span>Rp {lastOrderDetails.subtotal.toLocaleString('id-ID')}</span>
             </div>
@@ -117,7 +117,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
                 <span>-Rp {lastOrderDetails.discount.toLocaleString('id-ID')}</span>
               </div>
             )}
-            <div className="flex justify-between ">
+            <div className="flex justify-between font-bold text-foreground">
             <span> BIAYA TAMBAHAN </span>
             </div>
             {(lastOrderDetails.additionalFees?.length > 0 ? lastOrderDetails.additionalFees : [{ name: lastOrderDetails.additionalFeeName || 'BIAYA TAMBAHAN', amount: lastOrderDetails.additionalFee || 0 }])

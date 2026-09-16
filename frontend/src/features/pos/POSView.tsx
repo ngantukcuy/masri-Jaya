@@ -1355,7 +1355,7 @@ const commitQtyInput = (sku: string) => {
                       value={fee.name || 'none'}
                       onValueChange={(value) => setAdditionalFees((fees) => fees.map((currentFee, feeIndex) => feeIndex === index ? { ...currentFee, name: value === 'none' ? '' : value } : currentFee))}
                     >
-                      <SelectTrigger className="w-32 h-7 bg-white border border-gray-200 rounded p-1 text-xs">
+                      <SelectTrigger className="w-25 h-7 bg-white border border-gray-200 rounded p-1 text-xs">
                         <SelectValue placeholder="Pilih biaya" />
                       </SelectTrigger>
                       <SelectContent>
