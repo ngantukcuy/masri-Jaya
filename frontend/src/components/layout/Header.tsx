@@ -229,15 +229,14 @@ export default function Header({
         )}
 
         <nav className="hidden lg:flex items-center gap-6 ml-4">
-          <Button variant="ghost" onClick={() => onTabChange('pos')} className={navTabCls(currentTab === 'pos')}>
-            KASIR POS
-          </Button>
-          <Button variant="ghost" onClick={() => onTabChange('products')} className={navTabCls(currentTab === 'products')}>
-            INVENTORI
-          </Button>
-          <Button variant="ghost" onClick={() => onTabChange('reports')} className={navTabCls(currentTab === 'reports')}>
-            LAPORAN
-          </Button>
+          <Button
+                      onClick={() => onTabChange('pos')}
+                      size="lg"
+                      className="w-full sm:w-auto shadow-md shadow-blue-500/15 active:scale-[0.98]"
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                      <span>Kasir</span>
+                    </Button>
         </nav>
       </div>
 
