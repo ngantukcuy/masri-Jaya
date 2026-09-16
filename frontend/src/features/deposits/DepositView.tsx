@@ -69,13 +69,6 @@ export default function DepositView({ customers, onUpdateCustomers, onAddActivit
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
-          <PiggyBank className="w-5 h-5 text-blue-600" />
-          Deposit
-        </h2>
-        <p className="text-xs text-gray-500 font-medium mt-0.5">Kelola saldo deposit pelanggan (top up &amp; penarikan).</p>
-      </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center justify-between max-w-sm">
         <span className="text-xs font-bold text-gray-500 uppercase">Total Saldo Deposit</span>

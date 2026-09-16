@@ -128,13 +128,6 @@ export default function KasHarianView({ onAddActivity, salesInvoices = [], retur
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-black text-foreground flex items-center gap-2">
-            <Wallet className="w-5 h-5 text-primary" />
-            Kas Harian
-          </h2>
-          <p className="text-xs text-muted-foreground font-medium mt-0.5">Pantau kas masuk, kas keluar, dan kesesuaian uang laci toko.</p>
-        </div>
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
           <TabsList className="bg-muted rounded-xl p-1 border-none gap-0">
             <TabsTrigger

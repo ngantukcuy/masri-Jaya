@@ -169,10 +169,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
       
       {/* Title Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight">Kas &amp; Pengeluaran Keuangan</h2>
-          <p className="text-gray-500 text-sm">Kelola pengeluaran operasional harian, persetujuan klaim staf, dan buku jurnal kas keluar.</p>
-        </div>
+       
         <button 
           onClick={() => setShowSubmitModal(true)}
           className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer transition-all"

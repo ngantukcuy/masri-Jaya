@@ -654,10 +654,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   if (stokView === 'hub') {
     return (
       <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-black text-foreground tracking-tight">Stok</h2>
-          <p className="text-muted-foreground text-sm">Kelola lokasi stok, opname, transfer, dan pantau stok yang perlu perhatian.</p>
-        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left: Pengaturan Stok */}

@@ -149,13 +149,7 @@ export default function TokoDigitalView({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
-          <Store className="w-5 h-5 text-blue-600" />
-          Toko Digital
-        </h2>
-        <p className="text-xs text-gray-500 font-medium mt-0.5">Katalog online gratis untuk menerima pesanan dari calon pelanggan.</p>
-      </div>
+      
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Link Setup */}

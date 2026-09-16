@@ -260,16 +260,6 @@ export default function DebtsView({
         )}
       </AnimatePresence>
 
-      {/* Title Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-            <Coins className="w-7 h-7 text-blue-600" /> Buku Piutang &amp; Hutang Pelanggan
-          </h2>
-          <p className="text-gray-500 text-sm">Monitor outstanding kredit pembeli, status keterlambatan jatuh tempo, dan riwayat pembayaran cicilan.</p>
-        </div>
-      </div>
-
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1 */}

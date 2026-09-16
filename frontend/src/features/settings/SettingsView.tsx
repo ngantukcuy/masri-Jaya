@@ -633,10 +633,6 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   return (
     <div className="space-y-6 relative overflow-x-hidden">
       {/* Title Header */}
-      <div>
-        <h2 className="text-2xl font-black text-gray-900 tracking-tight">Pengaturan Sistem</h2>
-        <p className="text-gray-500 text-sm">Kelola metadata bisnis, pendaftaran staf, printer thermal kasir, dan protokol keamanan internal.</p>
-      </div>
 
       {/* Settings Navigation Tabs */}
       <div className="flex flex-wrap border-b border-gray-200 gap-x-6 gap-y-2">

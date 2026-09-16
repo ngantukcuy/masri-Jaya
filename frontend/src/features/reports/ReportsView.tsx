@@ -260,10 +260,6 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
       
       {/* Title Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight">Pusat Laporan &amp; Analisis</h2>
-          <p className="text-gray-500 text-sm">Analisis kinerja penjualan berdasarkan data transaksi dan stok yang tercatat.</p>
-        </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={printReport}>
             <Printer className="w-4 h-4 text-gray-500" />

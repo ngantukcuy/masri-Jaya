@@ -106,13 +106,6 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], st
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
-          <History className="w-5 h-5 text-blue-600" />
-          Riwayat Transaksi
-        </h2>
-        <p className="text-xs text-gray-500 font-medium mt-0.5">Daftar seluruh transaksi penjualan yang tercatat.</p>
-      </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-xl">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">

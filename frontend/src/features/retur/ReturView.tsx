@@ -223,13 +223,6 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
-          <CornerUpLeft className="w-5 h-5 text-blue-600" />
-          Retur
-        </h2>
-        <p className="text-xs text-gray-500 font-medium mt-0.5">Proses pengembalian barang dari pelanggan (retur penjualan) atau ke pemasok (retur pembelian).</p>
-      </div>
 
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as 'penjualan' | 'pembelian'); resetForm(); setSearchQuery(''); }}>
         <TabsList className="bg-gray-100 p-1 rounded-xl w-fit gap-0">

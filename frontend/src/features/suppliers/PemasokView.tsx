@@ -153,13 +153,6 @@ export default function PemasokView({ suppliers, onUpdateSuppliers, onAddActivit
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xl font-black text-gray-900 flex items-center gap-2">
-            <Truck className="w-5 h-5 text-blue-600" />
-            Pemasok
-          </h2>
-          <p className="text-xs text-gray-500 font-medium mt-0.5">Kelola data pemasok / supplier, sales, dan syarat pembayaran.</p>
-        </div>
         {can('manage_supplier_add') && (
           <Button onClick={openCreate}>
             <Plus className="w-4 h-4" /> Tambah Pemasok

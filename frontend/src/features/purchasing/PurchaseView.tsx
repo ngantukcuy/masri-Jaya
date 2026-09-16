@@ -265,10 +265,6 @@ export default function PurchaseView({
       
       {/* Title Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight">Pesanan Pembelian (PO) &amp; Supplier</h2>
-          <p className="text-gray-500 text-sm">Kelola pasokan supplier, rincian pengiriman barang masuk, dan kontrol pembayaran penyuplai.</p>
-        </div>
         <button 
           onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer transition-all"

@@ -286,10 +286,6 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
       
       {/* Title Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight">Pelanggan &amp; Piutang Usaha</h2>
-          <p className="text-gray-500 text-sm">Pantau saldo piutang pembeli, tingkat loyalitas pelanggan, dan riwayat cicilan kredit kontraktor.</p>
-        </div>
         {can('manage_customer_add') && (
         <Button onClick={() => setShowAddModal(true)} className="bg-gray-900 hover:bg-gray-800 shadow-md">
           <Plus className="w-4 h-4" />

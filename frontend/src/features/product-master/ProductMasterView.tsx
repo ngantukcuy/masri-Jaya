@@ -403,13 +403,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-black text-foreground flex items-center gap-2">
-          <Tags className="w-5 h-5 text-primary" />
-          Products
-        </h2>
-        <p className="text-xs text-muted-foreground font-medium mt-0.5">Sku Master, kategori, brand, satuan, dan paket (bundle) produk.</p>
-      </div>
+      
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
         <TabsList className="bg-muted rounded-xl p-1 border-none gap-0 w-fit flex-wrap h-auto">
