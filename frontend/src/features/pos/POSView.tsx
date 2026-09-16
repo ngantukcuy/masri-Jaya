@@ -1091,7 +1091,7 @@ const commitQtyInput = (sku: string) => {
       </div>
 
       {/* Right Panel: POS Shopping Cart */}
-      <Card className={`lg:col-span-4 flex flex-col justify-between overflow-hidden min-h-0 self-start max-h-[calc(100vh-140px)] p-0 gap-0 ${mobileActiveSubTab === 'cart' ? 'flex' : 'hidden lg:flex'}`}>
+      <Card className={`lg:col-span-4 flex flex-col justify-between overflow-y-auto min-h-0 h-full self-start p-0 gap-0 ${mobileActiveSubTab === 'cart' ? 'flex' : 'hidden lg:flex'}`}>
         
         {/* Customer select box */}
         <div className="p-4 border-b border-gray-100 bg-gray-50 space-y-2">
@@ -1128,7 +1128,7 @@ const commitQtyInput = (sku: string) => {
         </div>
 
         {/* Shopping Cart List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-none p-4 space-y-3">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center text-gray-400">
               <span className="text-3xl mb-1">🛒</span>
