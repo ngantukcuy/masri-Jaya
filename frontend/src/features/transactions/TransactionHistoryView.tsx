@@ -86,6 +86,32 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
     return map;
   }, [returns]);
 
+  const getRemainingItems = (invoice: SalesInvoice, invoiceReturns: ReturnRecord[]) => {
+    const returnedQtyBySku = new Map<string, number>();
+    invoiceReturns
+      .filter((record) => record.status === 'Approved')
+      .flatMap((record) => record.items)
+      .forEach((item) => {
+        returnedQtyBySku.set(item.sku, (returnedQtyBySku.get(item.sku) || 0) + item.quantity);
+      });
+
+    return invoice.items
+      .map((item) => ({
+        ...item,
+        quantity: Math.max(0, item.quantity - (returnedQtyBySku.get(item.sku) || 0)),
+      }))
+      .filter((item) => item.quantity > 0);
+  };
+
+  const getRemainingTotal = (invoice: SalesInvoice, invoiceReturns: ReturnRecord[]) =>
+    Math.max(
+      0,
+      invoice.total
+        - invoiceReturns
+          .filter((record) => record.status === 'Approved')
+          .reduce((sum, record) => sum + record.totalRefund, 0)
+    );
+
   const filtered = [...salesInvoices].filter(inv => {
     const matchesSearch =
       inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -102,8 +128,13 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
   }).sort((a, b) => (parseInvoiceDate(b)?.getTime() || 0) - (parseInvoiceDate(a)?.getTime() || 0));
 
   const isFiltered = Boolean(dateFrom || dateTo || searchQuery);
-  const totalOmzet = filtered.reduce((acc, inv) => acc + inv.total, 0);
+  const totalOmzet = filtered.reduce(
+    (acc, inv) => acc + getRemainingTotal(inv, returnsByInvoice.get(inv.invoiceNumber) || []),
+    0
+  );
   const selectedReturns = selected ? (returnsByInvoice.get(selected.invoiceNumber) || []) : [];
+  const selectedItems = selected ? getRemainingItems(selected, selectedReturns) : [];
+  const selectedTotal = selected ? getRemainingTotal(selected, selectedReturns) : 0;
 
   return (
     <div className="space-y-6">
@@ -188,18 +219,34 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                   <TableCell className="text-gray-500 cursor-pointer" onClick={() => setSelected(inv)}>{inv.date}</TableCell>
                   <TableCell className="text-gray-700 cursor-pointer" onClick={() => setSelected(inv)}>{inv.customerName}</TableCell>
                   <TableCell className="text-gray-500 cursor-pointer" onClick={() => setSelected(inv)}>{inv.paymentMethod}</TableCell>
-                  <TableCell className="text-right font-bold text-gray-900 cursor-pointer" onClick={() => setSelected(inv)}>Rp {inv.total.toLocaleString('id-ID')}</TableCell>
+                  <TableCell className="text-right font-bold text-gray-900 cursor-pointer" onClick={() => setSelected(inv)}>Rp {getRemainingTotal(inv, returnsByInvoice.get(inv.invoiceNumber) || []).toLocaleString('id-ID')}</TableCell>
                   <TableCell className="text-center">
                     {(() => {
                       const invReturns = returnsByInvoice.get(inv.invoiceNumber);
                       if (!invReturns || invReturns.length === 0) return <span className="text-gray-300 text-[10px]">—</span>;
                       // If any retur on this invoice is still pending, surface that first — it needs attention.
                       const priority = invReturns.find((r) => r.status === 'Pending') || invReturns[0];
+                      const returnedItems = invReturns
+                        .filter((r) => r.status === 'Approved')
+                        .flatMap((r) => r.items)
+                        .reduce<{ name: string; quantity: number }[]>((items, item) => {
+                          const existing = items.find((entry) => entry.name === item.name);
+                          if (existing) existing.quantity += item.quantity;
+                          else items.push({ name: item.name, quantity: item.quantity });
+                          return items;
+                        }, []);
                       return (
-                        <Badge className={`border-transparent gap-1 ${returStatusStyle[priority.status]}`}>
-                          <CornerUpLeft className="w-2.5 h-2.5" />
-                          {returStatusLabel[priority.status]}
-                        </Badge>
+                        <div className="flex flex-col items-center gap-1">
+                          <Badge className={`border-transparent gap-1 ${returStatusStyle[priority.status]}`}>
+                            <CornerUpLeft className="w-2.5 h-2.5" />
+                            {returStatusLabel[priority.status]}
+                          </Badge>
+                          {returnedItems.length > 0 && (
+                            <span className="max-w-40 text-[10px] leading-tight text-gray-500">
+                              {returnedItems.map((item) => `${item.name} x${item.quantity}`).join(', ')}
+                            </span>
+                          )}
+                        </div>
                       );
                     })()}
                   </TableCell>
@@ -251,7 +298,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                 <p><span className="text-gray-400">Metode Bayar:</span> {selected.paymentMethod}</p>
               </div>
               <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden text-xs">
-                {selected.items.map((it, i) => (
+                {selectedItems.map((it, i) => (
                   <div key={i} className="flex justify-between p-2.5">
                     <span className="text-gray-700">{it.name} x{it.quantity}</span>
                     <span className="font-bold text-gray-800">Rp {(it.price * it.quantity).toLocaleString('id-ID')}</span>
@@ -260,7 +307,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
               </div>
               <div className="flex justify-between pt-2 border-t border-gray-100 font-black text-sm">
                 <span>Grand Total</span>
-                <span className="text-blue-600">Rp {selected.total.toLocaleString('id-ID')}</span>
+                <span className="text-blue-600">Rp {selectedTotal.toLocaleString('id-ID')}</span>
               </div>
 
               {selectedReturns.length > 0 && (
