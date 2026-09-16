@@ -117,12 +117,14 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
                 <span>-Rp {lastOrderDetails.discount.toLocaleString('id-ID')}</span>
               </div>
             )}
-            {lastOrderDetails.additionalFee > 0 && (
-              <div className="flex justify-between font-bold">
-                <span>{lastOrderDetails.additionalFeeName || 'BIAYA TAMBAHAN'}:</span>
-                <span>Rp {lastOrderDetails.additionalFee.toLocaleString('id-ID')}</span>
-              </div>
-            )}
+            {(lastOrderDetails.additionalFees?.length > 0 ? lastOrderDetails.additionalFees : [{ name: lastOrderDetails.additionalFeeName || 'BIAYA TAMBAHAN', amount: lastOrderDetails.additionalFee || 0 }])
+              .filter((fee: { name: string; amount: number }) => fee.amount > 0)
+              .map((fee: { name: string; amount: number }, index: number) => (
+                <div key={`${fee.name}-${index}`} className="flex justify-between font-bold">
+                  <span>{fee.name || 'BIAYA TAMBAHAN'}:</span>
+                  <span>Rp {fee.amount.toLocaleString('id-ID')}</span>
+                </div>
+              ))}
             <div className="flex justify-between font-black text-xs text-foreground pt-2 border-t border-dashed border-border mt-1">
               <span>TOTAL AKHIR:</span>
               <span>Rp {lastOrderDetails.total.toLocaleString('id-ID')}</span>

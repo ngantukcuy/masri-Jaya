@@ -16,11 +16,18 @@ export interface CartItem {
   notes: string;
 }
 
+export interface AdditionalFee {
+  name: string;
+  amount: number;
+}
+
 export type PersistedPOSState = {
   cart: CartItem[];
   selectedCustomerId: string | null;
   discountMode: 'percent' | 'fixed';
   discountValue: number;
+  additionalFees: AdditionalFee[];
+  /** Legacy single-fee fields kept for older persisted state compatibility. */
   additionalFeeName: string;
   additionalFee: number;
   paymentMethod: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit';
@@ -35,6 +42,7 @@ const emptyState = (): PersistedPOSState => ({
   selectedCustomerId: null,
   discountMode: 'percent',
   discountValue: 0,
+  additionalFees: [],
   additionalFeeName: '',
   additionalFee: 0,
   paymentMethod: 'Cash',
@@ -44,11 +52,21 @@ const emptyState = (): PersistedPOSState => ({
 
 export const readPersistedPOSState = (): PersistedPOSState => {
   const parsed = getSupabaseCache<Partial<PersistedPOSState>>(POS_CART_STORAGE_KEY, emptyState());
+  const legacyFee = typeof parsed.additionalFee === 'number' && parsed.additionalFee > 0
+    ? [{ name: typeof parsed.additionalFeeName === 'string' ? parsed.additionalFeeName : '', amount: parsed.additionalFee }]
+    : [];
+  const additionalFees = Array.isArray(parsed.additionalFees)
+    ? parsed.additionalFees.filter((fee): fee is AdditionalFee => (
+      typeof fee === 'object' && fee !== null &&
+      typeof fee.name === 'string' && typeof fee.amount === 'number' && fee.amount >= 0
+    ))
+    : legacyFee;
   return {
     cart: Array.isArray(parsed.cart) ? parsed.cart : [],
     selectedCustomerId: typeof parsed.selectedCustomerId === 'string' ? parsed.selectedCustomerId : null,
     discountMode: parsed.discountMode === 'fixed' ? 'fixed' : 'percent',
     discountValue: typeof parsed.discountValue === 'number' ? parsed.discountValue : 0,
+    additionalFees,
     additionalFeeName: typeof parsed.additionalFeeName === 'string' ? parsed.additionalFeeName : '',
     additionalFee: typeof parsed.additionalFee === 'number' && parsed.additionalFee > 0 ? parsed.additionalFee : 0,
     paymentMethod: parsed.paymentMethod === 'QRIS' || parsed.paymentMethod === 'Transfer' || parsed.paymentMethod === 'Split' || parsed.paymentMethod === 'Deposit'

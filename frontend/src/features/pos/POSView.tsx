@@ -39,6 +39,7 @@ import { playBeep, playPrintSound } from './lib/posAudio';
 import { generateReceiptPDF } from './lib/receiptPdf';
 import {
   CartItem,
+  AdditionalFee,
   PersistedPOSState,
   readPersistedPOSState,
   writePersistedPOSState,
@@ -66,6 +67,7 @@ interface ProductCategory {
  * bayar "Split" (bayar sebagian/cicil) supaya kasir wajib pilih pelanggan
  * asli dulu — kalau tidak, sisa hutangnya nggak ke-track ke siapa pun. */
 const GENERIC_CUSTOMER_ID = 'CUST-01';
+const emptyAdditionalFee = (): AdditionalFee => ({ name: '', amount: 0 });
 
 /** Resolves the actual unit price to charge for a cart line: the cashier's
  * edited price when present, otherwise falls back to the tier derived from
@@ -167,8 +169,7 @@ export default function POSView({
   const [cart, setCart] = useState<CartItem[]>([]);
   const [editingQty, setEditingQty] = useState<Record<string, string>>({});
   const [discountMode, setDiscountMode] = useState<'percent' | 'fixed'>('percent');
-  const [additionalFeeName, setAdditionalFeeName] = useState<string>('');
-  const [additionalFee, setAdditionalFee] = useState<number>(0);
+  const [additionalFees, setAdditionalFees] = useState<AdditionalFee[]>([emptyAdditionalFee()]);
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [fulfillmentMethod, setFulfillmentMethod] = useState<'Pickup' | 'Delivery'>('Pickup');
   const [deliveryAddress, setDeliveryAddress] = useState<string>('');
@@ -491,7 +492,7 @@ const commitQtyInput = (sku: string) => {
 
     if (nextState) {
       const persistedState = readPersistedPOSState();
-      if (persistedState.cart.length > 0 || persistedState.selectedCustomerId || persistedState.discountValue > 0 || persistedState.additionalFee > 0 || persistedState.additionalFeeName || persistedState.paymentMethod !== 'Cash') {
+      if (persistedState.cart.length > 0 || persistedState.selectedCustomerId || persistedState.discountValue > 0 || persistedState.additionalFees.length > 0 || persistedState.paymentMethod !== 'Cash') {
         setCart(persistedState.cart);
         const restoredCustomer = persistedState.selectedCustomerId
           ? customers.find((customer) => customer.id === persistedState.selectedCustomerId)
@@ -501,8 +502,7 @@ const commitQtyInput = (sku: string) => {
         }
         setDiscountMode(persistedState.discountMode);
         setDiscountValue(persistedState.discountValue);
-        setAdditionalFeeName(persistedState.additionalFeeName);
-        setAdditionalFee(persistedState.additionalFee);
+        setAdditionalFees(persistedState.additionalFees.length > 0 ? persistedState.additionalFees : [emptyAdditionalFee()]);
         setPaymentMethod(persistedState.paymentMethod);
         setFulfillmentMethod(persistedState.fulfillmentMethod);
         setDeliveryAddress(persistedState.deliveryAddress);
@@ -526,6 +526,7 @@ const commitQtyInput = (sku: string) => {
   const discountAmount = discountMode === 'fixed'
     ? Math.min(discountValue, subtotal)
     : subtotal * (Math.min(100, Math.max(0, discountValue)) / 100);
+  const additionalFee = additionalFees.reduce((total, fee) => total + Math.max(0, fee.amount), 0);
   const totalAmount = subtotal - discountAmount + additionalFee;
 
   // Checkout Execution — klik "Bayar & Cetak Struk" cuma membuka pemilihan
@@ -689,7 +690,8 @@ const commitQtyInput = (sku: string) => {
         discountAmount,
         discountType: discountMode,
         discountValue,
-        additionalFeeName,
+        additionalFees,
+        additionalFeeName: additionalFees[0]?.name || '',
         additionalFee,
         fulfillmentMethod,
         deliveryAddress: fulfillmentMethod === 'Delivery' ? deliveryAddress : undefined,
@@ -712,7 +714,8 @@ const commitQtyInput = (sku: string) => {
       discount: discountAmount,
       discountType: discountMode,
       discountValue,
-      additionalFeeName,
+      additionalFees,
+      additionalFeeName: additionalFees[0]?.name || '',
       additionalFee,
       fulfillmentMethod,
       deliveryAddress,
@@ -744,8 +747,7 @@ const commitQtyInput = (sku: string) => {
     setCart([]);
     setDiscountMode('percent');
     setDiscountValue(0);
-    setAdditionalFeeName('');
-    setAdditionalFee(0);
+    setAdditionalFees([emptyAdditionalFee()]);
     setFulfillmentMethod('Pickup');
     setDeliveryAddress('');
     setShowQRISModal(false);
@@ -877,7 +879,8 @@ const commitQtyInput = (sku: string) => {
       selectedCustomerId: selectedCustomer.id,
       discountMode,
       discountValue,
-      additionalFeeName,
+      additionalFees,
+      additionalFeeName: additionalFees[0]?.name || '',
       additionalFee,
       paymentMethod,
       fulfillmentMethod,
@@ -885,7 +888,7 @@ const commitQtyInput = (sku: string) => {
     };
 
     writePersistedPOSState(payload);
-  }, [cart, discountMode, discountValue, additionalFeeName, additionalFee, isCartPersistenceEnabled, paymentMethod, fulfillmentMethod, deliveryAddress, selectedCustomer.id]);
+  }, [cart, discountMode, discountValue, additionalFees, additionalFee, isCartPersistenceEnabled, paymentMethod, fulfillmentMethod, deliveryAddress, selectedCustomer.id]);
 
   return (
     <div className="flex flex-col gap-4 h-screen p-4 md:p-6 relative">
@@ -1333,22 +1336,50 @@ const commitQtyInput = (sku: string) => {
               <span className="flex items-center gap-1">
                 <Banknote className="w-4 h-4 text-primary" />
                 Biaya Tambahan
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setAdditionalFees((fees) => [...fees, emptyAdditionalFee()])}
+                  title="Tambah biaya tambahan"
+                  aria-label="Tambah biaya tambahan"
+                  className="w-6 h-6"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </Button>
               </span>
-              <div className="flex items-center gap-1">
-                <Input
-                  value={additionalFeeName}
-                  onChange={(event) => setAdditionalFeeName(event.target.value)}
-                  placeholder="Nama biaya"
-                  aria-label="Nama biaya tambahan"
-                  className="w-28 h-7 bg-white border border-gray-200 rounded p-1 text-xs"
-                />
-                <NumberInput
-                  value={additionalFee}
-                  onChange={(value) => setAdditionalFee(Math.max(0, value))}
-                  placeholder="Nominal"
-                  aria-label="Nominal biaya tambahan"
-                  className="w-24 bg-white border border-gray-200 rounded p-1 text-right font-bold text-xs"
-                />
+              <div className="space-y-1">
+                {additionalFees.map((fee, index) => (
+                  <div key={index} className="flex items-center gap-1">
+                    <Input
+                      value={fee.name}
+                      onChange={(event) => setAdditionalFees((fees) => fees.map((currentFee, feeIndex) => feeIndex === index ? { ...currentFee, name: event.target.value } : currentFee))}
+                      placeholder="Nama biaya"
+                      aria-label={`Nama biaya tambahan ${index + 1}`}
+                      className="w-28 h-7 bg-white border border-gray-200 rounded p-1 text-xs"
+                    />
+                    <NumberInput
+                      value={fee.amount}
+                      onChange={(value) => setAdditionalFees((fees) => fees.map((currentFee, feeIndex) => feeIndex === index ? { ...currentFee, amount: Math.max(0, value) } : currentFee))}
+                      placeholder="Nominal"
+                      aria-label={`Nominal biaya tambahan ${index + 1}`}
+                      className="w-24 bg-white border border-gray-200 rounded p-1 text-right font-bold text-xs"
+                    />
+                    {index > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setAdditionalFees((fees) => fees.filter((_, feeIndex) => feeIndex !== index))}
+                        title="Hapus biaya tambahan"
+                        aria-label={`Hapus biaya tambahan ${index + 1}`}
+                        className="w-6 h-6 text-gray-400 hover:text-red-600"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
             <div className="flex justify-between text-primary font-black text-sm pt-2.5 border-t border-gray-200">

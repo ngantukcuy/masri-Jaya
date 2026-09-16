@@ -113,9 +113,12 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
       : `DISKON (${orderDetails.discountValue || 0}%):`;
     row(label, `-${rupiah(orderDetails.discount)}`, false, 7.5);
   }
-  if (orderDetails.additionalFee > 0) {
-    row(`${orderDetails.additionalFeeName || 'BIAYA TAMBAHAN'}:`, rupiah(orderDetails.additionalFee), false, 7.5);
-  }
+  const orderFees = orderDetails.additionalFees?.length > 0
+    ? orderDetails.additionalFees
+    : [{ name: orderDetails.additionalFeeName || 'BIAYA TAMBAHAN', amount: orderDetails.additionalFee || 0 }];
+  orderFees.forEach((fee: { name: string; amount: number }) => {
+    if (fee.amount > 0) row(`${fee.name || 'BIAYA TAMBAHAN'}:`, rupiah(fee.amount), false, 7.5);
+  });
   y += 0.5;
   doc.setLineWidth(0.3);
   doc.line(marginX, y, pageWidth - marginX, y);
@@ -246,9 +249,12 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
       : `DISKON (${invoice.discountValue || 0}%):`;
     row(label, `-${rupiah(invoice.discountAmount)}`, false, 7.5);
   }
-  if ((invoice.additionalFee ?? 0) > 0) {
-    row(`${invoice.additionalFeeName || 'BIAYA TAMBAHAN'}:`, rupiah(invoice.additionalFee ?? 0), false, 7.5);
-  }
+  const invoiceFees = invoice.additionalFees?.length
+    ? invoice.additionalFees
+    : [{ name: invoice.additionalFeeName || 'BIAYA TAMBAHAN', amount: invoice.additionalFee ?? 0 }];
+  invoiceFees.forEach((fee) => {
+    if (fee.amount > 0) row(`${fee.name || 'BIAYA TAMBAHAN'}:`, rupiah(fee.amount), false, 7.5);
+  });
   y += 0.5;
   doc.setLineWidth(0.3);
   doc.line(marginX, y, pageWidth - marginX, y);
