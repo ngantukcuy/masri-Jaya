@@ -1,3 +1,4 @@
+/// <reference path="./editor-env.d.ts" />
 // Supabase Edge Function: send-push
 // Tokku POS Notification System v2
 import { createClient } from "npm:@supabase/supabase-js@2";

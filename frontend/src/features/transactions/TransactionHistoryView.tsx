@@ -301,11 +301,12 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="text-center">Retur</TableHead>
               <TableHead className="text-center">Cetak</TableHead>
+              <TableHead className="text-center">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="p-6 text-center text-gray-400">{isFiltered ? 'Tidak ada transaksi yang cocok dengan pencarian/filter tanggal.' : 'Belum ada transaksi tercatat.'}</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="p-6 text-center text-gray-400">{isFiltered ? 'Tidak ada transaksi yang cocok dengan pencarian/filter tanggal.' : 'Belum ada transaksi tercatat.'}</TableCell></TableRow>
             ) : (
               filtered.map((inv) => (
                 <TableRow key={inv.invoiceNumber}>
@@ -369,6 +370,10 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                           )}
                         </Button>
                       )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-center gap-1.5">
                       {inv.deletionStatus === 'Pending' && canApproveDeletion ? (
                         <>
                           <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); void approveDelete(inv); }} title="Setujui hapus transaksi" className="w-7 h-7 bg-emerald-50 text-emerald-600 hover:bg-emerald-100">

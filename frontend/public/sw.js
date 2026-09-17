@@ -70,14 +70,24 @@ self.addEventListener('fetch', (event) => {
 // lagi offline pas pertama kali install SW-nya), listener caching di atas
 // dan listener klik notif ini tetap aktif — cuma bagian override Firebase
 // yang tidak jalan.
+function notificationTargetTab(data) {
+  if (data && data.table === 'sales_invoices') return 'riwayat-transaksi';
+  if (data && data.table === 'products') return 'products';
+  return 'dashboard';
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const targetTab = notificationTargetTab(event.notification.data || {});
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if ('focus' in client) return client.focus();
+        if ('focus' in client) {
+          client.postMessage({ type: 'tokku:notification-click', targetTab });
+          return client.focus();
+        }
       }
-      if (clients.openWindow) return clients.openWindow('/');
+      if (clients.openWindow) return clients.openWindow(`/?notificationTab=${encodeURIComponent(targetTab)}`);
     })
   );
 });

@@ -163,7 +163,10 @@ function Dashboard({
 }) {
   const dialog = useDialog();
   // State management
-  const [currentTab, setCurrentTabState] = useState<string>(() => firstAccessibleTab(currentUser));
+  const [currentTab, setCurrentTabState] = useState<string>(() => {
+    const notificationTab = new URLSearchParams(window.location.search).get('notificationTab');
+    return notificationTab && canAccessTab(currentUser, notificationTab) ? notificationTab : firstAccessibleTab(currentUser);
+  });
   const setCurrentTab = (tab: string) => {
     // Defense in depth: Sidebar already hides tabs the user can't open, but
     // guard direct state changes too (e.g. the mobile bottom nav, or a
@@ -269,6 +272,15 @@ function Dashboard({
     setCurrentTab(tab);
     setIsMobileMenuOpen(false);
   };
+
+  useEffect(() => {
+    const handleNotificationClick = (event: MessageEvent<{ type?: string; targetTab?: string }>) => {
+      if (event.data?.type !== 'tokku:notification-click' || !event.data.targetTab) return;
+      setCurrentTab(event.data.targetTab);
+    };
+    navigator.serviceWorker?.addEventListener('message', handleNotificationClick);
+    return () => navigator.serviceWorker?.removeEventListener('message', handleNotificationClick);
+  }, [currentUser]);
 
   // Callback from Dashboard quick action
   const handleQuickRestock = () => {

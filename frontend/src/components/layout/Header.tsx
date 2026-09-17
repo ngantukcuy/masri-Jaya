@@ -39,6 +39,7 @@ interface HeaderNotification {
   id: string;
   text: string;
   level: 'warning' | 'error' | 'success' | 'info';
+  targetTab: string;
   /** True = this is a "waiting for approval" notification (owner/admin-only audience). Shown with a distinct badge. */
   pending?: boolean;
 }
@@ -100,6 +101,19 @@ function formatUptime(ms: number): string {
 
 function formatRupiah(n: number): string {
   return `Rp ${Math.round(n).toLocaleString('id-ID')}`;
+}
+
+function activityTargetTab(title: string, subtitle: string): string {
+  const text = `${title} ${subtitle}`.toLowerCase();
+  if (text.includes('retur')) return 'retur';
+  if (text.includes('hapus transaksi') || text.includes('penghapusan transaksi') || text.includes('penjualan pos')) return 'riwayat-transaksi';
+  if (text.includes('kas harian') || text.includes('kas masuk') || text.includes('kas keluar')) return 'kas-harian';
+  if (text.includes('pembelian') || text.includes('po ') || text.includes('purchase')) return 'purchase';
+  if (text.includes('pelanggan') || text.includes('customer')) return 'customer';
+  if (text.includes('utang') || text.includes('piutang')) return 'debts';
+  if (text.includes('reimbursement') || text.includes('klaim') || text.includes('pembayaran')) return 'finance';
+  if (text.includes('stok') || text.includes('opname')) return 'products';
+  return 'dashboard';
 }
 
 export default function Header({
@@ -179,6 +193,7 @@ export default function Header({
       .forEach((p) => {
         list.push({
           id: `stock-${p.sku}`,
+          targetTab: 'products',
           level: p.stockStatus === 'Out of Stock' ? 'error' : 'warning',
           text: p.stockStatus === 'Out of Stock'
             ? `Stok habis: ${p.name} (${p.sku})`
@@ -191,6 +206,7 @@ export default function Header({
       .forEach((c) => {
         list.push({
           id: `debt-${c.id}`,
+          targetTab: 'debts',
           level: 'error',
           text: c.overdueAmount
             ? `Utang jatuh tempo: ${c.name} — ${formatRupiah(c.overdueAmount)}`
@@ -214,6 +230,7 @@ export default function Header({
         const isPending = a.audience === 'approvers';
         list.push({
           id: `activity-${a.id}`,
+          targetTab: activityTargetTab(a.title, a.subtitle),
           level: isPending ? 'warning' : (a.type === 'overdue' ? 'error' : 'success'),
           text: `${a.title} — ${a.subtitle}`,
           pending: isPending,
@@ -329,7 +346,12 @@ export default function Header({
                   <p className="px-4 py-6 text-[10px] text-slate-400 text-center uppercase tracking-wide">Tidak ada notifikasi baru</p>
                 ) : (
                   notifications.map((notif) => (
-                    <div key={notif.id} className="p-3 text-xs text-slate-600 hover:bg-slate-50/50 transition-colors flex gap-2">
+                    <button
+                      type="button"
+                      key={notif.id}
+                      onClick={() => { onTabChange(notif.targetTab); setShowNotifications(false); }}
+                      className="w-full text-left p-3 text-xs text-slate-600 hover:bg-slate-50/50 transition-colors flex gap-2 cursor-pointer"
+                    >
                       {notifIcon(notif)}
                       <div className="min-w-0 flex-1">
                         <p className="tracking-wide text-[10px] leading-relaxed">{notif.text}</p>
@@ -337,7 +359,7 @@ export default function Header({
                           <Badge variant="warning" className="mt-1 normal-case">Menunggu Persetujuan</Badge>
                         )}
                       </div>
-                    </div>
+                    </button>
                   ))
                 )}
               </div>
