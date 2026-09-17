@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { Expense } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { addMutation } from '../../lib/cashSession';
+import { addMutation, getCurrentSession, getSessionHistory } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
@@ -161,6 +161,23 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
     if (activeCategoryFilter === 'Semua') return true;
     return e.category === activeCategoryFilter;
   });
+
+  const cashJournalEntries = [...getSessionHistory(), getCurrentSession()].filter(Boolean).flatMap((session) =>
+    session!.mutations.map((mutation) => ({
+      id: mutation.id,
+      date: session!.date,
+      category: mutation.category,
+      description: mutation.note || `${mutation.type === 'in' ? 'Kas masuk' : 'Kas keluar'} dari Kas Harian`,
+      submittedBy: session!.cashierName || 'Kasir',
+      amount: mutation.amount,
+      status: 'Approved' as const,
+      direction: mutation.type,
+    }))
+  );
+  const journalEntries = [
+    ...filteredExpenses.map((expense) => ({ ...expense, direction: 'out' as const })),
+    ...cashJournalEntries.filter((entry) => activeCategoryFilter === 'Semua' || entry.category === activeCategoryFilter),
+  ];
 
   const totalExpensesThisMonth = expenses.reduce((acc, e) => acc + e.amount, 0);
 
@@ -398,12 +415,12 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
-              {filteredExpenses.length === 0 ? (
+              {journalEntries.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-gray-400 font-bold">Tidak ada pengeluaran kas yang cocok dengan kategori filter.</td>
+                  <td colSpan={7} className="py-8 text-center text-gray-400 font-bold">Belum ada jurnal kas yang cocok dengan kategori filter.</td>
                 </tr>
               ) : (
-                filteredExpenses.map((exp) => (
+                journalEntries.map((exp) => (
                   <tr key={exp.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="py-3.5 px-4 font-mono font-bold text-gray-800">{exp.id}</td>
                     <td className="py-3.5 px-4 text-gray-500 font-medium">{exp.date}</td>
@@ -413,7 +430,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                     <td className="py-3.5 px-4 font-medium text-gray-900">{exp.description}</td>
                     <td className="py-3.5 px-4 font-medium text-gray-600">{exp.submittedBy}</td>
                     <td className="py-3.5 px-4 text-right font-bold text-red-600">
-                      -Rp {exp.amount.toLocaleString('id-ID')}
+                      <span className={exp.direction === 'in' ? 'text-emerald-600' : 'text-red-600'}>{exp.direction === 'in' ? '+' : '-'}Rp {exp.amount.toLocaleString('id-ID')}</span>
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${

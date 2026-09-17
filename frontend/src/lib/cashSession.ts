@@ -70,6 +70,41 @@ export function recordSale(isCash: boolean, invoiceTotal: number, stockQty: numb
   setSupabaseCache(CURRENT_KEY, session);
 }
 
+/** Reverses the cash-session impact of a deleted sale after approval. */
+export function reverseSale(
+  paymentMethod: string,
+  invoiceTotal: number,
+  stockQty: number,
+  invoiceNumber: string,
+  splitPaidAmount = 0
+): CashSession | null {
+  const session = getCurrentSession();
+  if (!session) return null;
+
+  const isCash = paymentMethod === 'Cash';
+  const refundAmount = isCash ? invoiceTotal : paymentMethod === 'Split' ? splitPaidAmount : 0;
+  if (refundAmount > 0) {
+    const mutation: CashMutation = {
+      id: `MUT-${Math.floor(10000 + Math.random() * 90000)}`,
+      type: 'out',
+      category: 'Transaksi Dibatalkan',
+      amount: refundAmount,
+      note: `Pengembalian ${invoiceNumber}`,
+      time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+    };
+    session.mutations = [mutation, ...session.mutations];
+  }
+
+  if (isCash) {
+    session.totalInvoicesCash = Math.max(0, session.totalInvoicesCash - 1);
+    session.totalStocksSoldCash = Math.max(0, session.totalStocksSoldCash - stockQty);
+  } else {
+    session.totalInvoicesNonCash = Math.max(0, session.totalInvoicesNonCash - 1);
+  }
+  setSupabaseCache(CURRENT_KEY, session);
+  return session;
+}
+
 export function getMutationTotals(session: CashSession) {
   const totalIn = session.mutations.filter(m => m.type === 'in').reduce((acc, m) => acc + m.amount, 0);
   const totalOut = session.mutations.filter(m => m.type === 'out').reduce((acc, m) => acc + m.amount, 0);

@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { History, Search, Receipt, Printer, Truck, CornerUpLeft, CalendarRange, CheckCircle2, Trash2, Clock, XCircle } from 'lucide-react';
 import { Customer, Product, SalesInvoice, ReturnRecord } from '../../types';
 import InvoicePrintModal from './components/InvoicePrintModal';
-import { addMutation } from '../../lib/cashSession';
+import { reverseSale } from '../../lib/cashSession';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -142,14 +142,13 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
       }));
     }
 
-    const refundToCash = invoice.paymentMethod === 'Cash'
-      ? invoice.total
-      : invoice.paymentMethod === 'Split'
-        ? invoice.splitPaidAmount || 0
-        : 0;
-    if (refundToCash > 0) {
-      addMutation('in', 'Pembatalan Penjualan', refundToCash, `Hapus ${invoice.invoiceNumber}`);
-    }
+    reverseSale(
+      invoice.paymentMethod,
+      invoice.total,
+      invoice.items.reduce((sum, item) => sum + item.quantity, 0),
+      invoice.invoiceNumber,
+      invoice.splitPaidAmount || 0
+    );
 
     onDeleteSalesInvoice(invoice.invoiceNumber);
     setSelected(null);
@@ -317,30 +316,16 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                   <TableCell className="text-right font-bold text-gray-900 cursor-pointer" onClick={() => setSelected(inv)}>Rp {getRemainingTotal(inv, returnsByInvoice.get(inv.invoiceNumber) || []).toLocaleString('id-ID')}</TableCell>
                   <TableCell className="text-center">
                     {(() => {
-                      const invReturns = returnsByInvoice.get(inv.invoiceNumber);
+                      const invReturns = returnsByInvoice.get(inv.invoiceNumber)?.filter((r) => r.status === 'Pending' || r.status === 'Approved');
                       if (!invReturns || invReturns.length === 0) return <span className="text-gray-300 text-[10px]">—</span>;
-                      // If any retur on this invoice is still pending, surface that first — it needs attention.
+                      // Show only the approval state in the table; item details stay in the invoice dialog.
                       const priority = invReturns.find((r) => r.status === 'Pending') || invReturns[0];
-                      const returnedItems = invReturns
-                        .filter((r) => r.status === 'Approved')
-                        .flatMap((r) => r.items)
-                        .reduce<{ name: string; quantity: number }[]>((items, item) => {
-                          const existing = items.find((entry) => entry.name === item.name);
-                          if (existing) existing.quantity += item.quantity;
-                          else items.push({ name: item.name, quantity: item.quantity });
-                          return items;
-                        }, []);
                       return (
-                        <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center justify-center">
                           <Badge className={`border-transparent gap-1 ${returStatusStyle[priority.status]}`}>
                             <CornerUpLeft className="w-2.5 h-2.5" />
                             {returStatusLabel[priority.status]}
                           </Badge>
-                          {returnedItems.length > 0 && (
-                            <span className="max-w-40 text-[10px] leading-tight text-gray-500">
-                              {returnedItems.map((item) => `${item.name} x${item.quantity}`).join(', ')}
-                            </span>
-                          )}
                         </div>
                       );
                     })()}
@@ -357,18 +342,22 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                         <Printer className="w-3.5 h-3.5" />
                       </Button>
                       {inv.fulfillmentMethod === 'Delivery' && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => { e.stopPropagation(); setPrintTarget({ invoice: inv, docType: 'delivery' }); }}
-                          title="Cetak Struk Surat Jalan"
-                          className={`w-7 h-7 ${inv.items.every((item) => (item.deliveredQuantity || 0) >= item.quantity) ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}
-                        >
-                          <Truck className="w-3.5 h-3.5" />
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => { e.stopPropagation(); setPrintTarget({ invoice: inv, docType: 'delivery' }); }}
+                            title="Cetak Struk Surat Jalan"
+                            className="w-7 h-7 bg-amber-50 text-amber-600 hover:bg-amber-100"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                          </Button>
                           {inv.items.every((item) => (item.deliveredQuantity || 0) >= item.quantity) && (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span title="Semua barang sudah diantar" className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-50">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            </span>
                           )}
-                        </Button>
+                        </div>
                       )}
                     </div>
                   </TableCell>
