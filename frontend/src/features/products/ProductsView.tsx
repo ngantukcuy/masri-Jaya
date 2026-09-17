@@ -26,6 +26,7 @@ import { uploadProductImage } from '../../lib/uploadProductImage';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
+import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
 import BarcodeScannerModal from '../../components/shared/BarcodeScannerModal';
 import { generateSkuCode } from '../../lib/generateSku';
 import { Button } from '../../components/ui/button';
@@ -74,6 +75,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
   const [selectedStatus, setSelectedStatus] = useState<string>('Semua');
+  const [currentPage, setCurrentPage] = useState(1);
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false);
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   
@@ -216,6 +218,9 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     
     return matchesSearch && matchesCategory && matchesStatus;
   });
+  const pageCount = Math.ceil(filteredProducts.length / PAGE_SIZE);
+  const safePage = Math.min(currentPage, Math.max(1, pageCount));
+  const paginatedProducts = filteredProducts.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // Calculate stock metrics
   const totalStockValue = products.reduce((acc, p) => acc + (p.stock * p.retailPrice), 0);
@@ -1178,7 +1183,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                     <TableCell colSpan={6} className="py-8 text-center text-muted-foreground font-bold">Tidak ada bahan bangunan yang cocok dengan filter.</TableCell>
                   </TableRow>
                 ) : (
-                  filteredProducts.map((prod) => (
+                  paginatedProducts.map((prod) => (
                     <TableRow
                       key={prod.sku}
                       onClick={() => setSelectedProduct(prod)}
@@ -1216,6 +1221,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 )}
               </TableBody>
             </Table>
+            <Pagination page={safePage} pageCount={pageCount} onPageChange={setCurrentPage} />
           </Card>
         </div>
 

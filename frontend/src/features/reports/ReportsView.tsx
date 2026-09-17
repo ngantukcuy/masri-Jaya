@@ -14,6 +14,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
+import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
 import { buildDateBuckets, toDateInputValue } from '../../lib/dateBuckets';
 
 interface ReportsViewProps {
@@ -57,6 +58,9 @@ function downloadCSV(filename: string, header: string[], rows: (string | number)
 export default function ReportsView({ salesInvoices, products, pos = [], expenses = [] }: ReportsViewProps) {
   const [chartType, setChartType] = useState<'bar' | 'line'>('bar');
   const [selectedFolder, setSelectedFolder] = useState<ReportCategory>('Sales');
+  const [inventoryPage, setInventoryPage] = useState(1);
+  const [purchasePage, setPurchasePage] = useState(1);
+  const [financePage, setFinancePage] = useState(1);
 
   // Chart date range — defaults to the last 6 weeks (same window the chart
   // used to be hardcoded to), but the user can now pick any range.
@@ -161,6 +165,13 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
     }, {});
     return { totalApproved, totalPending, byCategory };
   }, [expenses]);
+  const inventoryRows = [...outOfStockProducts, ...lowStockProducts];
+  const inventoryPageCount = Math.ceil(inventoryRows.length / PAGE_SIZE);
+  const safeInventoryPage = Math.min(inventoryPage, Math.max(1, inventoryPageCount));
+  const purchasePageCount = Math.ceil(pos.length / PAGE_SIZE);
+  const safePurchasePage = Math.min(purchasePage, Math.max(1, purchasePageCount));
+  const financePageCount = Math.ceil(expenses.length / PAGE_SIZE);
+  const safeFinancePage = Math.min(financePage, Math.max(1, financePageCount));
 
   // A short, honestly-computed observation from real numbers (was: a
   // hardcoded fake "AI suggestion" unrelated to any real data, plus a
@@ -512,10 +523,10 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {[...outOfStockProducts, ...lowStockProducts].length === 0 ? (
+                {inventoryRows.length === 0 ? (
                   <TableRow><TableCell colSpan={5} className="p-6 text-center text-gray-400">Semua stok dalam kondisi sehat.</TableCell></TableRow>
                 ) : (
-                  [...outOfStockProducts, ...lowStockProducts].map((p) => (
+                    inventoryRows.slice((safeInventoryPage - 1) * PAGE_SIZE, safeInventoryPage * PAGE_SIZE).map((p) => (
                     <TableRow key={p.sku}>
                       <TableCell className="font-mono text-gray-500">{p.sku}</TableCell>
                       <TableCell className="font-bold text-gray-800">{p.name}</TableCell>
@@ -531,6 +542,7 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
                 )}
               </TableBody>
             </Table>
+            <Pagination page={safeInventoryPage} pageCount={inventoryPageCount} onPageChange={setInventoryPage} />
           </div>
         </div>
       )}
@@ -568,7 +580,7 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
                 {pos.length === 0 ? (
                   <TableRow><TableCell colSpan={5} className="p-6 text-center text-gray-400">Belum ada PO tercatat.</TableCell></TableRow>
                 ) : (
-                  pos.map((p) => (
+                  pos.slice((safePurchasePage - 1) * PAGE_SIZE, safePurchasePage * PAGE_SIZE).map((p) => (
                     <TableRow key={p.poNumber}>
                       <TableCell className="font-bold text-gray-800">{p.poNumber}</TableCell>
                       <TableCell className="text-gray-600">{p.supplier}</TableCell>
@@ -582,6 +594,7 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
                 )}
               </TableBody>
             </Table>
+            <Pagination page={safePurchasePage} pageCount={purchasePageCount} onPageChange={setPurchasePage} />
           </div>
         </div>
       )}
@@ -618,7 +631,7 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
                 {expenses.length === 0 ? (
                   <TableRow><TableCell colSpan={6} className="p-6 text-center text-gray-400">Belum ada pengeluaran tercatat.</TableCell></TableRow>
                 ) : (
-                  expenses.map((e) => (
+                  expenses.slice((safeFinancePage - 1) * PAGE_SIZE, safeFinancePage * PAGE_SIZE).map((e) => (
                     <TableRow key={e.id}>
                       <TableCell className="text-gray-500">{e.date}</TableCell>
                       <TableCell className="text-gray-600">{e.category}</TableCell>
@@ -635,6 +648,7 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
                 )}
               </TableBody>
             </Table>
+            <Pagination page={safeFinancePage} pageCount={financePageCount} onPageChange={setFinancePage} />
           </div>
         </div>
       )}

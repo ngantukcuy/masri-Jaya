@@ -18,6 +18,7 @@ import { addMutation } from '../../lib/cashSession';
 import { getSupabaseTableCache } from '../../lib/supabaseCache';
 import { useDialog } from '../../components/shared/DialogProvider';
 import NumberInput from '../../components/shared/NumberInput';
+import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -51,6 +52,7 @@ export default function DebtsView({
   const dialog = useDialog();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Semua' | 'Cleared' | 'Pending' | 'Overdue'>('Semua');
+  const [currentPage, setCurrentPage] = useState(1);
   
   // Modals state
   const [showPayModal, setShowPayModal] = useState(false);
@@ -89,6 +91,9 @@ export default function DebtsView({
     const matchesStatus = statusFilter === 'Semua' || (statusFilter === 'Overdue' ? isEffectivelyOverdue(c) : c.debtStatus === statusFilter);
     return matchesSearch && matchesStatus;
   });
+  const pageCount = Math.ceil(filteredCustomers.length / PAGE_SIZE);
+  const safePage = Math.min(currentPage, Math.max(1, pageCount));
+  const paginatedCustomers = filteredCustomers.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   // Calculate stats
   const totalDebt = customers.reduce((acc, c) => acc + (c.currentDebt || 0), 0);
@@ -368,7 +373,7 @@ export default function DebtsView({
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredCustomers.map((cust) => (
+                paginatedCustomers.map((cust) => (
                   <TableRow key={cust.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -449,6 +454,7 @@ export default function DebtsView({
               )}
             </TableBody>
           </Table>
+          <Pagination page={safePage} pageCount={pageCount} onPageChange={setCurrentPage} />
         </div>
       </div>
 

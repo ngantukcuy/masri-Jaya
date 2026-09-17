@@ -44,6 +44,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '.
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
 import { supabase } from '../../lib/supabase';
+import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
 
 interface SettingsViewProps {
   branches: Branch[];
@@ -569,6 +570,9 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     const q = auditSearch.toLowerCase();
     return (r.actor_name || '').toLowerCase().includes(q) || (r.row_key || '').toLowerCase().includes(q);
   });
+  const [auditPage, setAuditPage] = useState(1);
+  const auditPageCount = Math.ceil(filteredAuditRows.length / PAGE_SIZE);
+  const safeAuditPage = Math.min(auditPage, Math.max(1, auditPageCount));
   const handleDownloadBackup = async () => {
     setBackingUp(true);
     const result = await backupAllBusinessData();
@@ -1506,7 +1510,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                   {filteredAuditRows.length === 0 && !auditLoading ? (
                     <TableRow><TableCell colSpan={6} className="p-6 text-center text-gray-400">Belum ada log yang cocok.</TableCell></TableRow>
                   ) : (
-                    filteredAuditRows.map((row) => (
+                    filteredAuditRows.slice((safeAuditPage - 1) * PAGE_SIZE, safeAuditPage * PAGE_SIZE).map((row) => (
                       <React.Fragment key={row.id}>
                         <TableRow
                           className="cursor-pointer"
@@ -1544,6 +1548,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                   )}
                 </TableBody>
               </Table>
+              <Pagination page={safeAuditPage} pageCount={auditPageCount} onPageChange={setAuditPage} />
             </div>
 
             {auditRows.length > 0 && auditRows.length % AUDIT_PAGE_SIZE === 0 && (

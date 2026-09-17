@@ -9,6 +9,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
+import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 
 interface StoreProfileLite {
@@ -74,6 +75,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
   const [selected, setSelected] = useState<SalesInvoice | null>(null);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   // Which invoice + document type is currently being (re-)printed. Lets a
   // cashier who forgot to print in POS catch up straight from history,
   // for either the struk pembelian (purchase receipt) or struk surat jalan
@@ -219,6 +221,9 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
     }
     return true;
   }).sort((a, b) => (parseInvoiceDate(b)?.getTime() || 0) - (parseInvoiceDate(a)?.getTime() || 0));
+  const pageCount = Math.ceil(filtered.length / PAGE_SIZE);
+  const safePage = Math.min(currentPage, Math.max(1, pageCount));
+  const paginatedInvoices = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const isFiltered = Boolean(dateFrom || dateTo || searchQuery);
   const totalOmzet = filtered.reduce(
@@ -307,7 +312,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
             {filtered.length === 0 ? (
               <TableRow><TableCell colSpan={8} className="p-6 text-center text-gray-400">{isFiltered ? 'Tidak ada transaksi yang cocok dengan pencarian/filter tanggal.' : 'Belum ada transaksi tercatat.'}</TableCell></TableRow>
             ) : (
-              filtered.map((inv) => (
+              paginatedInvoices.map((inv) => (
                 <TableRow key={inv.invoiceNumber}>
                   <TableCell className="font-bold text-gray-800 cursor-pointer" onClick={() => setSelected(inv)}>{inv.invoiceNumber}</TableCell>
                   <TableCell className="text-gray-500 cursor-pointer" onClick={() => setSelected(inv)}>{inv.date}</TableCell>
@@ -342,22 +347,18 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                         <Printer className="w-3.5 h-3.5" />
                       </Button>
                       {inv.fulfillmentMethod === 'Delivery' && (
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => { e.stopPropagation(); setPrintTarget({ invoice: inv, docType: 'delivery' }); }}
-                            title="Cetak Struk Surat Jalan"
-                            className="w-7 h-7 bg-amber-50 text-amber-600 hover:bg-amber-100"
-                          >
-                            <Truck className="w-3.5 h-3.5" />
-                          </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => { e.stopPropagation(); setPrintTarget({ invoice: inv, docType: 'delivery' }); }}
+                          title={inv.items.every((item) => (item.deliveredQuantity || 0) >= item.quantity) ? 'Semua barang sudah diantar - Cetak Surat Jalan' : 'Cetak Struk Surat Jalan'}
+                          className="w-9 h-8 bg-amber-50 text-amber-600 hover:bg-amber-100"
+                        >
+                          <Truck className="w-4 h-4" />
                           {inv.items.every((item) => (item.deliveredQuantity || 0) >= item.quantity) && (
-                            <span title="Semua barang sudah diantar" className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-50">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            </span>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                           )}
-                        </div>
+                        </Button>
                       )}
                     </div>
                   </TableCell>
@@ -385,6 +386,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
             )}
           </TableBody>
         </Table>
+        <Pagination page={safePage} pageCount={pageCount} onPageChange={setCurrentPage} />
       </div>
 
       <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>

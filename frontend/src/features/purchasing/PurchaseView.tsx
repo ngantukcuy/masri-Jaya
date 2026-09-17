@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
+import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
 
 interface PurchaseViewProps {
   pos: PO[];
@@ -44,6 +45,7 @@ export default function PurchaseView({
   const canApprovePO = hasPermission(currentUser, 'manage_purchase_approve');
   const [selectedPO, setSelectedPO] = useState<PO | null>(pos[0] || null);
   const [filterSupplier, setFilterSupplier] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditPOModal, setShowEditPOModal] = useState(false);
 
@@ -255,6 +257,8 @@ export default function PurchaseView({
     if (filterSupplier && po.supplier !== filterSupplier) return false;
     return true;
   });
+  const pageCount = Math.ceil(filteredPOs.length / PAGE_SIZE);
+  const safePage = Math.min(currentPage, Math.max(1, pageCount));
 
   // Calculate PO values
   const totalPOAmount = pos.reduce((acc, p) => acc + (p.status !== 'Received' ? p.total : 0), 0);
@@ -354,7 +358,7 @@ export default function PurchaseView({
                     <td colSpan={6} className="py-8 text-center text-gray-400 font-bold">Tidak ada rincian transaksi PO untuk supplier terpilih.</td>
                   </tr>
                 ) : (
-                  filteredPOs.map((po) => (
+                  filteredPOs.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE).map((po) => (
                     <tr
                       key={po.poNumber}
                       onClick={() => setSelectedPO(po)}
@@ -384,6 +388,7 @@ export default function PurchaseView({
                 )}
               </tbody>
             </table>
+            <Pagination page={safePage} pageCount={pageCount} onPageChange={setCurrentPage} />
           </div>
         </div>
 

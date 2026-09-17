@@ -13,6 +13,7 @@ import { addMutation, getCurrentSession, getSessionHistory } from '../../lib/cas
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
+import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
 
 interface FinanceViewProps {
   expenses: Expense[];
@@ -37,6 +38,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('Semua');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [hoveredDayIdx, setHoveredDayIdx] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Translate categories
   const categoryTranslationMap: Record<string, string> = {
@@ -178,6 +180,8 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
     ...filteredExpenses.map((expense) => ({ ...expense, direction: 'out' as const })),
     ...cashJournalEntries.filter((entry) => activeCategoryFilter === 'Semua' || entry.category === activeCategoryFilter),
   ];
+  const pageCount = Math.ceil(journalEntries.length / PAGE_SIZE);
+  const safePage = Math.min(currentPage, Math.max(1, pageCount));
 
   const totalExpensesThisMonth = expenses.reduce((acc, e) => acc + e.amount, 0);
 
@@ -420,7 +424,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                   <td colSpan={7} className="py-8 text-center text-gray-400 font-bold">Belum ada jurnal kas yang cocok dengan kategori filter.</td>
                 </tr>
               ) : (
-                journalEntries.map((exp) => (
+                journalEntries.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE).map((exp) => (
                   <tr key={exp.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="py-3.5 px-4 font-mono font-bold text-gray-800">{exp.id}</td>
                     <td className="py-3.5 px-4 text-gray-500 font-medium">{exp.date}</td>
@@ -444,6 +448,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
               )}
             </tbody>
           </table>
+          <Pagination page={safePage} pageCount={pageCount} onPageChange={setCurrentPage} />
         </div>
       </div>
 
