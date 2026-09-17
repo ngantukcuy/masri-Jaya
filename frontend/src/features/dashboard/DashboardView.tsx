@@ -9,7 +9,8 @@ import {
   Lightbulb, 
   CheckCircle2, 
   AlertTriangle,
-  Forklift
+  Forklift,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, Activity, SalesInvoice, Customer } from '../../types';
@@ -20,6 +21,35 @@ import { Label } from '../../components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { buildDateBuckets, toDateInputValue } from '../../lib/dateBuckets';
+
+function downloadSalesCSV(salesInvoices: SalesInvoice[]) {
+  const escapeCSV = (value: string | number) => {
+    const text = String(value);
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  const header = ['No. Invoice', 'Tanggal', 'Pelanggan', 'Metode Bayar', 'Item', 'Subtotal', 'Diskon', 'Biaya Tambahan', 'Total'];
+  const rows = salesInvoices.map((invoice) => [
+    invoice.invoiceNumber,
+    invoice.createdAt || invoice.date,
+    invoice.customerName,
+    invoice.paymentMethod,
+    invoice.items.map((item) => `${item.name} (${item.quantity} x ${item.price})`).join('; '),
+    invoice.subtotal ?? invoice.total,
+    invoice.discountAmount ?? 0,
+    invoice.additionalFee ?? invoice.additionalFees?.reduce((sum, fee) => sum + fee.amount, 0) ?? 0,
+    invoice.total,
+  ]);
+  const csv = [header, ...rows].map((row) => row.map(escapeCSV).join(',')).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `laporan-penjualan-${Date.now()}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
 
 interface DashboardViewProps {
   products: Product[];
@@ -118,6 +148,8 @@ export default function DashboardView({
     (s, c) => s + (c.overdueAmount ?? c.currentDebt ?? 0),
     0
   );
+
+  const handleExportReport = () => downloadSalesCSV(salesInvoices);
 
   // Peringatan stok kritis: produk asli dengan status Low/Out of Stock (bukan contoh statis).
   const criticalStockProducts = [...products]
@@ -225,12 +257,12 @@ export default function DashboardView({
         
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <Button
-            onClick={() => onTabChange('pos')}
+            onClick={handleExportReport}
             size="lg"
             className="w-full sm:w-auto shadow-md shadow-blue-500/15 active:scale-[0.98]"
           >
-            <ShoppingBag className="w-4 h-4" />
-            <span>Buka Kasir POS (F12)</span>
+            <Download className="w-4 h-4" />
+            <span>Ekspor Laporan CSV</span>
           </Button>
         </div>
       </div>
