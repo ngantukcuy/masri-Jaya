@@ -23,12 +23,13 @@ interface InvoicePrintModalProps {
   invoice: SalesInvoice;
   docType: 'invoice' | 'delivery';
   onClose: () => void;
+  onDriverAssigned?: (invoice: SalesInvoice) => void;
   onDeliveryComplete?: (invoice: SalesInvoice) => void;
   storeProfile?: StoreProfileLite;
   cashierName?: string;
 }
 
-export default function InvoicePrintModal({ invoice, docType, onClose, onDeliveryComplete, storeProfile, cashierName }: InvoicePrintModalProps) {
+export default function InvoicePrintModal({ invoice, docType, onClose, onDriverAssigned, onDeliveryComplete, storeProfile, cashierName }: InvoicePrintModalProps) {
   const [isPrintingAnim, setIsPrintingAnim] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [activePrinterName, setActivePrinterName] = useState('');
@@ -95,6 +96,12 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
     : invoice;
 
   const subtotal = printableInvoice.subtotal ?? printableInvoice.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
+
+  const continueToPrint = () => {
+    if (!driverName.trim() || deliveryItems.length === 0) return;
+    onDriverAssigned?.({ ...invoice, driverName: driverName.trim() });
+    setPickerStep(false);
+  };
 
   const handlePrintThermal = () => {
     const registeredPrinters = getSupabaseTableCache<PrinterLite>('printers');
@@ -216,7 +223,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
             })}
           </div>
           <button
-            onClick={() => setPickerStep(false)}
+            onClick={continueToPrint}
             disabled={deliveryItems.length === 0 || !driverName.trim()}
             className="w-full flex items-center justify-center gap-1.5 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-lg text-xs font-bold cursor-pointer"
           >

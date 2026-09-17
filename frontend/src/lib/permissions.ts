@@ -65,6 +65,7 @@ export const FEATURE_PERMISSION_DEFS: { key: string; label: string }[] = [
   { key: 'manage_user_update', label: 'Ubah User' },
   { key: 'manage_user_delete', label: 'Hapus User' },
   { key: 'manage_retur_approve', label: 'Setujui/Tolak Retur' },
+  { key: 'manage_sales_delete_approve', label: 'Setujui/Tolak Hapus Transaksi' },
   { key: 'manage_finance_approve', label: 'Setujui/Tolak Klaim Reimbursement' },
   { key: 'manage_opname_approve', label: 'Setujui/Tolak Stock Opname' },
   { key: 'manage_purchase_approve', label: 'Setujui Pesanan Pembelian (PO)' },
@@ -91,6 +92,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<StaffRole, string[]> = {
     'view_cost_price',
     'manage_user_list',
     'manage_retur_approve',
+    'manage_sales_delete_approve',
     'manage_finance_approve',
     'manage_opname_approve',
     'manage_purchase_approve',
@@ -134,6 +136,7 @@ export function canAccessTab(user: CurrentUser | null | undefined, tabId: string
  */
 export const APPROVAL_PERMISSION_KEYS = [
   'manage_retur_approve',
+  'manage_sales_delete_approve',
   'manage_finance_approve',
   'manage_opname_approve',
   'manage_purchase_approve',

@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { History, Search, Receipt, Printer, Truck, CornerUpLeft, CalendarRange, CheckCircle2 } from 'lucide-react';
-import { SalesInvoice, ReturnRecord } from '../../types';
+import { History, Search, Receipt, Printer, Truck, CornerUpLeft, CalendarRange, CheckCircle2, Trash2, Clock, XCircle } from 'lucide-react';
+import { Customer, Product, SalesInvoice, ReturnRecord } from '../../types';
 import InvoicePrintModal from './components/InvoicePrintModal';
+import { addMutation } from '../../lib/cashSession';
+import { CurrentUser, hasPermission } from '../../lib/permissions';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -21,6 +23,13 @@ interface TransactionHistoryViewProps {
   salesInvoices: SalesInvoice[];
   returns?: ReturnRecord[];
   onUpdateSalesInvoice: (invoice: SalesInvoice) => void;
+  onDeleteSalesInvoice: (invoiceNumber: string) => void;
+  products: Product[];
+  onUpdateProducts: (products: Product[]) => void;
+  customers: Customer[];
+  onUpdateCustomers: (customers: Customer[]) => void;
+  onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
+  currentUser?: CurrentUser | null;
   storeProfile?: StoreProfileLite;
   cashierName?: string;
 }
@@ -60,7 +69,7 @@ function parseInvoiceDate(inv: SalesInvoice): Date | null {
   return null;
 }
 
-export default function TransactionHistoryView({ salesInvoices, returns = [], onUpdateSalesInvoice, storeProfile, cashierName }: TransactionHistoryViewProps) {
+export default function TransactionHistoryView({ salesInvoices, returns = [], onUpdateSalesInvoice, onDeleteSalesInvoice, products, onUpdateProducts, customers, onUpdateCustomers, onAddActivity, currentUser, storeProfile, cashierName }: TransactionHistoryViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selected, setSelected] = useState<SalesInvoice | null>(null);
   const [dateFrom, setDateFrom] = useState('');
@@ -70,6 +79,91 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
   // for either the struk pembelian (purchase receipt) or struk surat jalan
   // (delivery note).
   const [printTarget, setPrintTarget] = useState<{ invoice: SalesInvoice; docType: 'invoice' | 'delivery' } | null>(null);
+  const canApproveDeletion = hasPermission(currentUser, 'manage_sales_delete_approve');
+
+  const handleInvoiceUpdate = (updatedInvoice: SalesInvoice) => {
+    onUpdateSalesInvoice(updatedInvoice);
+    setSelected((current) => current?.invoiceNumber === updatedInvoice.invoiceNumber ? updatedInvoice : current);
+    setPrintTarget((current) => current?.invoice.invoiceNumber === updatedInvoice.invoiceNumber
+      ? { ...current, invoice: updatedInvoice }
+      : current);
+  };
+
+  const requestDelete = async (invoice: SalesInvoice) => {
+    if (invoice.deletionStatus === 'Pending') {
+      window.alert('Pengajuan hapus transaksi ini masih menunggu persetujuan.');
+      return;
+    }
+    const ok = window.confirm(`Ajukan penghapusan transaksi ${invoice.invoiceNumber}? Stok dan uang akan dikembalikan setelah disetujui.`);
+    if (!ok) return;
+    const updatedInvoice = {
+      ...invoice,
+      deletionStatus: 'Pending' as const,
+      deletionRequestedAt: new Date().toISOString(),
+    };
+    onUpdateSalesInvoice(updatedInvoice);
+    onAddActivity('Pengajuan Hapus Transaksi', invoice.invoiceNumber, invoice.total, 'quote', 'approvers');
+  };
+
+  const approveDelete = async (invoice: SalesInvoice) => {
+    if (!canApproveDeletion || invoice.deletionStatus !== 'Pending') return;
+    const ok = window.confirm(`Setujui hapus ${invoice.invoiceNumber}? Stok dan pembayaran akan dikembalikan.`);
+    if (!ok) return;
+
+    const updatedProducts = products.map((product) => {
+      const soldItem = invoice.items.find((item) => item.sku === product.sku);
+      if (!soldItem) return product;
+      const nextStock = product.stock + soldItem.quantity;
+      const nextStatus: Product['stockStatus'] = nextStock <= 0 ? 'Out of Stock' : nextStock <= 15 ? 'Low Stock' : 'Healthy';
+      return {
+        ...product,
+        stock: nextStock,
+        stockStatus: nextStatus,
+      };
+    });
+    onUpdateProducts(updatedProducts);
+
+    const customerId = invoice.customerId;
+    if (customerId) {
+      onUpdateCustomers(customers.map((customer) => {
+        if (customer.id !== customerId) return customer;
+        const refundedDebt = invoice.splitRemainingDebt || 0;
+        const nextDebt = Math.max(0, customer.currentDebt - refundedDebt);
+        return {
+          ...customer,
+          points: Math.max(0, customer.points - Math.floor(invoice.total / 10000)),
+          totalPurchases: Math.max(0, customer.totalPurchases - invoice.total),
+          depositBalance: (customer.depositBalance || 0) + (invoice.paymentMethod === 'Deposit' ? invoice.total : 0),
+          currentDebt: nextDebt,
+          pendingAmount: Math.max(0, (customer.pendingAmount || 0) - refundedDebt),
+          debtStatus: nextDebt > 0 ? customer.debtStatus : 'Cleared' as const,
+          lastTransactions: customer.lastTransactions.filter((transaction) => !transaction.orderName.includes(invoice.invoiceNumber)),
+        };
+      }));
+    }
+
+    const refundToCash = invoice.paymentMethod === 'Cash'
+      ? invoice.total
+      : invoice.paymentMethod === 'Split'
+        ? invoice.splitPaidAmount || 0
+        : 0;
+    if (refundToCash > 0) {
+      addMutation('in', 'Pembatalan Penjualan', refundToCash, `Hapus ${invoice.invoiceNumber}`);
+    }
+
+    onDeleteSalesInvoice(invoice.invoiceNumber);
+    setSelected(null);
+    setPrintTarget(null);
+    onAddActivity('Transaksi Dihapus', `${invoice.invoiceNumber} · stok dan pembayaran dikembalikan`, invoice.total, 'quote');
+  };
+
+  const rejectDelete = async (invoice: SalesInvoice) => {
+    if (!canApproveDeletion || invoice.deletionStatus !== 'Pending') return;
+    const ok = window.confirm(`Tolak penghapusan transaksi ${invoice.invoiceNumber}?`);
+    if (!ok) return;
+    handleInvoiceUpdate({ ...invoice, deletionStatus: 'Rejected' });
+    onAddActivity('Penghapusan Transaksi Ditolak', invoice.invoiceNumber, 0, 'quote');
+  };
 
   // Sales-side returns keyed by the invoice number they were filed against
   // (ReturnRecord.refNumber), so the history table can flag which invoices
@@ -261,19 +355,36 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                       >
                         <Printer className="w-3.5 h-3.5" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => { e.stopPropagation(); setPrintTarget({ invoice: inv, docType: 'delivery' }); }}
-                        title="Cetak Struk Surat Jalan"
-                        className={`w-7 h-7 ${inv.items.every((item) => (item.deliveredQuantity || 0) >= item.quantity) ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}
-                      >
-                        <Truck className="w-3.5 h-3.5" />
-                        {inv.items.every((item) => (item.deliveredQuantity || 0) >= item.quantity) && (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        )}
-                      </Button>
+                      {inv.fulfillmentMethod === 'Delivery' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => { e.stopPropagation(); setPrintTarget({ invoice: inv, docType: 'delivery' }); }}
+                          title="Cetak Struk Surat Jalan"
+                          className={`w-7 h-7 ${inv.items.every((item) => (item.deliveredQuantity || 0) >= item.quantity) ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}
+                        >
+                          <Truck className="w-3.5 h-3.5" />
+                          {inv.items.every((item) => (item.deliveredQuantity || 0) >= item.quantity) && (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          )}
+                        </Button>
+                      )}
+                      {inv.deletionStatus === 'Pending' && canApproveDeletion ? (
+                        <>
+                          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); void approveDelete(inv); }} title="Setujui hapus transaksi" className="w-7 h-7 bg-emerald-50 text-emerald-600 hover:bg-emerald-100">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); void rejectDelete(inv); }} title="Tolak hapus transaksi" className="w-7 h-7 bg-red-50 text-red-600 hover:bg-red-100">
+                            <XCircle className="w-3.5 h-3.5" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button variant="ghost" size="icon" disabled={inv.deletionStatus === 'Pending'} onClick={(e) => { e.stopPropagation(); void requestDelete(inv); }} title={inv.deletionStatus === 'Pending' ? 'Menunggu persetujuan hapus' : 'Ajukan hapus transaksi'} className="w-7 h-7 bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-60">
+                          {inv.deletionStatus === 'Pending' ? <Clock className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
+                        </Button>
+                      )}
                     </div>
+                    {inv.deletionStatus === 'Pending' && <p className="text-[9px] text-amber-600 text-center mt-1">Menunggu persetujuan</p>}
                   </TableCell>
                 </TableRow>
               ))
@@ -296,6 +407,8 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                 <p><span className="text-gray-400">Tanggal:</span> {selected.date}</p>
                 <p><span className="text-gray-400">Pelanggan:</span> {selected.customerName}</p>
                 <p><span className="text-gray-400">Metode Bayar:</span> {selected.paymentMethod}</p>
+                {selected.deletionStatus === 'Pending' && <p className="font-bold text-amber-600">Penghapusan menunggu persetujuan.</p>}
+                {selected.deletionStatus === 'Rejected' && <p className="font-bold text-red-600">Pengajuan hapus sebelumnya ditolak.</p>}
               </div>
               <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden text-xs">
                 {selectedItems.map((it, i) => (
@@ -349,14 +462,26 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                   <Receipt className="w-3.5 h-3.5" />
                   Struk Pembelian
                 </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => setPrintTarget({ invoice: selected, docType: 'delivery' })}
-                  className="w-full bg-amber-50 hover:bg-amber-100 text-amber-600"
-                >
-                  <Truck className="w-3.5 h-3.5" />
-                  Surat Jalan
-                </Button>
+                {selected.fulfillmentMethod === 'Delivery' && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => setPrintTarget({ invoice: selected, docType: 'delivery' })}
+                    className="w-full bg-amber-50 hover:bg-amber-100 text-amber-600"
+                  >
+                    <Truck className="w-3.5 h-3.5" />
+                    Surat Jalan
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2 pt-1">
+                {selected.deletionStatus === 'Pending' && canApproveDeletion ? (
+                  <>
+                    <Button onClick={() => void approveDelete(selected)} className="flex-1 bg-emerald-600 hover:bg-emerald-700"><CheckCircle2 className="w-3.5 h-3.5" /> Setujui Hapus</Button>
+                    <Button onClick={() => void rejectDelete(selected)} variant="secondary" className="flex-1 text-red-600"><XCircle className="w-3.5 h-3.5" /> Tolak</Button>
+                  </>
+                ) : (
+                  <Button disabled={selected.deletionStatus === 'Pending'} onClick={() => void requestDelete(selected)} variant="secondary" className="w-full text-red-600"><Trash2 className="w-3.5 h-3.5" /> {selected.deletionStatus === 'Pending' ? 'Menunggu Persetujuan' : 'Ajukan Hapus Transaksi'}</Button>
+                )}
               </div>
             </>
           )}
@@ -368,7 +493,8 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
           invoice={printTarget.invoice}
           docType={printTarget.docType}
           onClose={() => setPrintTarget(null)}
-            onDeliveryComplete={onUpdateSalesInvoice}
+            onDriverAssigned={handleInvoiceUpdate}
+            onDeliveryComplete={handleInvoiceUpdate}
           storeProfile={storeProfile}
           cashierName={cashierName}
         />

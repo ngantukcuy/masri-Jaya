@@ -1,5 +1,5 @@
 import { CashSession, CashMutation } from '../types';
-import { getSupabaseCache, setSupabaseCache } from './supabaseCache';
+import { getSupabaseCache, setSupabaseCache, subscribeSupabaseCache } from './supabaseCache';
 
 const CURRENT_KEY = 'cash_session_current';
 const HISTORY_KEY = 'cash_session_history';
@@ -8,6 +8,10 @@ export function getCurrentSession(): CashSession | null {
   const cached = getSupabaseCache<CashSession | null>(CURRENT_KEY, null);
   if (!cached || cached.status !== 'Open') return null;
   return cached;
+}
+
+export function subscribeCurrentSession(listener: (session: CashSession | null) => void): () => void {
+  return subscribeSupabaseCache<CashSession | null>(CURRENT_KEY, listener);
 }
 
 export function getSessionHistory(): CashSession[] {

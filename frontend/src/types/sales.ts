@@ -37,6 +37,9 @@ export interface SalesInvoice {
   deliveryAddress?: string;
   /** Driver assigned to deliver the invoice order. */
   driverName?: string;
+  /** Approval state for deleting this transaction from history. */
+  deletionStatus?: 'Pending' | 'Rejected';
+  deletionRequestedAt?: string;
   /** Only meaningful when paymentMethod is 'Cash': amount of physical cash
    * the cashier received from the customer. */
   cashReceived?: number;

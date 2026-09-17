@@ -198,14 +198,14 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
 
   const center = (text: string, size: number, bold = false) => {
     doc.setFontSize(size);
-    doc.setFont('mono', bold ? 'bold' : 'normal');
+    doc.setFont('JetBrains Mono', bold ? 'bold' : 'normal');
     doc.text(text, pageWidth / 2, y, { align: 'center' });
     y += lineHeight;
   };
 
   const row = (left: string, right: string, bold = false, size = 8) => {
     doc.setFontSize(size);
-    doc.setFont('mono', bold ? 'bold' : 'normal');
+    doc.setFont('JetBrains Mono', bold ? 'bold' : 'normal');
     doc.text(left, marginX, y);
     doc.text(right, pageWidth - marginX, y, { align: 'right' });
     y += lineHeight;
@@ -227,24 +227,24 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   dashedLine();
   dashedLine();
 
-  row('INVOICE:', invoice.invoiceNumber, true, 7.5);
-  row('TANGGAL:', invoice.date, false, 7.5);
-  row('KASIR:', cashierName || 'Staff Aktif', false, 7.5);
+  row('Invoice:', invoice.invoiceNumber, true, 7.5);
+  row('Tanggal:', invoice.date, false, 7.5);
+  row('Kasir:', cashierName || 'Staff Aktif', false, 7.5);
   dashedLine();
 
-  row('PELANGGAN:', invoice.customerName, false, 7.5);
-  if (invoice.driverName) row('SOPIR:', invoice.driverName, false, 7.5);
-  row('PEMBAYARAN:', invoice.paymentMethod === 'Cash' ? 'TUNAI' : invoice.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : invoice.paymentMethod, false, 7.5);
+  row('Pelanggan:', invoice.customerName, false, 7.5);
+  if (invoice.driverName) row('Sopir:', invoice.driverName, false, 7.5);
+  row('Pembayaran:', invoice.paymentMethod === 'Cash' ? 'TUNAI' : invoice.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : invoice.paymentMethod, false, 7.5);
   if (invoice.paymentMethod === 'Transfer' && invoice.paymentAccountName) {
-    row('REKENING:', invoice.paymentAccountName, true, 7.5);
-    row('NOMOR:', invoice.paymentAccountNumber || '-', false, 7.5);
+    row('Rekening:', invoice.paymentAccountName, true, 7.5);
+    row('Nomor:', invoice.paymentAccountNumber || '-', false, 7.5);
     if (invoice.paymentAccountHolder) row('PEMILIK:', invoice.paymentAccountHolder, false, 7.5);
   }
   if (invoice.fulfillmentMethod) {
-    row('PENGAMBILAN:', invoice.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI', false, 7.5);
+    row('Pengambilan:', invoice.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI', false, 7.5);
     if (invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress) {
       doc.setFontSize(7);
-      doc.setFont('mono', 'normal');
+      doc.setFont('JetBrains Mono', 'normal');
       const wrapped = doc.splitTextToSize(`Alamat: ${invoice.deliveryAddress}`, contentWidth);
       doc.text(wrapped, marginX, y);
       y += wrapped.length * lineHeight;
@@ -254,7 +254,7 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
 
   invoice.items.forEach((item) => {
     doc.setFontSize(7.5);
-    doc.setFont('mono', 'bold');
+    doc.setFont('JetBrains Mono', 'bold');
     const nameLines = doc.splitTextToSize(item.name, contentWidth);
     doc.text(nameLines, marginX, y);
     y += nameLines.length * lineHeight;
@@ -263,32 +263,32 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   dashedLine();
 
   const subtotal = invoice.subtotal ?? invoice.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
-  row('SUBTOTAL:', rupiah(subtotal), false, 7.5);
+  row('Subtotal:', rupiah(subtotal), false, 7.5);
   if (invoice.discountAmount) {
     const label = invoice.discountType === 'fixed'
-      ? 'DISKON (Rp):'
-      : `DISKON (${invoice.discountValue || 0}%):`;
+      ? 'Diskon (Rp):'
+      : `Diskon (${invoice.discountValue || 0}%):`;
     row(label, `-${rupiah(invoice.discountAmount)}`, false, 7.5);
   }
   const invoiceFees = invoice.additionalFees?.length
     ? invoice.additionalFees
-    : [{ name: invoice.additionalFeeName || 'BIAYA TAMBAHAN', amount: invoice.additionalFee ?? 0 }];
+    : [{ name: invoice.additionalFeeName || 'Biaya Tambahan', amount: invoice.additionalFee ?? 0 }];
   invoiceFees.forEach((fee) => {
-    if (fee.amount > 0) row(`${fee.name || 'BIAYA TAMBAHAN'}:`, rupiah(fee.amount), false, 7.5);
+    if (fee.amount > 0) row(`${fee.name || 'Biaya Tambahan'}:`, rupiah(fee.amount), false, 7.5);
   });
   y += 0.5;
   doc.setLineWidth(0.3);
   doc.line(marginX, y, pageWidth - marginX, y);
   y += lineHeight;
-  row('TOTAL AKHIR:', rupiah(invoice.total), true, 9);
+  row('Total Akhir:', rupiah(invoice.total), true, 9);
 
   if (invoice.paymentMethod === 'Cash' && typeof invoice.cashReceived === 'number') {
-    row('TUNAI DITERIMA:', rupiah(invoice.cashReceived), false, 7.5);
-    row('KEMBALIAN:', rupiah(invoice.changeAmount || 0), true, 7.5);
+    row('Tunai Diterima:', rupiah(invoice.cashReceived), false, 7.5);
+    row('Kembalian:', rupiah(invoice.changeAmount || 0), true, 7.5);
   }
   if (invoice.paymentMethod === 'Split' && typeof invoice.splitPaidAmount === 'number') {
-    row('DIBAYAR SEKARANG:', rupiah(invoice.splitPaidAmount), false, 7.5);
-    row('SISA (PIUTANG):', rupiah(invoice.splitRemainingDebt || 0), true, 7.5);
+    row('Dibayar Sekarang:', rupiah(invoice.splitPaidAmount), false, 7.5);
+    row('Sisa (Piutang):', rupiah(invoice.splitRemainingDebt || 0), true, 7.5);
   }
   y += 2;
 
@@ -317,7 +317,7 @@ export async function generateDeliveryNotePDF(
 
   const setFont = (size: number, bold = false) => {
     doc.setFontSize(size);
-    doc.setFont('mono', bold ? 'bold' : 'normal');
+    doc.setFont('JetBrains Mono', bold ? 'bold' : 'normal');
   };
 
   // Header / letterhead
@@ -330,10 +330,6 @@ export async function generateDeliveryNotePDF(
     const wrapped = doc.splitTextToSize(contactLine, contentWidth);
     doc.text(wrapped, marginX, y);
     y += wrapped.length * 4;
-  }
-  if (storeProfile?.taxId) {
-    doc.text(`NPWP: ${storeProfile.taxId}`, marginX, y);
-    y += 4;
   }
   y += 1;
   doc.setLineWidth(0.4);
@@ -358,12 +354,7 @@ export async function generateDeliveryNotePDF(
   y += lineHeight;
   doc.text('Kepada', marginX, y);
   doc.text(`: ${invoice.customerName}`, marginX + 24, y);
-  y += lineHeight;
-  if (invoice.driverName) {
-    doc.text('Sopir', marginX, y);
-    doc.text(`: ${invoice.driverName}`, marginX + 24, y);
-    y += lineHeight;
-  }
+  
   const deliveryText = invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress
     ? invoice.deliveryAddress
     : 'Diambil langsung di toko';
@@ -418,7 +409,11 @@ export async function generateDeliveryNotePDF(
   doc.line(secondBoxX, y, secondBoxX + boxWidth, y);
   doc.line(thirdBoxX, y, thirdBoxX + boxWidth, y);
   y += 4;
-  doc.text('( Nama )', marginX, y);
+  if (invoice.driverName) {
+    doc.text('Sopir', marginX, y);
+    doc.text(`: ${invoice.driverName}`, marginX + 24, y);
+    y += lineHeight;
+  }
   doc.text('( Nama )', secondBoxX, y);
   doc.text('( Nama )', thirdBoxX, y);
 

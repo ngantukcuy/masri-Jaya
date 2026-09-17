@@ -261,6 +261,10 @@ function Dashboard({
     setSalesInvoices((prev) => prev.map((invoice) => invoice.invoiceNumber === updatedInvoice.invoiceNumber ? updatedInvoice : invoice));
   };
 
+  const handleDeleteSalesInvoice = (invoiceNumber: string) => {
+    setSalesInvoices((prev) => prev.filter((invoice) => invoice.invoiceNumber !== invoiceNumber));
+  };
+
   const handleTabChange = (tab: string) => {
     setCurrentTab(tab);
     setIsMobileMenuOpen(false);
@@ -423,6 +427,13 @@ function Dashboard({
                       salesInvoices={salesInvoices}
                       returns={returns}
                       onUpdateSalesInvoice={handleUpdateSalesInvoice}
+                      onDeleteSalesInvoice={handleDeleteSalesInvoice}
+                      products={products}
+                      onUpdateProducts={setProducts}
+                      customers={customers}
+                      onUpdateCustomers={setCustomers}
+                      onAddActivity={handleAddActivity}
+                      currentUser={currentUser}
                       cashierName={currentUser?.name}
                       storeProfile={registeredOwner ? {
                         storeName: registeredOwner.storeName,

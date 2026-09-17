@@ -14,6 +14,7 @@ import {
 import { CashSession, SalesInvoice, ReturnRecord } from '../../types';
 import {
   getCurrentSession,
+  subscribeCurrentSession,
   getSessionHistory,
   openSession,
   closeSession,
@@ -64,6 +65,7 @@ export default function KasHarianView({ onAddActivity, salesInvoices = [], retur
 
   useEffect(() => {
     refresh();
+    return subscribeCurrentSession(setSession);
   }, []);
 
   const handleOpenSession = () => {

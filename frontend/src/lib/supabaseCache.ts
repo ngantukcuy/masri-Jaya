@@ -24,6 +24,11 @@ type TableRow<T> = { key: string; data: T };
  */
 const caches = new Map<string, unknown>();
 const subscribed = new Set<string>();
+const cacheListeners = new Map<string, Set<(value: unknown) => void>>();
+
+function notifyCacheListeners(table: string, value: unknown) {
+  cacheListeners.get(table)?.forEach((listener) => listener(value));
+}
 
 function ensureSubscribed<T>(table: string, defaultValue: T) {
   if (subscribed.has(table)) return;
@@ -39,6 +44,7 @@ function ensureSubscribed<T>(table: string, defaultValue: T) {
         if (payload.eventType === 'DELETE') return;
         const row = payload.new as SingletonRow<T>;
         caches.set(table, row.value);
+        notifyCacheListeners(table, row.value);
       }
     )
     .subscribe();
@@ -53,7 +59,10 @@ function ensureSubscribed<T>(table: string, defaultValue: T) {
         console.error(`[supabase-cache] Gagal memuat tabel "${table}":`, error);
         return;
       }
-      if (data) caches.set(table, data.value);
+      if (data) {
+        caches.set(table, data.value);
+        notifyCacheListeners(table, data.value);
+      }
     });
 }
 
@@ -65,12 +74,23 @@ export function getSupabaseCache<T>(table: string, defaultValue: T): T {
 export function setSupabaseCache<T>(table: string, value: T): void {
   caches.set(table, value);
   subscribed.add(table);
+  notifyCacheListeners(table, value);
   supabase
     .from(table)
     .upsert({ id: 1, value: value as never }, { onConflict: 'id' })
     .then(({ error }) => {
       if (error) console.error(`[supabase-cache] Gagal menyimpan ke tabel "${table}":`, error);
     });
+}
+
+/** Subscribe to updates for a singleton cache value, including its initial async load. */
+export function subscribeSupabaseCache<T>(table: string, listener: (value: T) => void): () => void {
+  ensureSubscribed(table, null);
+  const listeners = cacheListeners.get(table) || new Set<(value: unknown) => void>();
+  const wrappedListener = (value: unknown) => listener(value as T);
+  listeners.add(wrappedListener);
+  cacheListeners.set(table, listeners);
+  return () => listeners.delete(wrappedListener);
 }
 
 /**
