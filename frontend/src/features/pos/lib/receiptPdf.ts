@@ -354,7 +354,7 @@ export async function generateDeliveryNotePDF(
   y += lineHeight;
   doc.text('Kepada', marginX, y);
   doc.text(`: ${invoice.customerName}`, marginX + 24, y);
-  
+  y += lineHeight;
   const deliveryText = invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress
     ? invoice.deliveryAddress
     : 'Diambil langsung di toko';
@@ -408,10 +408,9 @@ export async function generateDeliveryNotePDF(
   doc.line(marginX, y, marginX + boxWidth, y);
   doc.line(secondBoxX, y, secondBoxX + boxWidth, y);
   doc.line(thirdBoxX, y, thirdBoxX + boxWidth, y);
-  y += 4;
+  y += 8;
   if (invoice.driverName) {
-    doc.text('Sopir', marginX, y);
-    doc.text(`: ${invoice.driverName}`, marginX + 24, y);
+    doc.text(`${invoice.driverName}`, marginX + 24, y);
     y += lineHeight;
   }
   doc.text('( Nama )', secondBoxX, y);

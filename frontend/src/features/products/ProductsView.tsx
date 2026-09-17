@@ -679,7 +679,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                     <Warehouse className="w-5 h-5 text-amber-600" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-extrabold text-sm text-foreground">Stok Lokasi SKU</p>
+                    <p className="font-extrabold text-sm text-foreground">Stok Produk</p>
                     <p className="text-xs text-muted-foreground">Stok yang ada di lokasi SKU secara keseluruhan</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto shrink-0" />

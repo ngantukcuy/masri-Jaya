@@ -257,11 +257,11 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
     <div className="space-y-6">
 
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as 'penjualan' | 'pembelian'); resetForm(); setSearchQuery(''); }}>
-        <TabsList className="bg-gray-100 p-1 rounded-xl w-fit gap-0">
-          <TabsTrigger value="penjualan" className="rounded-lg border-0 data-[state=active]:bg-white data-[state=active]:shadow data-[state=active]:text-blue-600 text-gray-500">
+        <TabsList className="bg-gray-100 p-1 rounded-xl w-full sm:w-fit gap-1">
+          <TabsTrigger value="penjualan" className="flex-1 sm:flex-none min-w-0 h-auto min-h-9 px-3 py-2 rounded-lg border-0 whitespace-normal text-center leading-tight data-[state=active]:bg-white data-[state=active]:shadow data-[state=active]:text-blue-600 text-gray-500">
             Retur Penjualan
           </TabsTrigger>
-          <TabsTrigger value="pembelian" className="rounded-lg border-0 data-[state=active]:bg-white data-[state=active]:shadow data-[state=active]:text-blue-600 text-gray-500">
+          <TabsTrigger value="pembelian" className="flex-1 sm:flex-none min-w-0 h-auto min-h-9 px-3 py-2 rounded-lg border-0 whitespace-normal text-center leading-tight data-[state=active]:bg-white data-[state=active]:shadow data-[state=active]:text-blue-600 text-gray-500">
             Retur Pembelian
           </TabsTrigger>
         </TabsList>
