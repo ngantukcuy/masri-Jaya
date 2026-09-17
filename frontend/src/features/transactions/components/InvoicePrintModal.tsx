@@ -128,7 +128,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
       if (docType === 'invoice') {
         await generateInvoiceReceiptPDF(invoice, storeProfile, cashierName);
       } else {
-        await generateDeliveryNotePDF({ ...invoice, driverName: driverName.trim() || undefined }, storeProfile, deliveryItems);
+        await generateDeliveryNotePDF(printableInvoice, storeProfile, deliveryItems);
         markDeliveryComplete();
       }
     } catch (err) {

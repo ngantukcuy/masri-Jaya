@@ -198,14 +198,14 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
 
   const center = (text: string, size: number, bold = false) => {
     doc.setFontSize(size);
-    doc.setFont('courier', bold ? 'bold' : 'normal');
+    doc.setFont('mono', bold ? 'bold' : 'normal');
     doc.text(text, pageWidth / 2, y, { align: 'center' });
     y += lineHeight;
   };
 
   const row = (left: string, right: string, bold = false, size = 8) => {
     doc.setFontSize(size);
-    doc.setFont('courier', bold ? 'bold' : 'normal');
+    doc.setFont('mono', bold ? 'bold' : 'normal');
     doc.text(left, marginX, y);
     doc.text(right, pageWidth - marginX, y, { align: 'right' });
     y += lineHeight;
@@ -244,7 +244,7 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
     row('PENGAMBILAN:', invoice.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI', false, 7.5);
     if (invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress) {
       doc.setFontSize(7);
-      doc.setFont('courier', 'normal');
+      doc.setFont('mono', 'normal');
       const wrapped = doc.splitTextToSize(`Alamat: ${invoice.deliveryAddress}`, contentWidth);
       doc.text(wrapped, marginX, y);
       y += wrapped.length * lineHeight;
@@ -254,7 +254,7 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
 
   invoice.items.forEach((item) => {
     doc.setFontSize(7.5);
-    doc.setFont('courier', 'bold');
+    doc.setFont('mono', 'bold');
     const nameLines = doc.splitTextToSize(item.name, contentWidth);
     doc.text(nameLines, marginX, y);
     y += nameLines.length * lineHeight;
@@ -317,7 +317,7 @@ export async function generateDeliveryNotePDF(
 
   const setFont = (size: number, bold = false) => {
     doc.setFontSize(size);
-    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    doc.setFont('mono', bold ? 'bold' : 'normal');
   };
 
   // Header / letterhead
