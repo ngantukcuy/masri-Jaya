@@ -35,6 +35,8 @@ export interface SalesInvoice {
   fulfillmentMethod?: 'Pickup' | 'Delivery';
   /** Only meaningful when fulfillmentMethod is 'Delivery'. */
   deliveryAddress?: string;
+  /** Driver assigned to deliver the invoice order. */
+  driverName?: string;
   /** Only meaningful when paymentMethod is 'Cash': amount of physical cash
    * the cashier received from the customer. */
   cashReceived?: number;

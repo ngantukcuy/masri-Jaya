@@ -40,6 +40,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
     () => Object.fromEntries(invoice.items.map((item, idx) => [idx, 0]))
   );
   const [selectedItemIdx, setSelectedItemIdx] = useState<Set<number>>(new Set());
+  const [driverName, setDriverName] = useState(invoice.driverName || '');
   const deliveryRecordedRef = useRef(false);
   const [pickerStep, setPickerStep] = useState(docType === 'delivery');
 
@@ -89,7 +90,9 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
         }))
         .filter((item) => selectedItemIdx.has(item.sourceIndex) && item.quantity > 0)
       : invoice.items;
-  const printableInvoice: SalesInvoice = docType === 'delivery' ? { ...invoice, items: deliveryItems } : invoice;
+  const printableInvoice: SalesInvoice = docType === 'delivery'
+    ? { ...invoice, driverName: driverName.trim() || invoice.driverName, items: deliveryItems }
+    : invoice;
 
   const subtotal = printableInvoice.subtotal ?? printableInvoice.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
 
@@ -110,6 +113,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
     deliveryRecordedRef.current = true;
     const updatedInvoice: SalesInvoice = {
       ...invoice,
+      driverName: driverName.trim() || undefined,
       items: invoice.items.map((item, idx) => ({
         ...item,
         deliveredQuantity: Math.min(item.quantity, (item.deliveredQuantity || 0) + (deliveryQuantities[idx] || 0)),
@@ -124,7 +128,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
       if (docType === 'invoice') {
         await generateInvoiceReceiptPDF(invoice, storeProfile, cashierName);
       } else {
-        await generateDeliveryNotePDF(invoice, storeProfile, deliveryItems);
+        await generateDeliveryNotePDF({ ...invoice, driverName: driverName.trim() || undefined }, storeProfile, deliveryItems);
         markDeliveryComplete();
       }
     } catch (err) {
@@ -155,6 +159,17 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
           <p className="text-[11px] text-gray-500">
             Centang barang yang diantar. Untuk jumlah 1, cukup centang; jumlah yang lebih banyak bisa diubah pada kolom kirim.
           </p>
+          <div className="space-y-1.5">
+            <label htmlFor="delivery-driver" className="text-[11px] font-bold text-gray-700">Nama Sopir <span className="text-red-500">*</span></label>
+            <input
+              id="delivery-driver"
+              type="text"
+              value={driverName}
+              onChange={(event) => setDriverName(event.target.value)}
+              placeholder="Masukkan nama sopir"
+              className="w-full h-9 rounded-lg border border-gray-300 px-3 text-xs outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+            />
+          </div>
           <button
             type="button"
             onClick={toggleAll}
@@ -202,7 +217,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
           </div>
           <button
             onClick={() => setPickerStep(false)}
-            disabled={deliveryItems.length === 0}
+            disabled={deliveryItems.length === 0 || !driverName.trim()}
             className="w-full flex items-center justify-center gap-1.5 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-lg text-xs font-bold cursor-pointer"
           >
             Lanjut ke Cetak ({deliveryItems.length} barang)
@@ -275,6 +290,12 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
                 <span className="text-right">{printableInvoice.deliveryAddress}</span>
               </div>
             )}
+            {printableInvoice.driverName && (
+              <div className="flex justify-between">
+                <span>SOPIR:</span>
+                <span className="font-bold">{printableInvoice.driverName}</span>
+              </div>
+            )}
           </div>
 
           {/* Items list — struk pembelian shows harga, surat jalan only shows jumlah barang */}
@@ -343,9 +364,13 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDeliver
           ) : (
             <div className="py-4 space-y-3 text-[10px] text-gray-600">
               <p>Barang di atas telah diperiksa dan diterima dalam kondisi baik serta sesuai jumlah.</p>
-              <div className="grid grid-cols-2 gap-4 pt-4">
+              <div className="grid grid-cols-3 gap-2 pt-4">
                 <div className="text-center space-y-8">
-                  <p className="font-bold text-gray-800">Pengirim</p>
+                  <p className="font-bold text-gray-800">Sopir</p>
+                  <p className="border-t border-gray-300 pt-1 text-[8px] text-gray-400">( Nama &amp; Tanggal )</p>
+                </div>
+                <div className="text-center space-y-8">
+                  <p className="font-bold text-gray-800">Pemeriksa</p>
                   <p className="border-t border-gray-300 pt-1 text-[8px] text-gray-400">( Nama &amp; Tanggal )</p>
                 </div>
                 <div className="text-center space-y-8">

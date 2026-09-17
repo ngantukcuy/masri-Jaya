@@ -233,6 +233,7 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   dashedLine();
 
   row('PELANGGAN:', invoice.customerName, false, 7.5);
+  if (invoice.driverName) row('SOPIR:', invoice.driverName, false, 7.5);
   row('PEMBAYARAN:', invoice.paymentMethod === 'Cash' ? 'TUNAI' : invoice.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : invoice.paymentMethod, false, 7.5);
   if (invoice.paymentMethod === 'Transfer' && invoice.paymentAccountName) {
     row('REKENING:', invoice.paymentAccountName, true, 7.5);
@@ -358,6 +359,11 @@ export async function generateDeliveryNotePDF(
   doc.text('Kepada', marginX, y);
   doc.text(`: ${invoice.customerName}`, marginX + 24, y);
   y += lineHeight;
+  if (invoice.driverName) {
+    doc.text('Sopir', marginX, y);
+    doc.text(`: ${invoice.driverName}`, marginX + 24, y);
+    y += lineHeight;
+  }
   const deliveryText = invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress
     ? invoice.deliveryAddress
     : 'Diambil langsung di toko';
@@ -399,17 +405,22 @@ export async function generateDeliveryNotePDF(
   y += 14;
 
   // Signature boxes
-  const boxWidth = contentWidth / 2 - 4;
+  const boxWidth = contentWidth / 3 - 5;
   setFont(9, true);
-  doc.text('Pengirim,', marginX, y);
-  doc.text('Penerima,', marginX + boxWidth + 8, y);
+  const secondBoxX = marginX + boxWidth + 7.5;
+  const thirdBoxX = secondBoxX + boxWidth + 7.5;
+  doc.text('Sopir,', marginX, y);
+  doc.text('Pemeriksa,', secondBoxX, y);
+  doc.text('Penerima,', thirdBoxX, y);
   y += 20;
   setFont(8);
   doc.line(marginX, y, marginX + boxWidth, y);
-  doc.line(marginX + boxWidth + 8, y, marginX + boxWidth + 8 + boxWidth, y);
+  doc.line(secondBoxX, y, secondBoxX + boxWidth, y);
+  doc.line(thirdBoxX, y, thirdBoxX + boxWidth, y);
   y += 4;
   doc.text('( Nama )', marginX, y);
-  doc.text('( Nama )', marginX + boxWidth + 8, y);
+  doc.text('( Nama )', secondBoxX, y);
+  doc.text('( Nama )', thirdBoxX, y);
 
   await savePdfDoc(doc, `SuratJalan_${invoice.invoiceNumber}.pdf`);
 }
