@@ -336,7 +336,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                     })()}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center justify-center gap-1.5">
+                    <div className="flex items-center justify-start gap-1.5">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -346,20 +346,27 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                       >
                         <Printer className="w-3.5 h-3.5" />
                       </Button>
-                      {inv.fulfillmentMethod === 'Delivery' && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => { e.stopPropagation(); setPrintTarget({ invoice: inv, docType: 'delivery' }); }}
-                          title={inv.items.every((item) => (item.deliveredQuantity || 0) >= item.quantity) ? 'Semua barang sudah diantar - Cetak Surat Jalan' : 'Cetak Struk Surat Jalan'}
-                          className="w-9 h-8 bg-amber-50 text-amber-600 hover:bg-amber-100"
-                        >
-                          <Truck className="w-4 h-4" />
-                          {inv.items.every((item) => (item.deliveredQuantity || 0) >= item.quantity) && (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          )}
-                        </Button>
-                      )}
+                      {inv.fulfillmentMethod === 'Delivery' && (() => {
+                        const deliveryComplete = inv.items.every((item) => (item.deliveredQuantity || 0) >= item.quantity);
+                        return (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => { e.stopPropagation(); setPrintTarget({ invoice: inv, docType: 'delivery' }); }}
+                              title={deliveryComplete ? 'Semua barang sudah diantar - Cetak Surat Jalan' : 'Cetak Struk Surat Jalan'}
+                              className={`w-7 h-7 ${deliveryComplete ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}
+                            >
+                              <Truck className="w-3.5 h-3.5" />
+                            </Button>
+                            {deliveryComplete && (
+                              <span title="Semua barang sudah diantar" aria-label="Semua barang sudah diantar">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                              </span>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </TableCell>
                   <TableCell>

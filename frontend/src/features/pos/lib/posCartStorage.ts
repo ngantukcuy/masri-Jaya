@@ -30,7 +30,7 @@ export type PersistedPOSState = {
   /** Legacy single-fee fields kept for older persisted state compatibility. */
   additionalFeeName: string;
   additionalFee: number;
-  paymentMethod: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit';
+  paymentMethod: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' | 'Piutang';
   fulfillmentMethod: 'Pickup' | 'Delivery';
   deliveryAddress: string;
 };
@@ -69,7 +69,7 @@ export const readPersistedPOSState = (): PersistedPOSState => {
     additionalFees,
     additionalFeeName: typeof parsed.additionalFeeName === 'string' ? parsed.additionalFeeName : '',
     additionalFee: typeof parsed.additionalFee === 'number' && parsed.additionalFee > 0 ? parsed.additionalFee : 0,
-    paymentMethod: parsed.paymentMethod === 'QRIS' || parsed.paymentMethod === 'Transfer' || parsed.paymentMethod === 'Split' || parsed.paymentMethod === 'Deposit'
+    paymentMethod: parsed.paymentMethod === 'QRIS' || parsed.paymentMethod === 'Transfer' || parsed.paymentMethod === 'Split' || parsed.paymentMethod === 'Deposit' || parsed.paymentMethod === 'Piutang'
       ? parsed.paymentMethod
       : 'Cash',
     fulfillmentMethod: parsed.fulfillmentMethod === 'Delivery' ? 'Delivery' : 'Pickup',

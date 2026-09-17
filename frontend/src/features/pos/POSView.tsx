@@ -174,7 +174,7 @@ export default function POSView({
   const [discountValue, setDiscountValue] = useState<number>(0);
   const [fulfillmentMethod, setFulfillmentMethod] = useState<'Pickup' | 'Delivery'>('Pickup');
   const [deliveryAddress, setDeliveryAddress] = useState<string>('');
-  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit'>('Cash');
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' | 'Piutang'>('Cash');
   const [isCartPersistenceEnabled, setIsCartPersistenceEnabled] = useState(false);
   const [showCheckoutReceipt, setShowCheckoutReceipt] = useState(false);
   const [lastOrderDetails, setLastOrderDetails] = useState<any>(null);
@@ -542,7 +542,7 @@ const commitQtyInput = (sku: string) => {
     setShowPaymentMethodModal(true);
   };
 
-  const handleSelectPaymentMethod = (method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit', transferAccount?: BankAccount) => {
+  const handleSelectPaymentMethod = (method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' | 'Piutang', transferAccount?: BankAccount) => {
     setPaymentMethod(method);
     setShowPaymentMethodModal(false);
 
@@ -577,8 +577,12 @@ const commitQtyInput = (sku: string) => {
     // dipilih masih pelanggan umum "Customer" (bukan baris pelanggan asli),
     // sisa hutang itu nggak ada tempat penyimpanannya, jadi tahan dulu di
     // sini dan minta kasir pilih pelanggan yang sebenarnya.
-    if (selectedCustomer.id === GENERIC_CUSTOMER_ID) {
-      dialog.alert('Pelanggan "Customer" (umum) tidak bisa bayar sebagian/cicil, karena sisa hutangnya tidak ada pelanggan tujuannya. Pilih atau tambahkan data pelanggan yang sebenarnya dulu di dropdown pelanggan.');
+    if ((method === 'Split' || method === 'Piutang') && selectedCustomer.id === GENERIC_CUSTOMER_ID) {
+      dialog.alert(`Pelanggan "Customer" (umum) tidak bisa ${method === 'Piutang' ? 'berhutang' : 'bayar sebagian/cicil'}, karena piutang tidak punya pelanggan tujuan. Pilih atau tambahkan data pelanggan yang sebenarnya dulu di dropdown pelanggan.`);
+      return;
+    }
+    if (method === 'Piutang') {
+      executeFinalCheckout(method, {});
       return;
     }
     setShowSplitPaymentModal(true);
@@ -595,7 +599,7 @@ const commitQtyInput = (sku: string) => {
   };
 
   const executeFinalCheckout = (
-    methodUsed: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' = paymentMethod,
+    methodUsed: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' | 'Piutang' = paymentMethod,
     paymentDetails: PaymentExecutionDetails = {}
   ) => {
     // Generate Invoice ID
@@ -627,13 +631,15 @@ const commitQtyInput = (sku: string) => {
     // Pending, log a transaction line, and push nextDueDate out to
     // today + tempoDays (unless an earlier due date is already open).
     const pointsEarned = Math.floor(totalAmount / 10000);
-    const splitRemainingDebt = methodUsed === 'Split' ? Math.max(0, paymentDetails.splitRemainingDebt || 0) : 0;
+    const splitRemainingDebt = methodUsed === 'Split'
+      ? Math.max(0, paymentDetails.splitRemainingDebt || 0)
+      : methodUsed === 'Piutang' ? totalAmount : 0;
     const updatedCustomers = customers.map((cust) => {
       if (cust.id === selectedCustomer.id) {
         const currentDeposit = cust.depositBalance || 0;
         const nextDeposit = methodUsed === 'Deposit' ? Math.max(0, currentDeposit - totalAmount) : currentDeposit;
 
-        if (methodUsed === 'Split' && splitRemainingDebt > 0) {
+        if ((methodUsed === 'Split' || methodUsed === 'Piutang') && splitRemainingDebt > 0) {
           const dueDate = new Date();
           dueDate.setDate(dueDate.getDate() + (cust.tempoDays || 30));
           const debtDueDate = dueDate.toISOString().split('T')[0];
@@ -646,7 +652,7 @@ const commitQtyInput = (sku: string) => {
             debtStatus: 'Pending' as const,
             pendingAmount: (cust.pendingAmount || 0) + splitRemainingDebt,
             lastTransactions: [
-              { orderName: `Penjualan POS (Cicil): ${invNumber}`, date: new Date().toISOString().split('T')[0], amount: splitRemainingDebt },
+              { orderName: `Penjualan POS (${methodUsed === 'Piutang' ? 'Piutang' : 'Cicil'}): ${invNumber}`, date: new Date().toISOString().split('T')[0], amount: splitRemainingDebt },
               ...cust.lastTransactions
             ],
             nextDueDate: cust.nextDueDate && cust.nextDueDate < debtDueDate ? cust.nextDueDate : debtDueDate
@@ -699,7 +705,7 @@ const commitQtyInput = (sku: string) => {
         cashReceived: methodUsed === 'Cash' ? paymentDetails.cashReceived : undefined,
         changeAmount: methodUsed === 'Cash' ? paymentDetails.changeAmount : undefined,
         splitPaidAmount: methodUsed === 'Split' ? paymentDetails.splitPaidAmount : undefined,
-        splitRemainingDebt: methodUsed === 'Split' ? splitRemainingDebt : undefined,
+        splitRemainingDebt: (methodUsed === 'Split' || methodUsed === 'Piutang') ? splitRemainingDebt : undefined,
         paymentAccountName: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.name : undefined,
         paymentAccountNumber: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.accountNumber : undefined,
         paymentAccountHolder: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.holderName : undefined
@@ -727,7 +733,7 @@ const commitQtyInput = (sku: string) => {
       cashReceived: methodUsed === 'Cash' ? paymentDetails.cashReceived : undefined,
       changeAmount: methodUsed === 'Cash' ? paymentDetails.changeAmount : undefined,
       splitPaidAmount: methodUsed === 'Split' ? paymentDetails.splitPaidAmount : undefined,
-      splitRemainingDebt: methodUsed === 'Split' ? splitRemainingDebt : undefined,
+      splitRemainingDebt: (methodUsed === 'Split' || methodUsed === 'Piutang') ? splitRemainingDebt : undefined,
       transferAccount: methodUsed === 'Transfer' ? paymentDetails.transferAccount : undefined,
       date: new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     };

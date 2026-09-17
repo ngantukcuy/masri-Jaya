@@ -6,7 +6,7 @@ import { Button } from '../../../components/ui/button';
 
 interface PaymentMethodModalProps {
   onClose: () => void;
-  onSelect: (method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit', account?: BankAccount) => void;
+  onSelect: (method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' | 'Piutang', account?: BankAccount) => void;
   totalAmount: number;
   customer: Customer;
   /** True kalau customer yang dipilih masih pelanggan umum "Customer"
@@ -29,7 +29,7 @@ export default function PaymentMethodModal({ onClose, onSelect, totalAmount, cus
   const [showTransferAccounts, setShowTransferAccounts] = useState(false);
 
   const options: {
-    method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit';
+    method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' | 'Piutang';
     label: string;
     desc: string;
     icon: ReactNode;
@@ -53,10 +53,18 @@ export default function PaymentMethodModal({ onClose, onSelect, totalAmount, cus
       icon: <Landmark className="w-5 h-5" />,
     },
     {
+      method: 'Piutang',
+      label: 'Piutang',
+      desc: isGenericCustomer 
+        ? 'Pilih pelanggan asli dulu — "Customer" umum tidak bisa punya piutang' 
+        : 'Bayar sebelum tempo, catat sebagai hutang pelanggan (piutang)',
+      icon: <Landmark className="w-5 h-5" />,
+    },
+    {
       method: 'Split',
-      label: 'Kartu / Cicil',
+      label: 'Cicil',
       desc: isGenericCustomer
-        ? 'Pilih pelanggan asli dulu — "Customer" umum tidak bisa punya piutang'
+        ? 'Pilih pelanggan asli dulu — "Customer" umum tidak bisa cicil'
         : 'Bayar sebagian sekarang, sisanya jadi piutang',
       icon: <CreditCard className="w-5 h-5" />,
     },
@@ -82,7 +90,7 @@ export default function PaymentMethodModal({ onClose, onSelect, totalAmount, cus
 
         <div className="space-y-2 mt-4">
           {options.map((opt) => {
-            const disabled = (opt.method === 'Split' && isGenericCustomer) || (opt.method === 'Transfer' && transferAccounts.length === 0);
+            const disabled = ((opt.method === 'Split' || opt.method === 'Piutang') && isGenericCustomer) || (opt.method === 'Transfer' && transferAccounts.length === 0);
             if (opt.method === 'Transfer' && transferAccounts.length > 0 && !showTransferAccounts) {
               return (
                 <button
