@@ -7,6 +7,7 @@ export interface POItem {
   discountPerUnit?: number;
   totalDiscount?: number;
   locationId?: string;
+  bonus?: boolean;
 }
 
 export interface PO {
@@ -24,6 +25,7 @@ export interface PO {
   additionalCost?: number;
   additionalCostName?: string;
   receivedAt?: string;
+  dueDate?: string;
 }
 
 export interface Supplier {

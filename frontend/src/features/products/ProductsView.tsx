@@ -18,7 +18,11 @@ import {
   ScanLine,
   RefreshCw,
   CheckCircle2,
-  Truck
+  Truck,
+  MoreVertical,
+  Percent,
+  Settings2,
+  CalendarDays
 } from 'lucide-react';
 import { Product, SkuLocation, Supplier, PO, SalesInvoice } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -72,7 +76,8 @@ interface IncomingProductForm {
   quantity: number;
   price: number;
   taxIncluded: boolean;
-  discountPerUnit: number;
+  discounts: { type: 'percent' | 'amount'; value: number }[];
+  bonus: boolean;
   locationId: string;
 }
 
@@ -93,11 +98,14 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const [incomingPoNumber, setIncomingPoNumber] = useState('');
   const [incomingSupplier, setIncomingSupplier] = useState('');
   const [incomingPaymentMethod, setIncomingPaymentMethod] = useState<'Cash' | 'Transfer' | 'Tempo'>('Cash');
+  const [incomingDueDate, setIncomingDueDate] = useState('');
   const [incomingDeliveryNote, setIncomingDeliveryNote] = useState('');
   const [incomingStatus, setIncomingStatus] = useState<'Received' | 'In Transit'>('Received');
   const [incomingItems, setIncomingItems] = useState<IncomingProductForm[]>([]);
-  const [incomingAdditionalCost, setIncomingAdditionalCost] = useState(0);
-  const [incomingAdditionalCostName, setIncomingAdditionalCostName] = useState('');
+  const [incomingAdditionalCosts, setIncomingAdditionalCosts] = useState<{ name: string; amount: number }[]>([]);
+  const [incomingProductSearch, setIncomingProductSearch] = useState('');
+  const [activeProductSearchIndex, setActiveProductSearchIndex] = useState<number | null>(null);
+  const [openItemMenu, setOpenItemMenu] = useState<number | null>(null);
   // ---- Transfer Stok: pindahkan lokasi gudang sebuah SKU ----
   const [transferSku, setTransferSku] = useState('');
   const [transferTargetLocationId, setTransferTargetLocationId] = useState('');
@@ -216,8 +224,10 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const receivedPOs = pos
     .filter((po) => po.status === 'Received' || po.status === 'In Transit' || po.receivedAt)
     .sort((a, b) => (b.receivedAt || b.createdDate).localeCompare(a.receivedAt || a.createdDate));
-  const incomingTotalDiscount = incomingItems.reduce((sum, item) => sum + item.discountPerUnit * item.quantity, 0);
-  const incomingSubtotal = incomingItems.reduce((sum, item) => sum + (item.price * item.quantity) - (item.discountPerUnit * item.quantity), 0);
+  const getItemDiscount = (item: IncomingProductForm) => item.discounts.reduce((price, discount) => discount.type === 'percent' ? price + Math.min(price, price * discount.value / 100) : price + Math.min(price, discount.value), 0);
+  const incomingTotalDiscount = incomingItems.reduce((sum, item) => sum + getItemDiscount(item) * item.quantity, 0);
+  const incomingSubtotal = incomingItems.reduce((sum, item) => sum + (item.bonus ? 0 : Math.max(0, item.price - getItemDiscount(item)) * item.quantity), 0);
+  const incomingAdditionalCost = incomingAdditionalCosts.reduce((sum, cost) => sum + cost.amount, 0);
   const incomingTotal = Math.max(0, incomingSubtotal + incomingAdditionalCost);
 
   const openIncomingModal = () => {
@@ -225,13 +235,26 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     setIncomingPoNumber(`PO-2026-${Math.floor(1000 + Math.random() * 9000)}`);
     setIncomingSupplier(suppliers[0]?.name || '');
     setIncomingPaymentMethod('Cash');
+    setIncomingDueDate('');
     setIncomingDeliveryNote('');
     setIncomingStatus('Received');
-    setIncomingItems([{ productSku: products[0]?.sku || '', quantity: 1, price: products[0]?.retailPrice || 0, taxIncluded: false, discountPerUnit: 0, locationId: products[0]?.skuLocationId || '' }]);
-    setIncomingAdditionalCost(0);
-    setIncomingAdditionalCostName('');
+    setIncomingItems([{ productSku: products[0]?.sku || '', quantity: 1, price: products[0]?.retailPrice || 0, taxIncluded: false, discounts: [], bonus: false, locationId: products[0]?.skuLocationId || '' }]);
+    setIncomingAdditionalCosts([]);
+    setIncomingProductSearch('');
+    setActiveProductSearchIndex(null);
+    setOpenItemMenu(null);
     setIncomingStep(1);
     setShowIncomingModal(true);
+  };
+
+  const updateIncomingItem = (index: number, changes: Partial<IncomingProductForm>) => {
+    setIncomingItems((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, ...changes } : item));
+  };
+
+  const updateIncomingDiscount = (itemIndex: number, discountIndex: number, changes: Partial<IncomingProductForm['discounts'][number]>) => {
+    setIncomingItems((items) => items.map((item, index) => index === itemIndex
+      ? { ...item, discounts: item.discounts.map((discount, index) => index === discountIndex ? { ...discount, ...changes } : discount) }
+      : item));
   };
 
   const handleSaveIncoming = (event: React.FormEvent) => {
@@ -248,9 +271,10 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
         name: product?.name || item.productSku,
         quantity: item.quantity,
         price: item.price,
+        discountPerUnit: getItemDiscount(item),
+        totalDiscount: getItemDiscount(item) * item.quantity,
         taxIncluded: item.taxIncluded,
-        discountPerUnit: item.discountPerUnit,
-        totalDiscount: item.discountPerUnit * item.quantity,
+        bonus: item.bonus,
         locationId: item.locationId,
       };
     });
@@ -267,7 +291,8 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       taxIncluded: incomingItems.some((item) => item.taxIncluded),
       totalDiscount: incomingTotalDiscount,
       additionalCost: incomingAdditionalCost,
-      additionalCostName: incomingAdditionalCostName,
+      additionalCostName: incomingAdditionalCosts.map((cost) => cost.name).filter(Boolean).join(', '),
+      dueDate: incomingPaymentMethod === 'Tempo' ? incomingDueDate : undefined,
       receivedAt: incomingStatus === 'Received' ? new Date().toISOString() : undefined,
     };
 
@@ -1111,40 +1136,41 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div><Label>Tanggal</Label><Input type="date" value={incomingDate} onChange={(event) => setIncomingDate(event.target.value)} required /></div>
                     <div><Label>Nomor PO</Label><Input value={incomingPoNumber} onChange={(event) => setIncomingPoNumber(event.target.value)} placeholder="PO-2026-XXXX" required /></div>
-                    <div><Label>Pemasok</Label><Select value={incomingSupplier} onValueChange={setIncomingSupplier}><SelectTrigger><SelectValue placeholder="Pilih pemasok" /></SelectTrigger><SelectContent>{suppliers.map((supplier) => <SelectItem key={supplier.name} value={supplier.name}>{supplier.name}</SelectItem>)}</SelectContent></Select></div>
-                    <div><Label>Metode Bayar</Label><Select value={incomingPaymentMethod} onValueChange={(value) => setIncomingPaymentMethod(value as typeof incomingPaymentMethod)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Cash">Tunai</SelectItem><SelectItem value="Transfer">Transfer</SelectItem><SelectItem value="Tempo">Tempo</SelectItem></SelectContent></Select></div>
+                    <div><Label>Supplier</Label><Select value={incomingSupplier} onValueChange={setIncomingSupplier}><SelectTrigger><SelectValue placeholder="Pilih pemasok" /></SelectTrigger><SelectContent>{suppliers.map((supplier) => <SelectItem key={supplier.name} value={supplier.name}>{supplier.name}</SelectItem>)}</SelectContent></Select></div>
+                    <div><Label>Metode Bayar</Label><Select value={incomingPaymentMethod} onValueChange={(value) => setIncomingPaymentMethod(value as typeof incomingPaymentMethod)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Cash">Tunai</SelectItem><SelectItem value="Transfer">Transfer</SelectItem><SelectItem value="Tempo">Tempo</SelectItem></SelectContent></Select>{incomingPaymentMethod === 'Tempo' && <div className="mt-2"><Label htmlFor="incoming-due-date">Jatuh Tempo</Label><div className="relative"><CalendarDays className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input id="incoming-due-date" type="date" value={incomingDueDate} min={incomingDate} onChange={(event) => setIncomingDueDate(event.target.value)} className="pl-9" required /></div></div>}</div>
                     <div><Label>No. Surat Jalan</Label><Input value={incomingDeliveryNote} onChange={(event) => setIncomingDeliveryNote(event.target.value)} placeholder="Nomor surat jalan pemasok" /></div>
                     <div><Label>Status</Label><Select value={incomingStatus} onValueChange={(value) => setIncomingStatus(value as typeof incomingStatus)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Received">Diterima</SelectItem><SelectItem value="In Transit">Dalam Perjalanan</SelectItem></SelectContent></Select></div>
                   </div>
                   <div className="rounded-lg border border-primary/10 bg-primary/5 p-3 text-[10px] text-muted-foreground">Klik Lanjut untuk memasukkan detail produk, jumlah, harga, diskon, dan lokasi SKU.</div>
-                  <DialogFooter><Button type="button" variant="outline" onClick={() => setShowIncomingModal(false)}>Batal</Button><Button type="button" onClick={() => { if (!incomingDate || !incomingPoNumber.trim() || !incomingSupplier) { dialog.alert('Lengkapi tanggal, nomor PO, dan pemasok terlebih dahulu.'); return; } setIncomingStep(2); }}>Lanjut</Button></DialogFooter>
+                  <DialogFooter><Button type="button" variant="outline" onClick={() => setShowIncomingModal(false)}>Batal</Button><Button type="button" onClick={() => { if (!incomingDate || !incomingPoNumber.trim() || !incomingSupplier || (incomingPaymentMethod === 'Tempo' && !incomingDueDate)) { dialog.alert('Lengkapi tanggal, nomor PO, pemasok, dan tanggal jatuh tempo jika memilih Tempo.'); return; } setIncomingStep(2); }}>Lanjut</Button></DialogFooter>
                 </>
               ) : (
                 <>
                   <div className="space-y-3">
                     {incomingItems.map((item, index) => {
                       const product = products.find((candidate) => candidate.sku === item.productSku);
-                      const itemDiscount = item.discountPerUnit * item.quantity;
-                      const itemTotal = Math.max(0, item.price * item.quantity - itemDiscount);
+                      const itemDiscount = getItemDiscount(item);
+                      const itemTotal = item.bonus ? 0 : Math.max(0, item.price - itemDiscount) * item.quantity;
                       return (
                         <div key={`${item.productSku}-${index}`} className="rounded-xl border border-border p-3 space-y-3">
-                          <div className="flex items-center justify-between"><p className="font-extrabold text-xs">Produk {index + 1}</p>{incomingItems.length > 1 && <Button type="button" variant="ghost" size="sm" onClick={() => setIncomingItems((items) => items.filter((_, itemIndex) => itemIndex !== index))} className="h-6 text-red-600">Hapus</Button>}</div>
+                          <div className="flex items-center justify-between"><p className="font-extrabold text-xs">Produk {index + 1}</p><div className="flex items-center gap-1"><Button type="button" variant="ghost" size="icon" title="Tambah diskon atau biaya tambahan" onClick={() => setOpenItemMenu(openItemMenu === index ? null : index)} className="h-7 w-7"><Plus className="w-4 h-4" /></Button><Button type="button" variant="ghost" size="icon" title="Menu produk" onClick={() => setOpenItemMenu(openItemMenu === index ? null : index)} className="h-7 w-7"><MoreVertical className="w-4 h-4" /></Button>{incomingItems.length > 1 && <Button type="button" variant="ghost" size="icon" title="Hapus produk" onClick={() => setIncomingItems((items) => items.filter((_, itemIndex) => itemIndex !== index))} className="h-7 w-7 text-red-600"><Trash2 className="w-3.5 h-3.5" /></Button>}</div></div>
+                          {openItemMenu === index && <div className="flex flex-wrap gap-2 rounded-lg bg-muted/50 p-2"><Button type="button" size="sm" variant="outline" onClick={() => { updateIncomingItem(index, { discounts: [...item.discounts, { type: 'amount', value: 0 }] }); setOpenItemMenu(null); }}><Percent className="w-3 h-3" /> Tambah/Ubah Diskon</Button><Button type="button" size="sm" variant="outline" onClick={() => { setIncomingAdditionalCosts((costs) => [...costs, { name: '', amount: 0 }]); setOpenItemMenu(null); }}><Plus className="w-3 h-3" /> Tambah/Ubah Biaya Tambahan</Button></div>}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div><Label>Nama Produk</Label><Select value={item.productSku} onValueChange={(value) => setIncomingItems((items) => items.map((current, itemIndex) => itemIndex === index ? { ...current, productSku: value, price: products.find((productItem) => productItem.sku === value)?.retailPrice || 0 } : current))}><SelectTrigger><SelectValue placeholder="Pilih produk" /></SelectTrigger><SelectContent>{products.map((productItem) => <SelectItem key={productItem.sku} value={productItem.sku}>{productItem.name} ({productItem.sku})</SelectItem>)}</SelectContent></Select></div>
+                            <div className="relative"><Label>Nama Produk</Label><Input value={activeProductSearchIndex === index ? incomingProductSearch : product?.name || ''} placeholder="Cari nama atau SKU produk..." onFocus={() => { setActiveProductSearchIndex(index); setIncomingProductSearch(product?.name || ''); }} onChange={(event) => { setActiveProductSearchIndex(index); setIncomingProductSearch(event.target.value); }} />{activeProductSearchIndex === index && incomingProductSearch && <div className="absolute z-20 top-full left-0 right-0 mt-1 max-h-44 overflow-y-auto rounded-lg border border-border bg-background shadow-lg">{products.filter((candidate) => `${candidate.name} ${candidate.sku}`.toLowerCase().includes(incomingProductSearch.toLowerCase())).map((productItem) => <button type="button" key={productItem.sku} className="block w-full px-3 py-2 text-left text-xs hover:bg-muted" onClick={() => { updateIncomingItem(index, { productSku: productItem.sku, price: productItem.retailPrice }); setIncomingProductSearch(''); setActiveProductSearchIndex(null); }}><span className="font-bold">{productItem.name}</span><span className="block text-[10px] text-muted-foreground">{productItem.sku}</span></button>)}</div>}</div>
                             <div><Label>Qty</Label><NumberInput min={1} value={item.quantity} onChange={(value) => setIncomingItems((items) => items.map((current, itemIndex) => itemIndex === index ? { ...current, quantity: value } : current))} /></div>
-                            <div><Label>Pricelist (Rp)</Label><NumberInput min={0} value={item.price} onChange={(value) => setIncomingItems((items) => items.map((current, itemIndex) => itemIndex === index ? { ...current, price: value } : current))} /></div>
-                            <div><Label>Diskon Satuan (Rp)</Label><NumberInput min={0} value={item.discountPerUnit} onChange={(value) => setIncomingItems((items) => items.map((current, itemIndex) => itemIndex === index ? { ...current, discountPerUnit: value } : current))} /></div>
-                            <div><Label>Pilih Lokasi SKU</Label><Select value={item.locationId} onValueChange={(value) => setIncomingItems((items) => items.map((current, itemIndex) => itemIndex === index ? { ...current, locationId: value } : current))}><SelectTrigger><SelectValue placeholder="Pilih lokasi" /></SelectTrigger><SelectContent>{skuLocations.map((location) => <SelectItem key={location.id} value={location.id}>{location.name}</SelectItem>)}</SelectContent></Select></div>
-                            <div className="flex items-end"><label className="flex items-center gap-2 h-10 cursor-pointer"><Checkbox checked={item.taxIncluded} onCheckedChange={(checked) => setIncomingItems((items) => items.map((current, itemIndex) => itemIndex === index ? { ...current, taxIncluded: checked === true } : current))} /><span className="font-bold">Sudah PPN</span></label></div>
+                            <div><Label>Harga Modal (Rp)</Label><NumberInput min={0} value={item.price} disabled={item.bonus} onChange={(value) => updateIncomingItem(index, { price: value })} /></div>
+                            <div className="sm:col-span-2"><Label>Diskon Satuan</Label>{item.discounts.map((discount, discountIndex) => <div key={discountIndex} className="flex gap-2 mt-1"><Select value={discount.type} onValueChange={(value) => updateIncomingDiscount(index, discountIndex, { type: value as 'percent' | 'amount' })}><SelectTrigger className="w-28"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percent">Persen (%)</SelectItem><SelectItem value="amount">Rupiah (Rp)</SelectItem></SelectContent></Select><NumberInput min={0} max={discount.type === 'percent' ? 100 : undefined} value={discount.value} onChange={(value) => updateIncomingDiscount(index, discountIndex, { value })} /><Button type="button" variant="ghost" size="icon" onClick={() => updateIncomingItem(index, { discounts: item.discounts.filter((_, currentIndex) => currentIndex !== discountIndex) })} className="text-red-600"><Trash2 className="w-3.5 h-3.5" /></Button></div>)}<Button type="button" variant="outline" size="sm" onClick={() => updateIncomingItem(index, { discounts: [...item.discounts, { type: 'amount', value: 0 }] })} className="mt-1"><Plus className="w-3 h-3" /> Tambah Diskon</Button></div>
+                            <div><Label>Pilih Lokasi SKU</Label><Select value={item.locationId} onValueChange={(value) => updateIncomingItem(index, { locationId: value })}><SelectTrigger><SelectValue placeholder="Pilih lokasi" /></SelectTrigger><SelectContent>{skuLocations.map((location) => <SelectItem key={location.id} value={location.id}>{location.name}</SelectItem>)}</SelectContent></Select></div>
+                            <div className="flex items-end"><label className="flex items-center gap-2 h-10 cursor-pointer"><Checkbox checked={item.taxIncluded} onCheckedChange={(checked) => updateIncomingItem(index, { taxIncluded: checked === true })} /><span className="font-bold">Sudah PPN</span></label><label className="flex items-center gap-2 h-10 ml-4 cursor-pointer"><Checkbox checked={item.bonus} onCheckedChange={(checked) => updateIncomingItem(index, { bonus: checked === true })} /><span className="font-bold text-amber-700">Bonus (Rp 0)</span></label></div>
                           </div>
-                          <div className="grid grid-cols-2 gap-3 border-t border-border pt-2 text-[10px]"><div><span className="text-muted-foreground">Total Diskon</span><p className="font-black">Rp {itemDiscount.toLocaleString('id-ID')}</p></div><div className="text-right"><span className="text-muted-foreground">Total Rp</span><p className="font-black text-primary">Rp {itemTotal.toLocaleString('id-ID')}</p></div></div>
+                          <div className="grid grid-cols-2 gap-3 border-t border-border pt-2 text-[10px]"><div><span className="text-muted-foreground">Total Diskon</span><p className="font-black">Rp {(itemDiscount * item.quantity).toLocaleString('id-ID')}</p></div><div className="text-right"><span className="text-muted-foreground">Total Rp</span><p className="font-black text-primary">Rp {itemTotal.toLocaleString('id-ID')}</p></div></div>
                           {!product && <p className="text-[10px] text-red-500">Produk belum dipilih.</p>}
                         </div>
                       );
                     })}
                   </div>
-                  <Button type="button" variant="outline" onClick={() => setIncomingItems((items) => [...items, { productSku: products[0]?.sku || '', quantity: 1, price: products[0]?.retailPrice || 0, taxIncluded: false, discountPerUnit: 0, locationId: products[0]?.skuLocationId || '' }])} className="w-full"><Plus className="w-3.5 h-3.5" /> Tambah Produk Lain</Button>
-                  <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2"><p className="font-extrabold text-xs">Ringkasan Biaya Tambahan</p><div className="flex gap-2"><Input value={incomingAdditionalCostName} onChange={(event) => setIncomingAdditionalCostName(event.target.value)} placeholder="Nama biaya, contoh: Ongkir" /><NumberInput min={0} value={incomingAdditionalCost} onChange={setIncomingAdditionalCost} placeholder="Nominal" /></div><div className="flex justify-between border-t border-border pt-2 font-black"><span>Total Biaya Tambahan</span><span>Rp {incomingAdditionalCost.toLocaleString('id-ID')}</span></div></div>
+                  <Button type="button" variant="outline" onClick={() => setIncomingItems((items) => [...items, { productSku: products[0]?.sku || '', quantity: 1, price: products[0]?.retailPrice || 0, taxIncluded: false, discounts: [], bonus: false, locationId: products[0]?.skuLocationId || '' }])} className="w-full"><Plus className="w-3.5 h-3.5" /> Tambah Produk Lain</Button>
+                  <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2"><div className="flex items-center justify-between"><p className="font-extrabold text-xs">Ringkasan Biaya Tambahan</p><Button type="button" variant="outline" size="sm" onClick={() => setIncomingAdditionalCosts((costs) => [...costs, { name: '', amount: 0 }])}><Plus className="w-3 h-3" /> Tambah Biaya</Button></div>{incomingAdditionalCosts.length === 0 && <p className="text-[10px] text-muted-foreground">Belum ada biaya tambahan.</p>}{incomingAdditionalCosts.map((cost, costIndex) => <div key={costIndex} className="flex gap-2"><Input value={cost.name} onChange={(event) => setIncomingAdditionalCosts((costs) => costs.map((current, index) => index === costIndex ? { ...current, name: event.target.value } : current))} placeholder="Label biaya, contoh: Ongkir" /><NumberInput min={0} value={cost.amount} onChange={(value) => setIncomingAdditionalCosts((costs) => costs.map((current, index) => index === costIndex ? { ...current, amount: value } : current))} /><Button type="button" variant="ghost" size="icon" onClick={() => setIncomingAdditionalCosts((costs) => costs.filter((_, index) => index !== costIndex))} className="text-red-600"><Trash2 className="w-3.5 h-3.5" /></Button></div>)}<div className="flex justify-between border-t border-border pt-2 font-black text-[11px]"><span>Total Biaya Tambahan</span><span>Rp {incomingAdditionalCost.toLocaleString('id-ID')}</span></div></div>
                   <div className="flex justify-between rounded-lg bg-primary/5 p-3 font-black text-sm"><span>Total Pembelian</span><span className="text-primary">Rp {incomingTotal.toLocaleString('id-ID')}</span></div>
                   <DialogFooter><Button type="button" variant="outline" onClick={() => setIncomingStep(1)}>Kembali</Button><Button type="submit">Simpan Produk Masuk</Button></DialogFooter>
                 </>
