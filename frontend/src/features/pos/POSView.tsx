@@ -691,7 +691,10 @@ const commitQtyInput = (sku: string) => {
 
     // Also link to Kas Harian session (only cash payments move the physical drawer)
     const stockQtySold = cart.reduce((acc, i) => acc + i.quantity, 0);
-    recordSale(methodUsed === 'Cash', totalAmount, stockQtySold, invNumber);
+    const cashPaidAmount = methodUsed === 'Split'
+      ? Math.max(0, paymentDetails.splitPaidAmount || 0)
+      : totalAmount;
+    recordSale(methodUsed === 'Cash' || methodUsed === 'Split', totalAmount, stockQtySold, invNumber, cashPaidAmount);
 
     // Register this invoice so it can be looked up later from the Retur module
     if (onRecordSale) {
@@ -725,6 +728,7 @@ const commitQtyInput = (sku: string) => {
         changeAmount: methodUsed === 'Cash' ? paymentDetails.changeAmount : undefined,
         splitPaidAmount: methodUsed === 'Split' ? paymentDetails.splitPaidAmount : undefined,
         splitRemainingDebt: (methodUsed === 'Split' || methodUsed === 'Piutang') ? splitRemainingDebt : undefined,
+        splitDueDate: methodUsed === 'Split' ? paymentDetails.dueDate : undefined,
         paymentAccountName: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.name : undefined,
         paymentAccountNumber: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.accountNumber : undefined,
         paymentAccountHolder: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.holderName : undefined
@@ -753,6 +757,7 @@ const commitQtyInput = (sku: string) => {
       changeAmount: methodUsed === 'Cash' ? paymentDetails.changeAmount : undefined,
       splitPaidAmount: methodUsed === 'Split' ? paymentDetails.splitPaidAmount : undefined,
       splitRemainingDebt: (methodUsed === 'Split' || methodUsed === 'Piutang') ? splitRemainingDebt : undefined,
+      splitDueDate: methodUsed === 'Split' ? paymentDetails.dueDate : undefined,
       transferAccount: methodUsed === 'Transfer' ? paymentDetails.transferAccount : undefined,
       date: new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     };
@@ -1552,9 +1557,9 @@ const commitQtyInput = (sku: string) => {
         {showSplitPaymentModal && (
           <SplitPaymentModal
             onClose={() => setShowSplitPaymentModal(false)}
-            onConfirm={(paidNow) => {
+            onConfirm={(paidNow, dueDate) => {
               setShowSplitPaymentModal(false);
-              executeFinalCheckout('Split', { splitPaidAmount: paidNow, splitRemainingDebt: totalAmount - paidNow });
+              executeFinalCheckout('Split', { splitPaidAmount: paidNow, splitRemainingDebt: totalAmount - paidNow, dueDate });
             }}
             totalAmount={totalAmount}
             customer={selectedCustomer}

@@ -8,13 +8,18 @@ import { Label } from '../../../components/ui/label';
 
 interface SplitPaymentModalProps {
   onClose: () => void;
-  onConfirm: (paidNow: number) => void;
+  onConfirm: (paidNow: number, dueDate: string) => void;
   totalAmount: number;
   customer: Customer;
 }
 
 export default function SplitPaymentModal({ onClose, onConfirm, totalAmount, customer }: SplitPaymentModalProps) {
   const [paidNow, setPaidNow] = useState<number>(0);
+  const [dueDate, setDueDate] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + (customer.tempoDays || 30));
+    return date.toISOString().split('T')[0];
+  });
 
   const remaining = Math.max(0, totalAmount - paidNow);
   const currentDebt = customer.currentDebt || 0;
@@ -31,9 +36,6 @@ export default function SplitPaymentModal({ onClose, onConfirm, totalAmount, cus
     d.setDate(d.getDate() + (customer.tempoDays || 30));
     return d.toISOString().split('T')[0];
   })();
-  const effectiveDueDate = customer.nextDueDate && customer.nextDueDate < computedDueDate ? customer.nextDueDate : computedDueDate;
-  const effectiveDueDateLabel = new Date(effectiveDueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-sm">
@@ -82,9 +84,16 @@ export default function SplitPaymentModal({ onClose, onConfirm, totalAmount, cus
             </div>
           )}
           {remaining > 0 && (
-            <div className="flex justify-between">
-              <span>Atur Jatuh Tempo</span>
-              <input type="date" className="font-bold text-foreground/80 bg-transparent text-right" />
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor="split-due-date">Jatuh Tempo</Label>
+              <input
+                id="split-due-date"
+                type="date"
+                value={dueDate}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={(event) => setDueDate(event.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2 font-bold text-foreground/80"
+              />
               </div>
           )}
         </div>
@@ -103,7 +112,7 @@ export default function SplitPaymentModal({ onClose, onConfirm, totalAmount, cus
           <Button type="button" variant="outline" className="w-full" onClick={onClose}>
             Batal
           </Button>
-          <Button type="button" disabled={!isValid} className="w-full" onClick={() => onConfirm(paidNow)}>
+          <Button type="button" disabled={!isValid || !dueDate} className="w-full" onClick={() => onConfirm(paidNow, dueDate)}>
             Selesaikan Transaksi
           </Button>
         </DialogFooter>

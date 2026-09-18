@@ -170,7 +170,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
                 </div>
                 <div className="flex justify-between text-[10px] text-muted-foreground">
                   <span>JATUH TEMPO:</span>
-                  <span>{lastOrderDetails.splitDueDate || '-'}</span>
+                  <span>{lastOrderDetails.splitDueDate ? new Date(`${lastOrderDetails.splitDueDate}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</span>
                 </div>
               </>
             )}

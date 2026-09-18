@@ -56,12 +56,12 @@ export function addMutation(type: 'in' | 'out', category: string, amount: number
 }
 
 // Records a completed sale for reporting purposes (cash sales affect the drawer, non-cash only affect the omzet counter).
-export function recordSale(isCash: boolean, invoiceTotal: number, stockQty: number, invoiceNumber: string) {
+export function recordSale(isCash: boolean, invoiceTotal: number, stockQty: number, invoiceNumber: string, cashAmount = invoiceTotal) {
   const session = getCurrentSession();
   if (!session) return;
 
   if (isCash) {
-    addMutation('in', 'Penjualan Tunai', invoiceTotal, `Invoice ${invoiceNumber}`);
+    addMutation('in', 'Penjualan Tunai', cashAmount, `Invoice ${invoiceNumber}`);
     session.totalInvoicesCash += 1;
     session.totalStocksSoldCash += stockQty;
   } else {
@@ -81,7 +81,7 @@ export function reverseSale(
   const session = getCurrentSession();
   if (!session) return null;
 
-  const isCash = paymentMethod === 'Cash';
+  const isCash = paymentMethod === 'Cash' || paymentMethod === 'Split';
   const refundAmount = isCash ? invoiceTotal : paymentMethod === 'Split' ? splitPaidAmount : 0;
   if (refundAmount > 0) {
     const mutation: CashMutation = {

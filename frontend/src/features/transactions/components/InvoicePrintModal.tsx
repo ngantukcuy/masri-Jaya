@@ -365,6 +365,10 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
                     <span>SISA (PIUTANG):</span>
                     <span>Rp {(printableInvoice.splitRemainingDebt || 0).toLocaleString('id-ID')}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span>JATUH TEMPO:</span>
+                    <span>{printableInvoice.splitDueDate ? new Date(`${printableInvoice.splitDueDate}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</span>
+                  </div>
                 </>
               )}
             </div>

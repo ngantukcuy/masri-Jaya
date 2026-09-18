@@ -52,6 +52,8 @@ export interface SalesInvoice {
   /** Only meaningful when paymentMethod is 'Split': remaining amount
    * recorded as the customer's receivable/debt (piutang). */
   splitRemainingDebt?: number;
+  /** Only meaningful when paymentMethod is 'Split': selected due date for the remaining receivable. */
+  splitDueDate?: string;
   /** Rekening toko yang dipilih saat pembayaran Transfer. */
   paymentAccountName?: string;
   paymentAccountNumber?: string;
