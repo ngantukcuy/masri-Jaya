@@ -101,6 +101,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     sku: generateSkuCode(),
     image: '',
     name: '',
+    brand: '',
     alias: '',
     unit: units[0]?.name || '',
     showLowStockAlert: false,
@@ -228,6 +229,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
       image: skuForm.image,
       productType: 'Induk',
       alias: skuForm.alias,
+      brand: skuForm.brand,
       category1: skuForm.category1,
       category2: skuForm.category2,
       category3: skuForm.category3,
@@ -279,6 +281,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
       warehouseLocation: locationName,
       image: eceranForm.image || parent.image,
       productType: 'Eceran',
+      brand: parent.brand,
       alias: eceranForm.alias,
       parentSku: parent.sku,
       conversionValue: eceranForm.conversionValue,
@@ -479,7 +482,12 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
               <div>
                 <Label>Nama Produk</Label>
-                <Input type="text" required value={skuForm.name} onChange={(e) => setSkuForm({ ...skuForm, name: e.target.value })} placeholder="Contoh: Semen Portland 50kg" />
+                <Input type="text" required value={skuForm.name} onChange={(e) => setSkuForm({ ...skuForm, name: e.target.value })} placeholder="Contoh: Semen Portland 40kg" />
+              </div>
+
+              <div>
+                <Label>Brand Produk</Label>
+                <Input type="text" value={skuForm.brand} onChange={(e) => setSkuForm({ ...skuForm, brand: e.target.value })} placeholder="Contoh: Rush" />
               </div>
 
               <div>

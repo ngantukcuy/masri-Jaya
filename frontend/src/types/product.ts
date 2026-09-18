@@ -17,6 +17,7 @@ export interface Product {
   // ---- Sku Master (Produk Induk & Produk Eceran) - PRD ----
   productType?: 'Induk' | 'Eceran';
   alias?: string;
+  brand?: string;
   category1?: string;
   category2?: string;
   category3?: string;
