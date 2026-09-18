@@ -48,6 +48,12 @@ interface ProductCategory {
   level: 1 | 2 | 3;
 }
 
+interface ProductUnits {
+  id: string;
+  name: string;
+  level: 1 | 2 | 3;
+}
+
 interface ProductsViewProps {
   products: Product[];
   onUpdateProducts: (updatedProducts: Product[]) => void;
@@ -130,6 +136,13 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     .slice()
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
     .map((category) => category.name);
+
+  // Unit names for the product unit dropdown
+  const [productUnits] = useSupabaseTable<ProductUnits>('product_units', [], (unit) => unit.id);
+  const unitNames = productUnits
+  .slice()
+  .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+  .map((unit) => unit.name);
 
   React.useEffect(() => {
     if (!formCategory && categoryNames.length > 0) setFormCategory(categoryNames[0]);
@@ -1540,13 +1553,9 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 <Select value={formUnit} onValueChange={setFormUnit}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Sack">Sack / Zak</SelectItem>
-                    <SelectItem value="Piece">Piece / Batang</SelectItem>
-                    <SelectItem value="Gallon">Gallon / Pail</SelectItem>
-                    <SelectItem value="Sheet">Sheet / Lembar</SelectItem>
-                    <SelectItem value="Ton">Ton</SelectItem>
-                    <SelectItem value="Meter">Meter</SelectItem>
-                    <SelectItem value="Box">Box / Dus</SelectItem>
+                    {unitNames.map((formUnit) => (
+                      <SelectItem key={formUnit} value={formUnit}>{formUnit}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
