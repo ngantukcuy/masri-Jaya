@@ -47,6 +47,31 @@ const returStatusLabel: Record<ReturnRecord['status'], string> = {
   Rejected: 'Retur Ditolak',
 };
 
+type DebtPaymentStatus = 'Belum dibayar' | 'Dibayar sebagian' | 'Lunas';
+
+function getDebtPaymentStatus(invoice: SalesInvoice): DebtPaymentStatus | null {
+  if (invoice.paymentMethod !== 'Piutang' && invoice.paymentMethod !== 'Split') return null;
+
+  const remainingDebt = Math.max(
+    0,
+    invoice.splitRemainingDebt ?? (
+      invoice.paymentMethod === 'Piutang'
+        ? invoice.total
+        : invoice.total - (invoice.splitPaidAmount || 0)
+    )
+  );
+
+  if (remainingDebt <= 0) return 'Lunas';
+  if (remainingDebt >= invoice.total) return 'Belum dibayar';
+  return 'Dibayar sebagian';
+}
+
+const debtPaymentStatusStyle: Record<DebtPaymentStatus, string> = {
+  'Belum dibayar': 'bg-red-50 text-red-700',
+  'Dibayar sebagian': 'bg-amber-50 text-amber-700',
+  Lunas: 'bg-emerald-50 text-emerald-700',
+};
+
 // Nama bulan versi Indonesia -> index (0-11), dipakai buat parsing
 // fallback kalau invoice lama gak punya field `createdAt` (ISO timestamp)
 // dan cuma punya `date` dalam bentuk teks "31 Juli 2026".
@@ -302,6 +327,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
               <TableHead>Tanggal</TableHead>
               <TableHead>Pelanggan</TableHead>
               <TableHead>Metode</TableHead>
+              <TableHead>Status Bayar</TableHead>
               <TableHead className="text-right">Total</TableHead>
               <TableHead className="text-center">Retur</TableHead>
               <TableHead className="text-center">Cetak</TableHead>
@@ -310,7 +336,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="p-6 text-center text-gray-400">{isFiltered ? 'Tidak ada transaksi yang cocok dengan pencarian/filter tanggal.' : 'Belum ada transaksi tercatat.'}</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="p-6 text-center text-gray-400">{isFiltered ? 'Tidak ada transaksi yang cocok dengan pencarian/filter tanggal.' : 'Belum ada transaksi tercatat.'}</TableCell></TableRow>
             ) : (
               paginatedInvoices.map((inv) => (
                 <TableRow key={inv.invoiceNumber}>
@@ -318,6 +344,13 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                   <TableCell className="text-gray-500 cursor-pointer" onClick={() => setSelected(inv)}>{inv.date}</TableCell>
                   <TableCell className="text-gray-700 cursor-pointer" onClick={() => setSelected(inv)}>{inv.customerName}</TableCell>
                   <TableCell className="text-gray-500 cursor-pointer" onClick={() => setSelected(inv)}>{inv.paymentMethod}</TableCell>
+                  <TableCell className="cursor-pointer" onClick={() => setSelected(inv)}>
+                    {(() => {
+                      const paymentStatus = getDebtPaymentStatus(inv);
+                      if (!paymentStatus) return <span className="text-gray-300 text-[10px]">—</span>;
+                      return <Badge className={`border-transparent ${debtPaymentStatusStyle[paymentStatus]}`}>{paymentStatus}</Badge>;
+                    })()}
+                  </TableCell>
                   <TableCell className="text-right font-bold text-gray-900 cursor-pointer" onClick={() => setSelected(inv)}>Rp {getRemainingTotal(inv, returnsByInvoice.get(inv.invoiceNumber) || []).toLocaleString('id-ID')}</TableCell>
                   <TableCell className="text-center">
                     {(() => {
@@ -410,6 +443,12 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                 <p><span className="text-gray-400">Tanggal:</span> {selected.date}</p>
                 <p><span className="text-gray-400">Pelanggan:</span> {selected.customerName}</p>
                 <p><span className="text-gray-400">Metode Bayar:</span> {selected.paymentMethod}</p>
+                {(() => {
+                  const paymentStatus = getDebtPaymentStatus(selected);
+                  return paymentStatus ? (
+                    <p className="flex items-center gap-1.5"><span className="text-gray-400">Status Pembayaran:</span><Badge className={`border-transparent ${debtPaymentStatusStyle[paymentStatus]}`}>{paymentStatus}</Badge></p>
+                  ) : null;
+                })()}
                 {selected.deletionStatus === 'Pending' && <p className="font-bold text-amber-600">Penghapusan menunggu persetujuan.</p>}
                 {selected.deletionStatus === 'Rejected' && <p className="font-bold text-red-600">Pengajuan hapus sebelumnya ditolak.</p>}
               </div>
