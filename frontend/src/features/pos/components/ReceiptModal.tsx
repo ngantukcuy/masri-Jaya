@@ -66,7 +66,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
               <div className="space-y-0.5 border-l-2 border-primary pl-2">
                 <div className="flex justify-between"><span>REKENING:</span><span className="font-bold text-foreground">{lastOrderDetails.transferAccount.name}</span></div>
                 <div className="flex justify-between"><span>NOMOR:</span><span className="font-bold text-foreground">{lastOrderDetails.transferAccount.accountNumber || '-'}</span></div>
-                {lastOrderDetails.transferAccount.holderName && <div className="flex justify-between"><span>PEMILIK:</span><span>{lastOrderDetails.transferAccount.holderName}</span></div>}
+                {lastOrderDetails.transferAccount.holderName && <div className="flex justify-between"><span>Atas Nama:</span><span>{lastOrderDetails.transferAccount.holderName}</span></div>}
               </div>
             )}
             {lastOrderDetails.fulfillmentMethod && (
@@ -167,6 +167,10 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
                 <div className="flex justify-between font-bold text-amber-600">
                   <span>SISA (PIUTANG):</span>
                   <span>Rp {(lastOrderDetails.splitRemainingDebt || 0).toLocaleString('id-ID')}</span>
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>JATUH TEMPO:</span>
+                  <span>{lastOrderDetails.splitDueDate || '-'}</span>
                 </div>
               </>
             )}
