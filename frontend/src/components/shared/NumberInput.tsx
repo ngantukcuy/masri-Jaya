@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, ChangeEvent, FocusEvent } from 'react';
+import { cn } from '../../lib/utils';
 
 interface NumberInputProps {
   /** 0 (or undefined) renders as an empty field instead of showing "0". */
@@ -98,7 +99,10 @@ export default function NumberInput({
       onChange={handleChange}
       onFocus={handleFocus}
       onBlur={handleBlur}
-      className={className}
+      className={cn(
+        'flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-semibold outline-none transition-colors placeholder:text-muted-foreground placeholder:font-normal focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-50',
+        className
+      )}
     />
   );
 }
