@@ -94,6 +94,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const [formName, setFormName] = useState('');
   const [formSku, setFormSku] = useState('');
   const [formCategory, setFormCategory] = useState('');
+  const [formSupplier, setFormSupplier] = useState('');
   const [formUnit, setFormUnit] = useState('Piece');
   const [formRetailPrice, setFormRetailPrice] = useState(0);
   const [formWholesalePrice, setFormWholesalePrice] = useState(0);
@@ -614,6 +615,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     const newProd: Product = {
       name: formName.trim(),
       sku: formSku.trim(),
+      supplier: formSupplier.trim(),
       category: formCategory,
       unit: formUnit,
       retailPrice: Number(formRetailPrice),
@@ -1381,7 +1383,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Pemasok Utama</span>
-                    <span className="font-bold text-primary underline cursor-pointer">BuildMaster Corp</span>
+                    <span className="font-bold text-primary underline cursor-pointer">{selectedProduct.supplier || 'Tidak tersedia'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Stok Pengaman Minimum</span>
