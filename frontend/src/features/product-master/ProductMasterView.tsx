@@ -417,7 +417,6 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
           {[
             { id: 'sku-master', label: 'Sku Master', icon: PackageSearch },
             { id: 'kategori', label: 'Kategori', icon: Tags },
-            { id: 'supplier', label: 'Supplier', icon: Scale },
             { id: 'brand', label: 'Brand', icon: Award },
             { id: 'unit', label: 'Unit', icon: Ruler },
             { id: 'bundle', label: 'Bundle', icon: PackagePlus },
@@ -491,9 +490,9 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               </div>
 
               <div>
-                <Label>Pemasok Produk</Label>
+                <Label>Supplier</Label>
                 <Select value={skuForm.supplier} onValueChange={(v) => setSkuForm({ ...skuForm, supplier: v })}>
-                  <SelectTrigger><SelectValue placeholder="Pilih Pemasok..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Pilih Supplier..." /></SelectTrigger>
                   <SelectContent>
                       {suppliers.map(s => <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>)}
                     </SelectContent>

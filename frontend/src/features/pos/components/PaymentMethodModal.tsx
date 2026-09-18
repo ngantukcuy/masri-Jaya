@@ -6,7 +6,7 @@ import { Button } from '../../../components/ui/button';
 
 interface PaymentMethodModalProps {
   onClose: () => void;
-  onSelect: (method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' | 'Piutang', account?: BankAccount, dueDate?: string) => void;
+  onSelect: (method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' | 'Piutang', account?: BankAccount) => void;
   totalAmount: number;
   customer: Customer;
   /** True kalau customer yang dipilih masih pelanggan umum "Customer"
@@ -27,12 +27,6 @@ export default function PaymentMethodModal({ onClose, onSelect, totalAmount, cus
   const depositBalance = customer.depositBalance || 0;
   const transferAccounts = bankAccounts.filter((account) => account.type === 'Bank' || account.type === 'E-Wallet');
   const [showTransferAccounts, setShowTransferAccounts] = useState(false);
-  const getDefaultDueDate = () => {
-    const date = new Date();
-    date.setDate(date.getDate() + (customer.tempoDays || 30));
-    return date.toISOString().slice(0, 10);
-  };
-  const [dueDate, setDueDate] = useState(getDefaultDueDate);
 
   const options: {
     method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' | 'Piutang';
@@ -136,30 +130,6 @@ export default function PaymentMethodModal({ onClose, onSelect, totalAmount, cus
                       <p className="text-[10px] text-muted-foreground">{account.type} • {account.accountNumber || 'Nomor rekening belum diisi'}{account.holderName ? ` • ${account.holderName}` : ''}</p>
                     </button>
                   ))}
-                </div>
-              );
-            }
-            if (opt.method === 'Piutang' && !disabled) {
-              return (
-                <div key={opt.method} className="space-y-2 rounded-xl border border-primary/20 bg-primary/5 p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-primary/10 text-primary">{opt.icon}</div>
-                    <div className="min-w-0">
-                      <p className="font-black text-xs text-foreground">{opt.label}</p>
-                      <p className="text-[10px] text-muted-foreground">{opt.desc}</p>
-                    </div>
-                  </div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase">Jatuh Tempo</label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    min={new Date().toISOString().slice(0, 10)}
-                    onChange={(event) => setDueDate(event.target.value)}
-                    className="w-full h-9 rounded-lg border border-input bg-background px-3 text-xs font-bold outline-none focus:border-primary focus:ring-2 focus:ring-ring/20"
-                  />
-                  <Button type="button" className="w-full" onClick={() => onSelect('Piutang', undefined, dueDate)}>
-                    Simpan Piutang
-                  </Button>
                 </div>
               );
             }

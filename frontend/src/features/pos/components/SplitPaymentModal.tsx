@@ -83,9 +83,9 @@ export default function SplitPaymentModal({ onClose, onConfirm, totalAmount, cus
           )}
           {remaining > 0 && (
             <div className="flex justify-between">
-              <span>Jatuh tempo otomatis</span>
-              <span className="font-bold text-foreground/80">{effectiveDueDateLabel} ({customer.tempoDays || 30} hari)</span>
-            </div>
+              <span>Atur Jatuh Tempo</span>
+              <input type="date" value={effectiveDueDate} readOnly className="font-bold text-foreground/80 bg-transparent text-right" />
+              </div>
           )}
         </div>
 
