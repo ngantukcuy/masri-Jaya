@@ -74,11 +74,16 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
   const { list: brands, persist: persistBrands } = useLocalList<SimpleEntry>('product_brands', []);
   const { list: units, persist: persistUnits } = useLocalList<SimpleEntry>('product_units', []);
   const { list: bundles, persist: persistBundles } = useLocalList<Bundle>('product_bundles', []);
+  const { list: suppliers, persist: persistSuppliers } = useLocalList<SimpleEntry>('product_suppliers', []);
 
   // Category form
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryLevel, setNewCategoryLevel] = useState<1 | 2 | 3>(1);
 
+  // Supplier form
+  const [newSupplierName, setNewSupplierName] = useState('');
+  const [newSupplierLevel, setNewSupplierLevel] = useState<1 | 2 | 3>(1);
+  
   // Brand / Unit forms
   const [newBrandName, setNewBrandName] = useState('');
   const [newUnitName, setNewUnitName] = useState('');
@@ -101,6 +106,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     sku: generateSkuCode(),
     image: '',
     name: '',
+    supplier: suppliers[0]?.name || '',
     brand: '',
     alias: '',
     unit: units[0]?.name || '',
@@ -216,6 +222,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     const newProduct: Product = {
       name: skuForm.name.trim(),
       sku,
+      supplier: '', // Default supplier kosong, bisa diisi nanti di halaman Stok
       category: skuForm.category1 || 'Umum',
       unit: skuForm.unit,
       retailPrice: skuForm.standardSellPrice,
@@ -269,6 +276,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     const newProduct: Product = {
       name: `${parent.name} (${eceranForm.alias || eceranForm.unit})`,
       sku,
+      supplier: parent.supplier,
       category: parent.category,
       unit: eceranForm.unit,
       retailPrice: eceranForm.standardSellPrice,
@@ -484,6 +492,16 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                 <Label>Nama Produk</Label>
                 <Input type="text" required value={skuForm.name} onChange={(e) => setSkuForm({ ...skuForm, name: e.target.value })} placeholder="Contoh: Semen Portland 40kg" />
               </div>
+
+              <div>
+                <Label>Pemasok Produk</Label>
+                <Select value={skuForm.supplier} onValueChange={(v) => setSkuForm({ ...skuForm, supplier: v })}>
+                  <SelectTrigger><SelectValue placeholder="Pilih Pemasok..." /></SelectTrigger>
+                  <SelectContent>
+                      {suppliers.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
 
               <div>
                 <Label>Brand Produk</Label>

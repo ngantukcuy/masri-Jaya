@@ -9,7 +9,7 @@ export interface Product {
   stock: number;
   stockStatus: 'Healthy' | 'Low Stock' | 'Out of Stock';
   lastRestock: string;
-  supplier: string;
+  supplier?: string;
   /** Jumlah unit yang masuk di penerimaan PO terakhir — dipakai kartu "Stok Baru Masuk" di halaman Stok. Tidak diisi untuk restock manual. */
   lastRestockQty?: number;
   leadTime: string;
