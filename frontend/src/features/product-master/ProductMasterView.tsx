@@ -490,7 +490,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                 <Select value={skuForm.brand} onValueChange={(v) => setSkuForm({ ...skuForm, brand: v })}>
                   <SelectTrigger><SelectValue placeholder="Pilih Brand..." /></SelectTrigger>
                   <SelectContent>
-                    {units.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
+                    {brands.map(b => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 </div>
