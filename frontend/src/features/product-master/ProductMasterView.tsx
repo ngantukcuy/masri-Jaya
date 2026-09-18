@@ -487,13 +487,18 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
               <div>
                 <Label>Brand Produk</Label>
-                <Input type="text" value={skuForm.brand} onChange={(e) => setSkuForm({ ...skuForm, brand: e.target.value })} placeholder="Contoh: Rush" />
-              </div>
+                <Select value={skuForm.brand} onValueChange={(v) => setSkuForm({ ...skuForm, brand: v })}>
+                  <SelectTrigger><SelectValue placeholder="Pilih Brand..." /></SelectTrigger>
+                  <SelectContent>
+                    {units.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                </div>
 
               <div>
                 <Label>Pilih Satuan</Label>
                 <Select value={skuForm.unit} onValueChange={(v) => setSkuForm({ ...skuForm, unit: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Pilih Satuan..." /></SelectTrigger>
                   <SelectContent>
                     {units.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
                   </SelectContent>
