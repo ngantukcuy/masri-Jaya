@@ -987,7 +987,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
             <Tabs value={rightPanelTab} onValueChange={(v) => setRightPanelTab(v as any)}>
               <TabsList className="px-4 pt-3 bg-transparent rounded-none h-auto">
                 <TabsTrigger value="menipis">Stok Menipis</TabsTrigger>
-                <TabsTrigger value="baru-masuk">Baru Masuk</TabsTrigger>
                 <TabsTrigger value="opname">Sedang Stok Opname</TabsTrigger>
                 <TabsTrigger value="terlaris">Terlaris di Bulan Ini</TabsTrigger>
               </TabsList>
