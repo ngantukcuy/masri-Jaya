@@ -268,7 +268,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
           <p className="text-lg font-black text-gray-900">{filtered.length}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p className="text-[10px] text-gray-400 font-bold uppercase">{isFiltered ? 'Omzet Sesuai Filter' : 'Total Omzet'}</p>
+          <p className="text-[10px] text-gray-400 font-bold uppercase">{isFiltered ? 'Omzet Sesuai Filter' : 'Total Penjualan'}</p>
           <p className="text-lg font-black text-emerald-600">Rp {totalOmzet.toLocaleString('id-ID')}</p>
         </div>
       </div>
