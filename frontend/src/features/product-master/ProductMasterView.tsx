@@ -16,7 +16,7 @@ import {
   ArrowRight,
   PackageOpen
 } from 'lucide-react';
-import { Product, Bundle, BundleItem, SkuLocation } from '../../types';
+import { Product, Bundle, BundleItem, SkuLocation, Supplier } from '../../types';
 import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import { uploadProductImage } from '../../lib/uploadProductImage';
 import BarcodeScannerModal from '../../components/shared/BarcodeScannerModal';
@@ -48,6 +48,7 @@ interface ProductMasterViewProps {
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
   onUpdateProducts?: (updatedProducts: Product[]) => void;
   skuLocations?: SkuLocation[];
+  suppliers?: Supplier[];
   initialTab?: 'sku-master' | 'kategori' | 'brand' | 'unit' | 'bundle';
   currentUser?: CurrentUser;
 }
@@ -61,7 +62,7 @@ function useLocalList<T extends { id: string }>(table: string, defaults: T[]) {
 // tampilannya tetap konsisten dengan <Input> shadcn di sekitarnya.
 const numberInputCls = 'flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-bold outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20';
 
-export default function ProductMasterView({ products, onAddActivity, onUpdateProducts, skuLocations = [], initialTab, currentUser }: ProductMasterViewProps) {
+export default function ProductMasterView({ products, onAddActivity, onUpdateProducts, skuLocations = [], suppliers = [], initialTab, currentUser }: ProductMasterViewProps) {
   const dialog = useDialog();
   const can = (key: string) => hasPermission(currentUser, key);
   const [activeTab, setActiveTab] = useState<'sku-master' | 'kategori' | 'brand' | 'unit' | 'bundle'>(initialTab || 'sku-master');
@@ -74,16 +75,11 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
   const { list: brands, persist: persistBrands } = useLocalList<SimpleEntry>('product_brands', []);
   const { list: units, persist: persistUnits } = useLocalList<SimpleEntry>('product_units', []);
   const { list: bundles, persist: persistBundles } = useLocalList<Bundle>('product_bundles', []);
-  const { list: suppliers, persist: persistSuppliers } = useLocalList<SimpleEntry>('product_suppliers', []);
 
   // Category form
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryLevel, setNewCategoryLevel] = useState<1 | 2 | 3>(1);
 
-  // Supplier form
-  const [newSupplierName, setNewSupplierName] = useState('');
-  const [newSupplierLevel, setNewSupplierLevel] = useState<1 | 2 | 3>(1);
-  
   // Brand / Unit forms
   const [newBrandName, setNewBrandName] = useState('');
   const [newUnitName, setNewUnitName] = useState('');
@@ -222,9 +218,9 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     const newProduct: Product = {
       name: skuForm.name.trim(),
       sku,
-      supplier: '', // Default supplier kosong, bisa diisi nanti di halaman Stok
+      supplier: skuForm.supplier,
       category: skuForm.category1 || 'Umum',
-      unit: skuForm.unit,
+      unit: skuForm.unit.trim(),
       retailPrice: skuForm.standardSellPrice,
       wholesalePrice: skuForm.standardSellPrice,
       projectPrice: skuForm.minSellPrice,
@@ -421,6 +417,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
           {[
             { id: 'sku-master', label: 'Sku Master', icon: PackageSearch },
             { id: 'kategori', label: 'Kategori', icon: Tags },
+            { id: 'supplier', label: 'Supplier', icon: Scale },
             { id: 'brand', label: 'Brand', icon: Award },
             { id: 'unit', label: 'Unit', icon: Ruler },
             { id: 'bundle', label: 'Bundle', icon: PackagePlus },
@@ -498,7 +495,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                 <Select value={skuForm.supplier} onValueChange={(v) => setSkuForm({ ...skuForm, supplier: v })}>
                   <SelectTrigger><SelectValue placeholder="Pilih Pemasok..." /></SelectTrigger>
                   <SelectContent>
-                      {suppliers.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                      {suppliers.map(s => <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>

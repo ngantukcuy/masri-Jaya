@@ -560,7 +560,7 @@ const commitQtyInput = (sku: string) => {
     setShowPaymentMethodModal(true);
   };
 
-  const handleSelectPaymentMethod = (method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' | 'Piutang', transferAccount?: BankAccount) => {
+  const handleSelectPaymentMethod = (method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' | 'Piutang', transferAccount?: BankAccount, dueDate?: string) => {
     setPaymentMethod(method);
     setShowPaymentMethodModal(false);
 
@@ -600,7 +600,7 @@ const commitQtyInput = (sku: string) => {
       return;
     }
     if (method === 'Piutang') {
-      executeFinalCheckout(method, {});
+      executeFinalCheckout(method, { dueDate });
       return;
     }
     setShowSplitPaymentModal(true);
@@ -614,6 +614,7 @@ const commitQtyInput = (sku: string) => {
     splitPaidAmount?: number;
     splitRemainingDebt?: number;
     transferAccount?: BankAccount;
+    dueDate?: string;
   };
 
   const executeFinalCheckout = (
@@ -658,9 +659,9 @@ const commitQtyInput = (sku: string) => {
         const nextDeposit = methodUsed === 'Deposit' ? Math.max(0, currentDeposit - totalAmount) : currentDeposit;
 
         if ((methodUsed === 'Split' || methodUsed === 'Piutang') && splitRemainingDebt > 0) {
-          const dueDate = new Date();
-          dueDate.setDate(dueDate.getDate() + (cust.tempoDays || 30));
-          const debtDueDate = dueDate.toISOString().split('T')[0];
+          const defaultDueDate = new Date();
+          defaultDueDate.setDate(defaultDueDate.getDate() + (cust.tempoDays || 30));
+          const debtDueDate = paymentDetails.dueDate || defaultDueDate.toISOString().split('T')[0];
           return {
             ...cust,
             points: cust.points + pointsEarned,
@@ -926,7 +927,7 @@ const commitQtyInput = (sku: string) => {
           <div className="flex items-center gap-3">
             {storeProfile?.storeName && <span className="text-xs font-bold text-gray-800">{storeProfile.storeName}</span>}
             {/* Sama persis dengan avatar bulat di Header ERP — klik untuk lihat info sesi & logout */}
-            <ProfileBadge currentUser={currentUser} storeName={storeProfile?.storeName} loginAt={loginAt} onLogout={onLogout} iconOnly />
+            <ProfileBadge currentUser={currentUser ?? null} storeName={storeProfile?.storeName} loginAt={loginAt} onLogout={onLogout} iconOnly />
           </div>
         </div>
       )}

@@ -416,6 +416,7 @@ function Dashboard({
                       onAddActivity={handleAddActivity}
                       onUpdateProducts={setProducts}
                       skuLocations={skuLocations}
+                      suppliers={suppliers}
                       initialTab={(currentTab.split(':')[1] as any) || 'sku-master'}
                       currentUser={currentUser}
                     />
