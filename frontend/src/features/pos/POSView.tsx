@@ -20,7 +20,8 @@ import {
   X,
   Package,
   SlidersHorizontal,
-  Gift
+  Gift,
+  Unlock
 } from 'lucide-react';
 import { Product, Customer, SalesInvoice, Printer, BankAccount } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -33,7 +34,9 @@ import SelectCustomerModal from './components/SelectCustomerModal';
 import PaymentMethodModal from './components/PaymentMethodModal';
 import CashPaymentModal from './components/CashPaymentModal';
 import SplitPaymentModal from './components/SplitPaymentModal';
-import { recordSale } from '../../lib/cashSession';
+import { recordSale, getCurrentSession, subscribeCurrentSession } from '../../lib/cashSession';
+import ProfileBadge from '../../components/shared/ProfileBadge';
+import { CurrentUser } from '../../lib/permissions';
 import { getSupabaseTableCache } from '../../lib/supabaseCache';
 import { playBeep, playPrintSound } from './lib/posAudio';
 import { generateReceiptPDF } from './lib/receiptPdf';
@@ -115,8 +118,14 @@ interface POSViewProps {
   onAddSaleToKPIs: (salesAmount: number) => void;
   onRecordSale?: (invoice: SalesInvoice) => void;
   cashierName?: string;
+  currentUser?: CurrentUser | null;
+  /** Timestamp (Date.now()) captured when this session logged in — passed through to the shared profile control so "Uptime Sesi" matches the main Header. */
+  loginAt?: number;
+  onLogout?: () => void;
   storeProfile?: StoreProfileLite;
   onExitFullScreen?: () => void;
+  /** Jump to the Kas Harian tab — used by the "kas belum dibuka" warning below so the cashier can open it without hunting for the menu. */
+  onGoToKasHarian?: () => void;
 }
 
 export default function POSView({ 
@@ -130,10 +139,19 @@ export default function POSView({
   onAddSaleToKPIs,
   onRecordSale,
   cashierName,
+  currentUser,
+  loginAt,
+  onLogout,
   storeProfile,
   onExitFullScreen,
+  onGoToKasHarian,
 }: POSViewProps) {
   const dialog = useDialog();
+
+  // POS tidak boleh dipakai transaksi sebelum kasir buka kas harian —
+  // tanpa sesi kas, uang tunai yang masuk/keluar nggak ke-track ke mana-mana.
+  const [cashSessionOpen, setCashSessionOpen] = useState<boolean>(() => !!getCurrentSession());
+  useEffect(() => subscribeCurrentSession((s) => setCashSessionOpen(!!s)), []);
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua Kategori');
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -905,9 +923,31 @@ const commitQtyInput = (sku: string) => {
           <Button variant="outline" size="sm" onClick={onExitFullScreen} className="text-gray-600">
             <X className="w-4 h-4" />
           </Button>
-          <div className="flex items-center gap-3 text-xs font-bold text-gray-500">
-            {storeProfile?.storeName && <span className="text-gray-800">{storeProfile.storeName}</span>}
-            {cashierName && <span className="text-gray-400">Kasir: {cashierName}</span>}
+          <div className="flex items-center gap-3">
+            {storeProfile?.storeName && <span className="text-xs font-bold text-gray-800">{storeProfile.storeName}</span>}
+            {/* Sama persis dengan avatar bulat di Header ERP — klik untuk lihat info sesi & logout */}
+            <ProfileBadge currentUser={currentUser} storeName={storeProfile?.storeName} loginAt={loginAt} onLogout={onLogout} iconOnly />
+          </div>
+        </div>
+      )}
+
+      {/* Blokir transaksi kalau kas harian belum dibuka — kasir wajib buka kas dulu supaya uang tunai yang masuk/keluar ke-track. */}
+      {!cashSessionOpen && (
+        <div className="absolute inset-0 z-50 bg-white/90 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="max-w-sm w-full bg-white border border-amber-200 rounded-2xl shadow-xl p-6 text-center space-y-3">
+            <div className="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center mx-auto">
+              <Unlock className="w-6 h-6 text-amber-500" />
+            </div>
+            <h3 className="font-extrabold text-gray-900 text-sm">Kas Harian Belum Dibuka</h3>
+            <p className="text-xs text-gray-500">
+              Buka kas harian dulu sebelum mulai transaksi di kasir, supaya kas awal dan uang tunai yang masuk/keluar tercatat dengan benar.
+            </p>
+            {onGoToKasHarian && (
+              <Button onClick={onGoToKasHarian} className="w-full">
+                <Unlock className="w-4 h-4" />
+                Buka Kas Harian
+              </Button>
+            )}
           </div>
         </div>
       )}

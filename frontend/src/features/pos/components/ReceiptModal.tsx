@@ -34,10 +34,11 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
             data-receipt-content="true"
             className={`transition-all duration-500 ${isPrintingAnim ? 'animate-pulse scale-[0.99] border-t-4 border-primary' : ''}`}
           >
-          <div className="text-center border-b border-dashed border-border pb-4">
+          <div className="text-center border-b border-dashed border-border pb-3">
             <span className="text-lg font-black text-foreground tracking-tight block">{storeName}</span>
-            {storeProfile?.address && <span className="text-[10px] text-muted-foreground block mt-0.5">{storeProfile.address}</span>}
-            {storeProfile?.phone && <span className="text-[10px] text-muted-foreground block mt-1">Telp: {storeProfile.phone}</span>}
+            {storeProfile?.address && <span className="text-[10px] text-primary font-semibold block mt-0.5">{storeProfile.address}</span>}
+            {storeProfile?.phone && <span className="text-[10px] text-primary font-semibold block mt-1">Tel: {storeProfile.phone}</span>}
+            <span className="text-[10px] font-black text-primary tracking-widest block mt-2">STRUK PEMBELIAN</span>
           </div>
 
           <div className="space-y-1.5 text-[10px] py-3">
@@ -51,11 +52,11 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
             </div>
             <div className="flex justify-between">
               <span>KASIR:</span>
-              <span className="font-bold">{lastOrderDetails.cashierName || cashierName || 'Staff Aktif'}</span>
+              <span className="font-bold text-foreground">{lastOrderDetails.cashierName || cashierName || 'Staff Aktif'}</span>
             </div>
             <div className="flex justify-between">
               <span>PELANGGAN:</span>
-              <span className="font-bold">{lastOrderDetails.customerName}</span>
+              <span className="font-bold text-foreground">{lastOrderDetails.customerName}</span>
             </div>
             <div className="flex justify-between">
               <span>METODE:</span>
@@ -63,15 +64,15 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
             </div>
             {lastOrderDetails.paymentMethod === 'Transfer' && lastOrderDetails.transferAccount && (
               <div className="space-y-0.5 border-l-2 border-primary pl-2">
-                <div className="flex justify-between"><span>REKENING:</span><span className="font-bold">{lastOrderDetails.transferAccount.name}</span></div>
-                <div className="flex justify-between"><span>NOMOR:</span><span className="font-bold">{lastOrderDetails.transferAccount.accountNumber || '-'}</span></div>
+                <div className="flex justify-between"><span>REKENING:</span><span className="font-bold text-foreground">{lastOrderDetails.transferAccount.name}</span></div>
+                <div className="flex justify-between"><span>NOMOR:</span><span className="font-bold text-foreground">{lastOrderDetails.transferAccount.accountNumber || '-'}</span></div>
                 {lastOrderDetails.transferAccount.holderName && <div className="flex justify-between"><span>PEMILIK:</span><span>{lastOrderDetails.transferAccount.holderName}</span></div>}
               </div>
             )}
             {lastOrderDetails.fulfillmentMethod && (
               <div className="flex justify-between">
                 <span>PENGAMBILAN:</span>
-                <span className="font-bold uppercase flex items-center gap-1">
+                <span className="font-bold uppercase text-foreground flex items-center gap-1">
                   {lastOrderDetails.fulfillmentMethod === 'Delivery' ? <Truck className="w-3 h-3" /> : <Store className="w-3 h-3" />}
                   {lastOrderDetails.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI'}
                 </span>
@@ -80,7 +81,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
             {lastOrderDetails.fulfillmentMethod === 'Delivery' && lastOrderDetails.deliveryAddress && (
               <div className="flex justify-between gap-2">
                 <span className="shrink-0">ALAMAT:</span>
-                <span className="text-right">{lastOrderDetails.deliveryAddress}</span>
+                <span className="text-right font-bold text-foreground">{lastOrderDetails.deliveryAddress}</span>
               </div>
             )}
           </div>
@@ -120,24 +121,34 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
                 <span>-Rp {lastOrderDetails.discount.toLocaleString('id-ID')}</span>
               </div>
             )}
-            <div className="flex justify-between font-bold text-foreground">
-            <span> BIAYA TAMBAHAN </span>
-            </div>
-            {(lastOrderDetails.additionalFees?.length > 0 ? lastOrderDetails.additionalFees : [{ name: lastOrderDetails.additionalFeeName || 'BIAYA TAMBAHAN', amount: lastOrderDetails.additionalFee || 0 }])
-              .filter((fee: { name: string; amount: number }) => fee.amount > 0)
-              .map((fee: { name: string; amount: number }, index: number) => (
-                <div key={`${fee.name}-${index}`} className="flex justify-between font-bold">
-                  <span>{fee.name || 'BIAYA TAMBAHAN'}:</span>
-                  <span>Rp {fee.amount.toLocaleString('id-ID')}</span>
+            {(() => {
+              const fees = lastOrderDetails.additionalFees?.length > 0
+                ? lastOrderDetails.additionalFees
+                : [{ name: lastOrderDetails.additionalFeeName || 'Biaya Tambahan', amount: lastOrderDetails.additionalFee || 0 }];
+              const namedFees = fees.filter((fee: { name: string; amount: number }) => fee.amount > 0);
+              if (namedFees.length > 0) {
+                return namedFees.map((fee: { name: string; amount: number }, index: number) => (
+                  <div key={`${fee.name}-${index}`} className="flex justify-between font-bold text-foreground">
+                    <span>{fee.name || 'BIAYA TAMBAHAN'}:</span>
+                    <span>Rp {fee.amount.toLocaleString('id-ID')}</span>
+                  </div>
+                ));
+              }
+              // Selalu tampilkan baris ini (walau Rp 0) — sama seperti struk referensi.
+              return (
+                <div className="flex justify-between font-bold text-foreground">
+                  <span>BIAYA TAMBAHAN:</span>
+                  <span>Rp 0</span>
                 </div>
-              ))}
+              );
+            })()}
             <div className="flex justify-between font-black text-xs text-foreground pt-2 border-t border-dashed border-border mt-1">
               <span>TOTAL AKHIR:</span>
               <span>Rp {lastOrderDetails.total.toLocaleString('id-ID')}</span>
             </div>
             {lastOrderDetails.paymentMethod === 'Cash' && typeof lastOrderDetails.cashReceived === 'number' && (
               <>
-                <div className="flex justify-between pt-1">
+                <div className="flex justify-between pt-1 text-foreground font-semibold">
                   <span>TUNAI DITERIMA:</span>
                   <span>Rp {lastOrderDetails.cashReceived.toLocaleString('id-ID')}</span>
                 </div>

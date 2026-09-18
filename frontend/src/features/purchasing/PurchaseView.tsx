@@ -98,6 +98,9 @@ export default function PurchaseView({
       if (match) {
         match.stock += item.quantity;
         match.stockStatus = match.stock > 15 ? 'Healthy' : 'Low Stock';
+        // Tandai sebagai stok baru masuk — muncul di kartu "Stok Baru Masuk" halaman Stok.
+        match.lastRestock = new Date().toISOString();
+        match.lastRestockQty = item.quantity;
       }
     });
     onUpdateProducts(updatedProducts);

@@ -37,7 +37,28 @@ sessionStorage.removeItem(RELOAD_FLAG);
 // layar putih total. Di dalam APK ini juga sama sekali tidak dibutuhkan:
 // semua file sudah ikut ter-bundle langsung di dalam aplikasi, jadi tidak
 // perlu caching lewat service worker supaya bisa jalan offline.
-if ('serviceWorker' in navigator && !Capacitor.isNativePlatform()) {
+if (Capacitor.isNativePlatform()) {
+  // PENTING: tidak cukup cuma "skip" pendaftaran SW baru di sini — kalau
+  // HP ini sebelumnya pernah pakai APK versi LAMA (sebelum guard ini
+  // ditambahkan), SW dari versi lama itu bisa saja masih terdaftar dan
+  // aktif, karena storage WebView Capacitor tidak ikut terhapus waktu
+  // APK di-update ke versi baru. SW lama yang masih nyangkut itu tetap
+  // akan mulai meng-intercept request begitu app dibuka, dan hasilnya
+  // tetap layar putih walau kode versi ini sudah tidak mendaftarkannya
+  // lagi. Jadi begitu jalan di native, aktif bersihkan registrasi SW +
+  // cache lama itu supaya app kembali normal secara otomatis, tanpa user
+  // harus uninstall/install ulang manual.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations()
+      .then((registrations) => registrations.forEach((reg) => reg.unregister()))
+      .catch(() => {});
+  }
+  if ('caches' in window) {
+    caches.keys()
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+      .catch(() => {});
+  }
+} else if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {
       // Non-fatal: the app works fine without an active service worker,

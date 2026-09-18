@@ -19,7 +19,8 @@ export interface CurrentUser {
 
 /** Every top-level tab in the app (matches the `baseTab` switch in App.tsx / the ids used by Sidebar). */
 export const TAB_DEFS: { key: string; label: string }[] = [
-  { key: 'tab_dashboard', label: 'Dashboard' },
+  // Dashboard is intentionally NOT listed here — it's owner-only (see
+  // canAccessTab below) and can't be granted to staff via checkboxes.
   { key: 'tab_kas-harian', label: 'Kas Harian' },
   { key: 'tab_pos', label: 'POS Kasir' },
   { key: 'tab_riwayat-transaksi', label: 'Riwayat Transaksi' },
@@ -100,14 +101,14 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<StaffRole, string[]> = {
 
   // Kasir: front-of-house/register tabs only, plus basic customer lookup.
   Kasir: [
-    'tab_dashboard', 'tab_kas-harian', 'tab_pos', 'tab_riwayat-transaksi',
+    'tab_kas-harian', 'tab_pos', 'tab_riwayat-transaksi',
     'tab_products', 'tab_customer', 'tab_deposit', 'tab_debts',
     'manage_customer_list', 'manage_customer_add', 'manage_product_list',
   ],
 
   // Stoker: warehouse/stock-side tabs only.
   Stoker: [
-    'tab_dashboard', 'tab_products', 'tab_master-data', 'tab_purchase', 'tab_pemasok', 'tab_retur',
+    'tab_products', 'tab_master-data', 'tab_purchase', 'tab_pemasok', 'tab_retur',
     'manage_gudang_list', 'manage_gudang_update',
     'manage_product_list', 'manage_product_update',
     'manage_supplier_list',
@@ -124,6 +125,12 @@ export function hasPermission(user: CurrentUser | null | undefined, key: string)
 /** True if the current user is allowed to open this top-level tab (base tab id, without the `tab_` prefix or any `:subtab`). */
 export function canAccessTab(user: CurrentUser | null | undefined, tabId: string): boolean {
   const baseTab = tabId.split(':')[0];
+  // Dashboard shows revenue/sales figures for the whole store — that's
+  // owner-only info, not something a per-staff checkbox should be able to
+  // turn on. Hard-coded here (rather than left to the `tab_dashboard`
+  // permission) so it can never be granted to Admin/Kasir/Stoker via the
+  // staff permission editor.
+  if (baseTab === 'dashboard') return user?.role === 'Owner';
   return hasPermission(user, `tab_${baseTab}`);
 }
 

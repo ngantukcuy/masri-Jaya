@@ -181,8 +181,8 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
 // above isn't touched.
 // ---------------------------------------------------------------------------
 
-/** Struk Pembelian (purchase receipt) re-printed from a saved SalesInvoice. */
-export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProfile: StoreProfileFull | undefined, cashierName: string | undefined) {
+/** Struk Pembelian (purchase receipt) rendered from a saved SalesInvoice — used both right after checkout and when re-printing from Riwayat Transaksi (isReprint controls the "Cetak ulang" footer note). */
+export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProfile: StoreProfileFull | undefined, cashierName: string | undefined, isReprint = false) {
   const storeName = storeProfile?.storeName || 'Toko Saya';
   const pageWidth = 80;
   const marginX = 5;
@@ -196,57 +196,68 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   const doc = new jsPDF({ unit: 'mm', format: [pageWidth, estimatedHeight] });
   let y = 8;
 
-  const center = (text: string, size: number, bold = false) => {
+  // Warna aksen sama persis dengan struk on-screen (ReceiptModal): biru
+  // untuk info toko/metode bayar, hijau untuk kembalian, hitam untuk sisanya.
+  const COLOR_PRIMARY: [number, number, number] = [37, 99, 235]; // #2563eb
+  const COLOR_EMERALD: [number, number, number] = [5, 150, 105]; // #059669
+  const COLOR_BLACK: [number, number, number] = [17, 24, 39]; // #111827
+
+  const center = (text: string, size: number, bold = false, color: [number, number, number] = COLOR_BLACK) => {
     doc.setFontSize(size);
     doc.setFont('JetBrains Mono', bold ? 'bold' : 'normal');
+    doc.setTextColor(...color);
     doc.text(text, pageWidth / 2, y, { align: 'center' });
     y += lineHeight;
   };
 
-  const row = (left: string, right: string, bold = false, size = 8) => {
+  const row = (left: string, right: string, bold = false, size = 8, color: [number, number, number] = COLOR_BLACK) => {
     doc.setFontSize(size);
     doc.setFont('JetBrains Mono', bold ? 'bold' : 'normal');
+    doc.setTextColor(...color);
     doc.text(left, marginX, y);
     doc.text(right, pageWidth - marginX, y, { align: 'right' });
     y += lineHeight;
   };
 
   const dashedLine = () => {
+    doc.setDrawColor(150, 150, 150);
     doc.setLineDashPattern([1, 1], 0);
     doc.line(marginX, y, pageWidth - marginX, y);
     doc.setLineDashPattern([], 0);
+    doc.setDrawColor(0, 0, 0);
     y += lineHeight;
   };
 
   const rupiah = (n: number) => `Rp ${Math.round(n).toLocaleString('id-ID')}`;
 
-  center(storeName, 12, true);
-  if (storeProfile?.address) center(storeProfile.address, 7);
-  if (storeProfile?.phone) center(`Tel: ${storeProfile.phone}`, 7);
-  y += 1;
-  dashedLine();
+  center(storeName, 13, true);
+  if (storeProfile?.address) center(storeProfile.address, 7, false, COLOR_PRIMARY);
+  if (storeProfile?.phone) center(`Tel: ${storeProfile.phone}`, 7, false, COLOR_PRIMARY);
+  y += 0.5;
+  center('STRUK PEMBELIAN', 8, true, COLOR_PRIMARY);
+  y += 0.5;
   dashedLine();
 
   row('Invoice:', invoice.invoiceNumber, true, 7.5);
   row('Tanggal:', invoice.date, false, 7.5);
   row('Kasir:', cashierName || 'Staff Aktif', false, 7.5);
-  dashedLine();
-
   row('Pelanggan:', invoice.customerName, false, 7.5);
   if (invoice.driverName) row('Sopir:', invoice.driverName, false, 7.5);
-  row('Pembayaran:', invoice.paymentMethod === 'Cash' ? 'TUNAI' : invoice.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : invoice.paymentMethod, false, 7.5);
+  row('Metode:', invoice.paymentMethod === 'Cash' ? 'TUNAI' : invoice.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : invoice.paymentMethod, true, 7.5, COLOR_PRIMARY);
   if (invoice.paymentMethod === 'Transfer' && invoice.paymentAccountName) {
     row('Rekening:', invoice.paymentAccountName, true, 7.5);
     row('Nomor:', invoice.paymentAccountNumber || '-', false, 7.5);
     if (invoice.paymentAccountHolder) row('PEMILIK:', invoice.paymentAccountHolder, false, 7.5);
   }
   if (invoice.fulfillmentMethod) {
-    row('Pengambilan:', invoice.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI', false, 7.5);
+    row('Pengambilan:', invoice.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI', true, 7.5);
     if (invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress) {
-      doc.setFontSize(7);
+      doc.setFontSize(7.5);
       doc.setFont('JetBrains Mono', 'normal');
-      const wrapped = doc.splitTextToSize(`Alamat: ${invoice.deliveryAddress}`, contentWidth);
-      doc.text(wrapped, marginX, y);
+      doc.setTextColor(...COLOR_BLACK);
+      const wrapped = doc.splitTextToSize(invoice.deliveryAddress, contentWidth - 20);
+      doc.text('Alamat:', marginX, y);
+      doc.text(wrapped, pageWidth - marginX, y, { align: 'right' });
       y += wrapped.length * lineHeight;
     }
   }
@@ -255,6 +266,7 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   invoice.items.forEach((item) => {
     doc.setFontSize(7.5);
     doc.setFont('JetBrains Mono', 'bold');
+    doc.setTextColor(...COLOR_BLACK);
     const nameLines = doc.splitTextToSize(item.name, contentWidth);
     doc.text(nameLines, marginX, y);
     y += nameLines.length * lineHeight;
@@ -273,9 +285,13 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   const invoiceFees = invoice.additionalFees?.length
     ? invoice.additionalFees
     : [{ name: invoice.additionalFeeName || 'Biaya Tambahan', amount: invoice.additionalFee ?? 0 }];
-  invoiceFees.forEach((fee) => {
-    if (fee.amount > 0) row(`${fee.name || 'Biaya Tambahan'}:`, rupiah(fee.amount), false, 7.5);
-  });
+  const namedFees = invoiceFees.filter((fee) => fee.amount > 0);
+  if (namedFees.length > 0) {
+    namedFees.forEach((fee) => row(`${fee.name || 'Biaya Tambahan'}:`, rupiah(fee.amount), false, 7.5));
+  } else {
+    // Selalu tampilkan baris ini (walau Rp 0) — sama seperti struk referensi.
+    row('Biaya Tambahan:', rupiah(0), false, 7.5);
+  }
   y += 0.5;
   doc.setLineWidth(0.3);
   doc.line(marginX, y, pageWidth - marginX, y);
@@ -284,7 +300,7 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
 
   if (invoice.paymentMethod === 'Cash' && typeof invoice.cashReceived === 'number') {
     row('Tunai Diterima:', rupiah(invoice.cashReceived), false, 7.5);
-    row('Kembalian:', rupiah(invoice.changeAmount || 0), true, 7.5);
+    row('Kembalian:', rupiah(invoice.changeAmount || 0), true, 7.5, COLOR_EMERALD);
   }
   if (invoice.paymentMethod === 'Split' && typeof invoice.splitPaidAmount === 'number') {
     row('Dibayar Sekarang:', rupiah(invoice.splitPaidAmount), false, 7.5);
@@ -295,7 +311,7 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   y += 1;
   dashedLine();
   center(storeProfile?.receiptNote || `Terima kasih telah berbelanja di ${storeName}!`, 7);
-  center('(Cetak ulang dari Riwayat Transaksi)', 6.5);
+  if (isReprint) center('(Cetak ulang dari Riwayat Transaksi)', 6.5);
 
   await savePdfDoc(doc, `Struk_${invoice.invoiceNumber}.pdf`);
 }

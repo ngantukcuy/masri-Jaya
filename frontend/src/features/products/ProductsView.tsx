@@ -17,7 +17,8 @@ import {
   Loader2,
   ScanLine,
   RefreshCw,
-  CheckCircle2
+  CheckCircle2,
+  Truck
 } from 'lucide-react';
 import { Product, SkuLocation, Supplier, PO, SalesInvoice } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -67,7 +68,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   // Klik salah satu kartu akan pindah ke sub-tampilan terkait; tombol
   // "Kembali" di tiap sub-tampilan mengembalikan ke hub.
   const [stokView, setStokView] = useState<'hub' | 'list' | 'pemasok' | 'transfer'>('hub');
-  const [rightPanelTab, setRightPanelTab] = useState<'menipis' | 'opname' | 'terlaris'>('menipis');
+  const [rightPanelTab, setRightPanelTab] = useState<'menipis' | 'opname' | 'terlaris' | 'baru-masuk'>('menipis');
   // ---- Transfer Stok: pindahkan lokasi gudang sebuah SKU ----
   const [transferSku, setTransferSku] = useState('');
   const [transferTargetLocationId, setTransferTargetLocationId] = useState('');
@@ -162,6 +163,18 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 15) as { product: Product; qty: number }[];
   })();
+
+  // ---- Stok Baru Masuk: produk yang barangnya baru diterima dari
+  // pemasok (via Purchasing > Konfirmasi Barang Diterima) dalam 3 hari
+  // terakhir, terbaru duluan.
+  const baruMasukList = sortedProducts
+    .filter((p) => {
+      if (!p.lastRestockQty || !p.lastRestock) return false;
+      const t = new Date(p.lastRestock).getTime();
+      if (Number.isNaN(t)) return false;
+      return Date.now() - t <= 3 * 24 * 60 * 60 * 1000;
+    })
+    .sort((a, b) => new Date(b.lastRestock).getTime() - new Date(a.lastRestock).getTime());
 
   // ---- Rekap Stok Pemasok: total nilai & item PO yang masih di pemasok
   // (belum berstatus "Received") per pemasok. ----
@@ -714,6 +727,23 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 </Card>
 
                 <Card
+                  onClick={() => { setRightPanelTab('baru-masuk'); }}
+                  className="flex-row items-center gap-4 p-4 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                    <Truck className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-extrabold text-sm text-foreground">Stok Baru Masuk</p>
+                    <p className="text-xs text-muted-foreground">Barang yang baru dianter pemasok, 3 hari terakhir</p>
+                  </div>
+                  {baruMasukList.length > 0 && (
+                    <Badge className="shrink-0 bg-emerald-600">{baruMasukList.length}</Badge>
+                  )}
+                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                </Card>
+
+                <Card
                   onClick={() => setStokView('transfer')}
                   className="flex-row items-center gap-4 p-4 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all"
                 >
@@ -754,6 +784,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
             <Tabs value={rightPanelTab} onValueChange={(v) => setRightPanelTab(v as any)}>
               <TabsList className="px-4 pt-3 bg-transparent rounded-none h-auto">
                 <TabsTrigger value="menipis">Stok Menipis</TabsTrigger>
+                <TabsTrigger value="baru-masuk">Baru Masuk</TabsTrigger>
                 <TabsTrigger value="opname">Sedang Stok Opname</TabsTrigger>
                 <TabsTrigger value="terlaris">Terlaris di Bulan Ini</TabsTrigger>
               </TabsList>
@@ -774,6 +805,29 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                           <p className="text-[10px] text-muted-foreground">Tersisa {p.stock} {p.unit} &middot; {p.warehouseLocation || '-'}</p>
                         </div>
                         <p className="font-black text-xs text-foreground shrink-0">Rp {p.retailPrice.toLocaleString('id-ID')}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="baru-masuk" className="mt-0">
+                <div className="divide-y divide-border max-h-[560px] overflow-y-auto">
+                  {baruMasukList.length === 0 ? (
+                    <p className="p-6 text-center text-xs text-muted-foreground">Belum ada barang baru masuk dalam 3 hari terakhir.</p>
+                  ) : (
+                    baruMasukList.map((p) => (
+                      <div key={p.sku} className="flex items-center gap-3 p-4">
+                        <div className="w-11 h-11 rounded-lg bg-muted border border-border flex items-center justify-center shrink-0 overflow-hidden">
+                          {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-cover" /> : <Truck className="w-5 h-5 text-muted-foreground" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <Badge className="mb-1 bg-emerald-600">+{p.lastRestockQty} {p.unit}</Badge>
+                          <p className="font-extrabold text-xs text-foreground truncate">{p.name}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Diterima {new Date(p.lastRestock).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} &middot; Stok kini {p.stock} {p.unit}
+                          </p>
+                        </div>
                       </div>
                     ))
                   )}

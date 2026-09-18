@@ -81,12 +81,12 @@ export default function App() {
  * login. LoginView fetches just the two tables it actually needs
  * (store_owner, staff_list) on its own.
  */
-// Session persists across a page refresh/reload — without this, AuthGate's
-// currentUser state (plain useState) resets to null on every reload and
-// kicks the user back to LoginView even though their PIN was already
-// verified moments ago. localStorage (not sessionStorage) is used so a
-// cashier reopening the browser/tab later stays logged in too, matching
-// how a POS terminal is typically shared and left open.
+// Session persists across a page refresh/reload within the same browser
+// tab/window (so an accidental F5 doesn't kick the cashier back to
+// LoginView) but NOT across closing and reopening the browser/tab —
+// sessionStorage (not localStorage) is used on purpose so the account
+// always has to log in again after actually leaving the web app, instead
+// of staying signed in indefinitely on a shared POS terminal.
 const SESSION_STORAGE_KEY = 'tokku_session_v1';
 
 interface StoredSession {
@@ -96,7 +96,7 @@ interface StoredSession {
 
 function loadStoredSession(): StoredSession | null {
   try {
-    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (parsed && parsed.user && typeof parsed.loginAt === 'number') return parsed as StoredSession;
@@ -109,9 +109,9 @@ function loadStoredSession(): StoredSession | null {
 function saveStoredSession(session: StoredSession | null) {
   try {
     if (session) {
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
     } else {
-      localStorage.removeItem(SESSION_STORAGE_KEY);
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
     }
   } catch {
     // Ignore storage failures (e.g. private browsing quota) — worst case
@@ -357,6 +357,9 @@ function Dashboard({
                       onAddSaleToKPIs={handleAddSaleToKPIs}
                       onRecordSale={handleRecordSale}
                       cashierName={currentUser?.name}
+                      currentUser={currentUser}
+                      loginAt={loginAt}
+                      onLogout={onLogout}
                       storeProfile={registeredOwner ? {
                         storeName: registeredOwner.storeName,
                         address: registeredOwner.address,
@@ -364,7 +367,8 @@ function Dashboard({
                         receiptNote: registeredOwner.receiptNote,
                         taxId: registeredOwner.taxId,
                       } : undefined}
-                      onExitFullScreen={() => setCurrentTab('dashboard')}
+                      onExitFullScreen={() => setCurrentTab(firstAccessibleTab(currentUser))}
+                      onGoToKasHarian={() => setCurrentTab('kas-harian')}
                     />
                   );
                 case 'kas-harian':
