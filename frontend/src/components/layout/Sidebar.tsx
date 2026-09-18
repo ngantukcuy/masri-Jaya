@@ -90,7 +90,7 @@ export default function Sidebar({
       icon: Users,
       children: [
         { id: 'customer', label: 'Pelanggan', icon: UserCircle2 },
-        { id: 'pemasok', label: 'Pemasok', icon: Truck },
+        { id: 'pemasok', label: 'Supplier', icon: Truck },
       ]
     },
     { id: 'deposit', label: 'DEPOSIT', icon: Wallet },

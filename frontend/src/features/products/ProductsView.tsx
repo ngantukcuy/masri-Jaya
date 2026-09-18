@@ -714,6 +714,20 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 </Card>
 
                 <Card
+                  onClick={() => { setRightPanelTab('baru-masuk'); }}
+                  className="flex-row items-center gap-4 p-4 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all"
+                >
+                  <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                    <Truck className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-extrabold text-sm text-foreground">Stok Baru Masuk</p>
+                    <p className="text-xs text-muted-foreground">Barang yang baru dianter pemasok, 3 hari terakhir</p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto shrink-0" />
+                </Card>
+
+                <Card
                   onClick={() => setStokView('pemasok')}
                   className="flex-row items-center gap-4 p-4 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all"
                 >
@@ -739,23 +753,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                     <p className="text-xs text-muted-foreground">Stok ketersediaan yang disimpan perusahaan.</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto shrink-0" />
-                </Card>
-
-                <Card
-                  onClick={() => { setRightPanelTab('baru-masuk'); }}
-                  className="flex-row items-center gap-4 p-4 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all"
-                >
-                  <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                    <Truck className="w-5 h-5 text-emerald-600" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-extrabold text-sm text-foreground">Stok Baru Masuk</p>
-                    <p className="text-xs text-muted-foreground">Barang yang baru dianter pemasok, 3 hari terakhir</p>
-                  </div>
-                  {baruMasukList.length > 0 && (
-                    <Badge className="shrink-0 bg-emerald-600">{baruMasukList.length}</Badge>
-                  )}
-                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                 </Card>
 
                 <Card
@@ -1063,7 +1060,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       <Button variant="ghost" size="sm" onClick={() => setStokView('hub')} className="text-muted-foreground -ml-2">
         <ChevronRight className="w-3.5 h-3.5 rotate-180" /> Kembali ke Stok
       </Button>
-      {/* Title Header */}
+      {/* Title Header
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
        
         <div className="flex gap-2">
@@ -1081,6 +1078,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
           )}
         </div>
       </div>
+       */}
 
       {/* Product Summary Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
