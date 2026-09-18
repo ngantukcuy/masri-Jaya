@@ -12,7 +12,7 @@ import {
   PlusCircle,
   FileText
 } from 'lucide-react';
-import { Customer, Printer } from '../../types';
+import { Customer, Printer, SalesInvoice } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
 import { getSupabaseTableCache } from '../../lib/supabaseCache';
@@ -38,14 +38,18 @@ interface DebtsStoreProfileLite {
 
 interface DebtsViewProps {
   customers: Customer[];
+  salesInvoices?: SalesInvoice[];
   onUpdateCustomers: (updatedCustomers: Customer[]) => void;
+  onUpdateSalesInvoice?: (updatedInvoice: SalesInvoice) => void;
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
   storeProfile?: DebtsStoreProfileLite;
 }
 
 export default function DebtsView({ 
   customers, 
+  salesInvoices = [],
   onUpdateCustomers, 
+  onUpdateSalesInvoice,
   onAddActivity,
   storeProfile,
 }: DebtsViewProps) {
@@ -58,6 +62,7 @@ export default function DebtsView({
   const [showPayModal, setShowPayModal] = useState(false);
   const [showAddDebtModal, setShowAddDebtModal] = useState(false);
   const [selectedCustomerForAction, setSelectedCustomerForAction] = useState<Customer | null>(null);
+  const [selectedDebtInvoice, setSelectedDebtInvoice] = useState<SalesInvoice | null>(null);
   const [showPrintInvoice, setShowPrintInvoice] = useState(false);
   
   // Form states
@@ -103,9 +108,26 @@ export default function DebtsView({
 
   const handleOpenPayModal = (customer: Customer) => {
     setSelectedCustomerForAction(customer);
-    setPayAmount(customer.currentDebt);
+    const customerInvoices = salesInvoices
+      .filter((invoice) => invoice.customerId === customer.id && (invoice.splitRemainingDebt || 0) > 0)
+      .sort((a, b) => {
+        const aDate = a.splitDueDate || a.createdAt || a.date;
+        const bDate = b.splitDueDate || b.createdAt || b.date;
+        return aDate.localeCompare(bDate);
+      });
+    const firstInvoice = customerInvoices[0] || null;
+    setSelectedDebtInvoice(firstInvoice);
+    setPayAmount(firstInvoice?.splitRemainingDebt || customer.currentDebt);
     setShowPayModal(true);
   };
+
+  const getCustomerDebtInvoices = (customer: Customer) => salesInvoices
+    .filter((invoice) => invoice.customerId === customer.id && (invoice.splitRemainingDebt || 0) > 0)
+    .sort((a, b) => {
+      const aDate = a.splitDueDate || a.createdAt || a.date;
+      const bDate = b.splitDueDate || b.createdAt || b.date;
+      return aDate.localeCompare(bDate);
+    });
 
   const handleOpenAddDebtModal = (customer: Customer) => {
     setSelectedCustomerForAction(customer);
@@ -133,6 +155,12 @@ export default function DebtsView({
       return;
     }
 
+    const selectedInvoiceDebt = selectedDebtInvoice?.splitRemainingDebt || 0;
+    if (selectedDebtInvoice && payment > selectedInvoiceDebt) {
+      dialog.alert("Nominal pembayaran melebihi sisa bon yang dipilih!");
+      return;
+    }
+
     if (payment > selectedCustomerForAction.currentDebt) {
       dialog.alert("Nominal pembayaran melebihi total sisa hutang!");
       return;
@@ -157,11 +185,18 @@ export default function DebtsView({
       newPending = 0;
     }
 
+    if (selectedDebtInvoice && onUpdateSalesInvoice) {
+      onUpdateSalesInvoice({
+        ...selectedDebtInvoice,
+        splitRemainingDebt: Math.max(0, selectedInvoiceDebt - payment),
+      });
+    }
+
     const updated = customers.map(c => {
       if (c.id === selectedCustomerForAction.id) {
         // Record payment in transaction history
         const updatedTransactions = [
-          { orderName: `Pembayaran Piutang (Sisa: Rp ${remaining.toLocaleString('id-ID')})`, date: new Date().toISOString().split('T')[0], amount: -payment },
+          { orderName: `${selectedDebtInvoice ? `Pembayaran Bon ${selectedDebtInvoice.invoiceNumber}` : 'Pembayaran Piutang'} (Sisa: Rp ${remaining.toLocaleString('id-ID')})`, date: new Date().toISOString().split('T')[0], amount: -payment },
           ...c.lastTransactions
         ];
         return {
@@ -187,6 +222,7 @@ export default function DebtsView({
     );
 
     setShowPayModal(false);
+    setSelectedDebtInvoice(null);
     triggerToast(`Berhasil menerima pembayaran Rp ${payment.toLocaleString('id-ID')} untuk ${selectedCustomerForAction.name}`);
   };
 
@@ -374,7 +410,7 @@ export default function DebtsView({
                 </TableRow>
               ) : (
                 paginatedCustomers.map((cust) => (
-                  <TableRow key={cust.id}>
+                  <TableRow key={cust.id} onClick={() => cust.currentDebt > 0 && handleOpenPayModal(cust)} className={cust.currentDebt > 0 ? 'cursor-pointer' : undefined}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-200 to-slate-100 text-slate-700 flex items-center justify-center font-black text-xs shrink-0">
@@ -420,7 +456,7 @@ export default function DebtsView({
                         <Button
                           size="sm"
                           variant="secondary"
-                          onClick={() => handleOpenInvoice(cust)}
+                          onClick={(event) => { event.stopPropagation(); handleOpenInvoice(cust); }}
                           className="text-[10px]"
                           title="Cetak Surat Tagihan"
                         >
@@ -429,7 +465,7 @@ export default function DebtsView({
                         </Button>
                         <Button
                           size="sm"
-                          onClick={() => handleOpenAddDebtModal(cust)}
+                          onClick={(event) => { event.stopPropagation(); handleOpenAddDebtModal(cust); }}
                           className="text-[10px] bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 shadow-none"
                           title="Tambah Hutang Baru"
                         >
@@ -439,7 +475,7 @@ export default function DebtsView({
                         {cust.currentDebt > 0 && (
                           <Button
                             size="sm"
-                            onClick={() => handleOpenPayModal(cust)}
+                            onClick={(event) => { event.stopPropagation(); handleOpenPayModal(cust); }}
                             className="text-[10px] bg-emerald-600 hover:bg-emerald-700"
                             title="Bayar Cicilan"
                           >
@@ -480,12 +516,44 @@ export default function DebtsView({
                 </div>
               </div>
 
+              {getCustomerDebtInvoices(selectedCustomerForAction).length > 0 && (
+                <div className="space-y-2">
+                  <Label>Bon yang akan dibayar</Label>
+                  <div className="max-h-40 space-y-1.5 overflow-y-auto">
+                    {getCustomerDebtInvoices(selectedCustomerForAction).map((invoice) => {
+                      const isSelected = selectedDebtInvoice?.invoiceNumber === invoice.invoiceNumber;
+                      return (
+                        <button
+                          key={invoice.invoiceNumber}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDebtInvoice(invoice);
+                            setPayAmount(invoice.splitRemainingDebt || 0);
+                          }}
+                          className={`w-full rounded-lg border p-2 text-left text-[10px] ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:border-emerald-300'}`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-black text-gray-800">{invoice.invoiceNumber}</span>
+                            <span className="font-black text-red-600">Rp {(invoice.splitRemainingDebt || 0).toLocaleString('id-ID')}</span>
+                          </div>
+                          <div className="mt-0.5 flex justify-between text-gray-500">
+                            <span>{invoice.date}</span>
+                            <span>Jatuh tempo: {invoice.splitDueDate ? new Date(`${invoice.splitDueDate}T00:00:00`).toLocaleDateString('id-ID') : '-'}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <form onSubmit={submitRepayment} className="space-y-4">
                 <div>
                   <Label>Nominal Pembayaran (Rp)</Label>
                   <NumberInput
                     value={payAmount}
                     onChange={setPayAmount}
+                    max={selectedDebtInvoice?.splitRemainingDebt || selectedCustomerForAction.currentDebt}
                     placeholder="Masukkan nominal Rp..."
                     required
                     className={numberInputClass}

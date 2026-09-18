@@ -501,7 +501,9 @@ function Dashboard({
                   return (
                     <DebtsView
                       customers={customers}
+                      salesInvoices={salesInvoices}
                       onUpdateCustomers={setCustomers}
+                      onUpdateSalesInvoice={handleUpdateSalesInvoice}
                       onAddActivity={handleAddActivity}
                       storeProfile={registeredOwner ? {
                         storeName: registeredOwner.storeName,
