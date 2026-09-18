@@ -3,6 +3,10 @@ export interface POItem {
   sku: string;
   quantity: number;
   price: number;
+  taxIncluded?: boolean;
+  discountPerUnit?: number;
+  totalDiscount?: number;
+  locationId?: string;
 }
 
 export interface PO {
@@ -13,6 +17,13 @@ export interface PO {
   items: POItem[];
   createdDate: string;
   logisticsNote: string;
+  paymentMethod?: 'Cash' | 'Transfer' | 'Tempo';
+  deliveryNoteNumber?: string;
+  taxIncluded?: boolean;
+  totalDiscount?: number;
+  additionalCost?: number;
+  additionalCostName?: string;
+  receivedAt?: string;
 }
 
 export interface Supplier {

@@ -20,7 +20,7 @@ import {
   CheckCircle2,
   Truck
 } from 'lucide-react';
-import { Product, SkuLocation, Supplier, PO, SalesInvoice } from '../../types';
+import { Product, SkuLocation, Supplier, PO, POItem, SalesInvoice } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import { uploadProductImage } from '../../lib/uploadProductImage';
@@ -63,10 +63,20 @@ interface ProductsViewProps {
   skuLocations?: SkuLocation[];
   suppliers?: Supplier[];
   pos?: PO[];
+  onUpdatePOs: (updatedPOs: PO[]) => void;
   salesInvoices?: SalesInvoice[];
 }
 
-export default function ProductsView({ products, onUpdateProducts, onAddActivity, currentUserName, currentUser, skuLocations = [], suppliers = [], pos = [], salesInvoices = [] }: ProductsViewProps) {
+interface IncomingProductForm {
+  productSku: string;
+  quantity: number;
+  price: number;
+  taxIncluded: boolean;
+  discountPerUnit: number;
+  locationId: string;
+}
+
+export default function ProductsView({ products, onUpdateProducts, onAddActivity, currentUserName, currentUser, skuLocations = [], suppliers = [], pos = [], onUpdatePOs, salesInvoices = [] }: ProductsViewProps) {
   const dialog = useDialog();
   const can = (key: string) => hasPermission(currentUser, key);
   // Halaman Stok dibuka dengan tampilan "hub" (kartu Pengaturan Stok +
@@ -75,6 +85,18 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   // "Kembali" di tiap sub-tampilan mengembalikan ke hub.
   const [stokView, setStokView] = useState<'hub' | 'list' | 'pemasok' | 'transfer'>('hub');
   const [rightPanelTab, setRightPanelTab] = useState<'menipis' | 'opname' | 'terlaris' | 'baru-masuk'>('menipis');
+  const [incomingTab, setIncomingTab] = useState<'masuk' | 'eceran' | 'aktual'>('masuk');
+  const [showIncomingModal, setShowIncomingModal] = useState(false);
+  const [incomingStep, setIncomingStep] = useState<1 | 2>(1);
+  const [incomingDate, setIncomingDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [incomingPoNumber, setIncomingPoNumber] = useState('');
+  const [incomingSupplier, setIncomingSupplier] = useState('');
+  const [incomingPaymentMethod, setIncomingPaymentMethod] = useState<'Cash' | 'Transfer' | 'Tempo'>('Cash');
+  const [incomingDeliveryNote, setIncomingDeliveryNote] = useState('');
+  const [incomingStatus, setIncomingStatus] = useState<'Received' | 'In Transit'>('Received');
+  const [incomingItems, setIncomingItems] = useState<IncomingProductForm[]>([]);
+  const [incomingAdditionalCost, setIncomingAdditionalCost] = useState(0);
+  const [incomingAdditionalCostName, setIncomingAdditionalCostName] = useState('');
   // ---- Transfer Stok: pindahkan lokasi gudang sebuah SKU ----
   const [transferSku, setTransferSku] = useState('');
   const [transferTargetLocationId, setTransferTargetLocationId] = useState('');
@@ -189,6 +211,88 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       return Date.now() - t <= 3 * 24 * 60 * 60 * 1000;
     })
     .sort((a, b) => new Date(b.lastRestock).getTime() - new Date(a.lastRestock).getTime());
+
+  const receivedPOs = pos
+    .filter((po) => po.status === 'Received' || po.status === 'In Transit' || po.receivedAt)
+    .sort((a, b) => (b.receivedAt || b.createdDate).localeCompare(a.receivedAt || a.createdDate));
+  const incomingTotalDiscount = incomingItems.reduce((sum, item) => sum + item.discountPerUnit * item.quantity, 0);
+  const incomingSubtotal = incomingItems.reduce((sum, item) => sum + (item.price * item.quantity) - (item.discountPerUnit * item.quantity), 0);
+  const incomingTotal = Math.max(0, incomingSubtotal + incomingAdditionalCost);
+
+  const openIncomingModal = () => {
+    setIncomingDate(new Date().toISOString().slice(0, 10));
+    setIncomingPoNumber(`PO-2026-${Math.floor(1000 + Math.random() * 9000)}`);
+    setIncomingSupplier(suppliers[0]?.name || '');
+    setIncomingPaymentMethod('Cash');
+    setIncomingDeliveryNote('');
+    setIncomingStatus('Received');
+    setIncomingItems([{ productSku: products[0]?.sku || '', quantity: 1, price: products[0]?.retailPrice || 0, taxIncluded: false, discountPerUnit: 0, locationId: products[0]?.skuLocationId || '' }]);
+    setIncomingAdditionalCost(0);
+    setIncomingAdditionalCostName('');
+    setIncomingStep(1);
+    setShowIncomingModal(true);
+  };
+
+  const handleSaveIncoming = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!incomingDate || !incomingPoNumber.trim() || !incomingSupplier || incomingItems.length === 0 || incomingItems.some((item) => !item.productSku || item.quantity <= 0)) {
+      dialog.alert('Lengkapi tanggal, nomor PO, pemasok, dan minimal satu produk masuk.');
+      return;
+    }
+
+    const poItems: POItem[] = incomingItems.map((item) => {
+      const product = products.find((candidate) => candidate.sku === item.productSku);
+      return {
+        sku: item.productSku,
+        name: product?.name || item.productSku,
+        quantity: item.quantity,
+        price: item.price,
+        taxIncluded: item.taxIncluded,
+        discountPerUnit: item.discountPerUnit,
+        totalDiscount: item.discountPerUnit * item.quantity,
+        locationId: item.locationId,
+      };
+    });
+    const newPO: PO = {
+      poNumber: incomingPoNumber.trim(),
+      supplier: incomingSupplier,
+      items: poItems,
+      total: incomingTotal,
+      status: incomingStatus,
+      createdDate: incomingDate,
+      logisticsNote: incomingDeliveryNote || 'Penerimaan barang langsung dari pemasok',
+      paymentMethod: incomingPaymentMethod,
+      deliveryNoteNumber: incomingDeliveryNote,
+      taxIncluded: incomingItems.some((item) => item.taxIncluded),
+      totalDiscount: incomingTotalDiscount,
+      additionalCost: incomingAdditionalCost,
+      additionalCostName: incomingAdditionalCostName,
+      receivedAt: incomingStatus === 'Received' ? new Date().toISOString() : undefined,
+    };
+
+    onUpdatePOs([newPO, ...pos.filter((po) => po.poNumber !== newPO.poNumber)]);
+    if (incomingStatus === 'Received') {
+      const updatedProducts = products.map((product) => {
+        const productItems = incomingItems.filter((item) => item.productSku === product.sku);
+        if (productItems.length === 0) return product;
+        const addedQuantity = productItems.reduce((sum, item) => sum + item.quantity, 0);
+        const selectedLocation = productItems.map((item) => skuLocations.find((location) => location.id === item.locationId)?.name).find(Boolean);
+        const nextStock = product.stock + addedQuantity;
+        return {
+          ...product,
+          stock: nextStock,
+          stockStatus: nextStock > 15 ? 'Healthy' as const : 'Low Stock' as const,
+          lastRestock: new Date().toISOString(),
+          lastRestockQty: addedQuantity,
+          ...(selectedLocation ? { warehouseLocation: selectedLocation } : {}),
+        };
+      });
+      onUpdateProducts(updatedProducts);
+    }
+    onAddActivity(`Produk Masuk: ${newPO.poNumber}`, `${poItems.length} jenis produk dari ${incomingSupplier}`, incomingTotal, 'arrival');
+    setShowIncomingModal(false);
+    dialog.alert(`Produk masuk ${newPO.poNumber} berhasil disimpan.`);
+  };
 
   // ---- Rekap Stok Pemasok: total nilai & item PO yang masih di pemasok
   // (belum berstatus "Received") per pemasok. ----
@@ -721,7 +825,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                     <Truck className="w-5 h-5 text-emerald-600" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-extrabold text-sm text-foreground">Stok Baru Masuk</p>
+                    <p className="font-extrabold text-sm text-foreground">Stok Supplier</p>
                     <p className="text-xs text-muted-foreground">Barang yang baru dianter pemasok, 3 hari terakhir</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto shrink-0" />
@@ -824,26 +928,67 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
               </TabsContent>
 
               <TabsContent value="baru-masuk" className="mt-0">
-                <div className="divide-y divide-border max-h-[560px] overflow-y-auto">
-                  {baruMasukList.length === 0 ? (
-                    <p className="p-6 text-center text-xs text-muted-foreground">Belum ada barang baru masuk dalam 3 hari terakhir.</p>
-                  ) : (
-                    baruMasukList.map((p) => (
-                      <div key={p.sku} className="flex items-center gap-3 p-4">
-                        <div className="w-11 h-11 rounded-lg bg-muted border border-border flex items-center justify-center shrink-0 overflow-hidden">
-                          {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-cover" /> : <Truck className="w-5 h-5 text-muted-foreground" />}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <Badge className="mb-1 bg-emerald-600">+{p.lastRestockQty} {p.unit}</Badge>
-                          <p className="font-extrabold text-xs text-foreground truncate">{p.name}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            Diterima {new Date(p.lastRestock).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })} &middot; Stok kini {p.stock} {p.unit}
-                          </p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                <Tabs value={incomingTab} onValueChange={(value) => setIncomingTab(value as typeof incomingTab)}>
+                  <div className="flex items-center justify-between gap-3 px-4 pt-3">
+                    <TabsList className="bg-muted/60">
+                      <TabsTrigger value="masuk">Produk Masuk</TabsTrigger>
+                      <TabsTrigger value="eceran">Produk Eceran</TabsTrigger>
+                      <TabsTrigger value="aktual">Stok Aktual</TabsTrigger>
+                    </TabsList>
+                    {incomingTab === 'masuk' && (
+                      <Button size="sm" onClick={openIncomingModal} disabled={products.length === 0}>
+                        <Plus className="w-3.5 h-3.5" /> Tambah Produk Masuk
+                      </Button>
+                    )}
+                  </div>
+
+                  <TabsContent value="masuk" className="mt-3 px-4 pb-4">
+                    <div className="overflow-x-auto border border-border rounded-lg">
+                      <Table className="min-w-[850px]">
+                        <TableHeader><TableRow className="bg-muted/40">
+                          <TableHead>Tgl</TableHead><TableHead>Nomor PO</TableHead><TableHead className="text-right">Total Pembelian</TableHead><TableHead>Status</TableHead><TableHead>Pemasok</TableHead><TableHead>Metode Bayar</TableHead><TableHead>No. Surat Jalan</TableHead>
+                        </TableRow></TableHeader>
+                        <TableBody>
+                          {receivedPOs.length === 0 ? (
+                            <TableRow><TableCell colSpan={7} className="p-6 text-center text-xs text-muted-foreground">Belum ada produk masuk.</TableCell></TableRow>
+                          ) : receivedPOs.map((po) => (
+                            <TableRow key={po.poNumber}>
+                              <TableCell className="text-xs whitespace-nowrap">{po.createdDate}</TableCell>
+                              <TableCell className="font-mono font-bold text-xs">{po.poNumber}</TableCell>
+                              <TableCell className="text-right font-bold text-xs">Rp {po.total.toLocaleString('id-ID')}</TableCell>
+                              <TableCell><Badge variant={po.status === 'Received' ? 'success' : 'warning'}>{po.status === 'Received' ? 'Diterima' : 'Dalam Perjalanan'}</Badge></TableCell>
+                              <TableCell className="text-xs font-semibold">{po.supplier}</TableCell>
+                              <TableCell className="text-xs">{po.paymentMethod || '-'}</TableCell>
+                              <TableCell className="text-xs">{po.deliveryNoteNumber || '-'}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="eceran" className="mt-3 px-4 pb-4">
+                    <div className="overflow-x-auto border border-border rounded-lg">
+                      <Table className="min-w-[650px]">
+                        <TableHeader><TableRow className="bg-muted/40"><TableHead>Produk</TableHead><TableHead>SKU</TableHead><TableHead>Unit</TableHead><TableHead className="text-right">Harga Eceran</TableHead><TableHead className="text-right">Stok</TableHead></TableRow></TableHeader>
+                        <TableBody>{sortedProducts.length === 0 ? <TableRow><TableCell colSpan={5} className="p-6 text-center text-xs text-muted-foreground">Belum ada produk.</TableCell></TableRow> : sortedProducts.map((product) => (
+                          <TableRow key={product.sku}><TableCell className="font-bold text-xs">{product.name}</TableCell><TableCell className="font-mono text-xs">{product.sku}</TableCell><TableCell className="text-xs">{product.unit}</TableCell><TableCell className="text-right font-bold text-xs">Rp {product.retailPrice.toLocaleString('id-ID')}</TableCell><TableCell className="text-right text-xs">{product.stock}</TableCell></TableRow>
+                        ))}</TableBody>
+                      </Table>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="aktual" className="mt-3 px-4 pb-4">
+                    <div className="overflow-x-auto border border-border rounded-lg">
+                      <Table className="min-w-[700px]">
+                        <TableHeader><TableRow className="bg-muted/40"><TableHead>Produk</TableHead><TableHead>SKU</TableHead><TableHead>Lokasi SKU</TableHead><TableHead className="text-right">Stok Aktual</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                        <TableBody>{sortedProducts.length === 0 ? <TableRow><TableCell colSpan={5} className="p-6 text-center text-xs text-muted-foreground">Belum ada stok.</TableCell></TableRow> : sortedProducts.map((product) => (
+                          <TableRow key={product.sku}><TableCell className="font-bold text-xs">{product.name}</TableCell><TableCell className="font-mono text-xs">{product.sku}</TableCell><TableCell className="text-xs">{product.warehouseLocation || '-'}</TableCell><TableCell className="text-right font-black text-xs">{product.stock} {product.unit}</TableCell><TableCell><Badge variant={product.stockStatus === 'Healthy' ? 'success' : product.stockStatus === 'Low Stock' ? 'warning' : 'destructive'}>{product.stockStatus === 'Healthy' ? 'Aman' : product.stockStatus === 'Low Stock' ? 'Menipis' : 'Habis'}</Badge></TableCell></TableRow>
+                        ))}</TableBody>
+                      </Table>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </TabsContent>
 
               <TabsContent value="opname" className="mt-0">
@@ -890,6 +1035,61 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
             </Tabs>
           </Card>
         </div>
+
+        {/* Penerimaan produk masuk: langkah pertama menyimpan header PO, langkah kedua menyimpan item dan lokasi SKU. */}
+        <Dialog open={showIncomingModal} onOpenChange={setShowIncomingModal}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle><Plus className="w-4 h-4" /> Tambah Produk Masuk {incomingStep === 1 ? '- Data Pembelian' : '- Detail Produk'}</DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleSaveIncoming} className="space-y-4 text-xs">
+              {incomingStep === 1 ? (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div><Label>Tanggal</Label><Input type="date" value={incomingDate} onChange={(event) => setIncomingDate(event.target.value)} required /></div>
+                    <div><Label>Nomor PO</Label><Input value={incomingPoNumber} onChange={(event) => setIncomingPoNumber(event.target.value)} placeholder="PO-2026-XXXX" required /></div>
+                    <div><Label>Pemasok</Label><Select value={incomingSupplier} onValueChange={setIncomingSupplier}><SelectTrigger><SelectValue placeholder="Pilih pemasok" /></SelectTrigger><SelectContent>{suppliers.map((supplier) => <SelectItem key={supplier.name} value={supplier.name}>{supplier.name}</SelectItem>)}</SelectContent></Select></div>
+                    <div><Label>Metode Bayar</Label><Select value={incomingPaymentMethod} onValueChange={(value) => setIncomingPaymentMethod(value as typeof incomingPaymentMethod)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Cash">Tunai</SelectItem><SelectItem value="Transfer">Transfer</SelectItem><SelectItem value="Tempo">Tempo</SelectItem></SelectContent></Select></div>
+                    <div><Label>No. Surat Jalan</Label><Input value={incomingDeliveryNote} onChange={(event) => setIncomingDeliveryNote(event.target.value)} placeholder="Nomor surat jalan pemasok" /></div>
+                    <div><Label>Status</Label><Select value={incomingStatus} onValueChange={(value) => setIncomingStatus(value as typeof incomingStatus)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Received">Diterima</SelectItem><SelectItem value="In Transit">Dalam Perjalanan</SelectItem></SelectContent></Select></div>
+                  </div>
+                  <div className="rounded-lg border border-primary/10 bg-primary/5 p-3 text-[10px] text-muted-foreground">Klik Lanjut untuk memasukkan detail produk, jumlah, harga, diskon, dan lokasi SKU.</div>
+                  <DialogFooter><Button type="button" variant="outline" onClick={() => setShowIncomingModal(false)}>Batal</Button><Button type="button" onClick={() => { if (!incomingDate || !incomingPoNumber.trim() || !incomingSupplier) { dialog.alert('Lengkapi tanggal, nomor PO, dan pemasok terlebih dahulu.'); return; } setIncomingStep(2); }}>Lanjut</Button></DialogFooter>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    {incomingItems.map((item, index) => {
+                      const product = products.find((candidate) => candidate.sku === item.productSku);
+                      const itemDiscount = item.discountPerUnit * item.quantity;
+                      const itemTotal = Math.max(0, item.price * item.quantity - itemDiscount);
+                      return (
+                        <div key={`${item.productSku}-${index}`} className="rounded-xl border border-border p-3 space-y-3">
+                          <div className="flex items-center justify-between"><p className="font-extrabold text-xs">Produk {index + 1}</p>{incomingItems.length > 1 && <Button type="button" variant="ghost" size="sm" onClick={() => setIncomingItems((items) => items.filter((_, itemIndex) => itemIndex !== index))} className="h-6 text-red-600">Hapus</Button>}</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div><Label>Nama Produk</Label><Select value={item.productSku} onValueChange={(value) => setIncomingItems((items) => items.map((current, itemIndex) => itemIndex === index ? { ...current, productSku: value, price: products.find((productItem) => productItem.sku === value)?.retailPrice || 0 } : current))}><SelectTrigger><SelectValue placeholder="Pilih produk" /></SelectTrigger><SelectContent>{products.map((productItem) => <SelectItem key={productItem.sku} value={productItem.sku}>{productItem.name} ({productItem.sku})</SelectItem>)}</SelectContent></Select></div>
+                            <div><Label>Qty</Label><NumberInput min={1} value={item.quantity} onChange={(value) => setIncomingItems((items) => items.map((current, itemIndex) => itemIndex === index ? { ...current, quantity: value } : current))} /></div>
+                            <div><Label>Pricelist (Rp)</Label><NumberInput min={0} value={item.price} onChange={(value) => setIncomingItems((items) => items.map((current, itemIndex) => itemIndex === index ? { ...current, price: value } : current))} /></div>
+                            <div><Label>Diskon Satuan (Rp)</Label><NumberInput min={0} value={item.discountPerUnit} onChange={(value) => setIncomingItems((items) => items.map((current, itemIndex) => itemIndex === index ? { ...current, discountPerUnit: value } : current))} /></div>
+                            <div><Label>Pilih Lokasi SKU</Label><Select value={item.locationId} onValueChange={(value) => setIncomingItems((items) => items.map((current, itemIndex) => itemIndex === index ? { ...current, locationId: value } : current))}><SelectTrigger><SelectValue placeholder="Pilih lokasi" /></SelectTrigger><SelectContent>{skuLocations.map((location) => <SelectItem key={location.id} value={location.id}>{location.name}</SelectItem>)}</SelectContent></Select></div>
+                            <div className="flex items-end"><label className="flex items-center gap-2 h-10 cursor-pointer"><Checkbox checked={item.taxIncluded} onCheckedChange={(checked) => setIncomingItems((items) => items.map((current, itemIndex) => itemIndex === index ? { ...current, taxIncluded: checked === true } : current))} /><span className="font-bold">Sudah PPN</span></label></div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 border-t border-border pt-2 text-[10px]"><div><span className="text-muted-foreground">Total Diskon</span><p className="font-black">Rp {itemDiscount.toLocaleString('id-ID')}</p></div><div className="text-right"><span className="text-muted-foreground">Total Rp</span><p className="font-black text-primary">Rp {itemTotal.toLocaleString('id-ID')}</p></div></div>
+                          {!product && <p className="text-[10px] text-red-500">Produk belum dipilih.</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <Button type="button" variant="outline" onClick={() => setIncomingItems((items) => [...items, { productSku: products[0]?.sku || '', quantity: 1, price: products[0]?.retailPrice || 0, taxIncluded: false, discountPerUnit: 0, locationId: products[0]?.skuLocationId || '' }])} className="w-full"><Plus className="w-3.5 h-3.5" /> Tambah Produk Lain</Button>
+                  <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2"><p className="font-extrabold text-xs">Ringkasan Biaya Tambahan</p><div className="flex gap-2"><Input value={incomingAdditionalCostName} onChange={(event) => setIncomingAdditionalCostName(event.target.value)} placeholder="Nama biaya, contoh: Ongkir" /><NumberInput min={0} value={incomingAdditionalCost} onChange={setIncomingAdditionalCost} placeholder="Nominal" /></div><div className="flex justify-between border-t border-border pt-2 font-black"><span>Total Biaya Tambahan</span><span>Rp {incomingAdditionalCost.toLocaleString('id-ID')}</span></div></div>
+                  <div className="flex justify-between rounded-lg bg-primary/5 p-3 font-black text-sm"><span>Total Pembelian</span><span className="text-primary">Rp {incomingTotal.toLocaleString('id-ID')}</span></div>
+                  <DialogFooter><Button type="button" variant="outline" onClick={() => setIncomingStep(1)}>Kembali</Button><Button type="submit">Simpan Produk Masuk</Button></DialogFooter>
+                </>
+              )}
+            </form>
+          </DialogContent>
+        </Dialog>
 
         {/* Adjustment / Stock Opname Modal (dipakai dari kartu "Stok Opname") */}
         <Dialog open={showAdjustmentModal} onOpenChange={setShowAdjustmentModal}>
@@ -1170,7 +1370,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
               />
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto top-5" > 
+            <div className="flex items-center gap-2 w-full sm:w-auto top-20" > 
               <Button
                 variant={showFiltersDrawer ? 'default' : 'outline'}
                 size="sm"

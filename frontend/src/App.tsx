@@ -472,6 +472,7 @@ function Dashboard({
                       skuLocations={skuLocations}
                       suppliers={suppliers}
                       pos={pos}
+                      onUpdatePOs={setPOs}
                       salesInvoices={salesInvoices}
                     />
                   );
