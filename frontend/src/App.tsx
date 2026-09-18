@@ -505,6 +505,7 @@ function Dashboard({
                       onUpdateCustomers={setCustomers}
                       onUpdateSalesInvoice={handleUpdateSalesInvoice}
                       onAddActivity={handleAddActivity}
+                      currentUser={currentUser}
                       storeProfile={registeredOwner ? {
                         storeName: registeredOwner.storeName,
                         address: registeredOwner.address,

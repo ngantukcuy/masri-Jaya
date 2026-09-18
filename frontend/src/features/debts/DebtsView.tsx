@@ -11,8 +11,10 @@ import {
   Calendar,
   PlusCircle,
   FileText
+  ,Trash2
 } from 'lucide-react';
 import { Customer, Printer, SalesInvoice } from '../../types';
+import { CurrentUser, hasPermission } from '../../lib/permissions';
 import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
 import { getSupabaseTableCache } from '../../lib/supabaseCache';
@@ -43,6 +45,7 @@ interface DebtsViewProps {
   onUpdateSalesInvoice?: (updatedInvoice: SalesInvoice) => void;
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
   storeProfile?: DebtsStoreProfileLite;
+  currentUser?: CurrentUser | null;
 }
 
 export default function DebtsView({ 
@@ -52,8 +55,10 @@ export default function DebtsView({
   onUpdateSalesInvoice,
   onAddActivity,
   storeProfile,
+  currentUser,
 }: DebtsViewProps) {
   const dialog = useDialog();
+  const canResetDebt = hasPermission(currentUser, 'manage_debt_reset');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Semua' | 'Cleared' | 'Pending' | 'Overdue'>('Semua');
   const [currentPage, setCurrentPage] = useState(1);
@@ -145,6 +150,44 @@ export default function DebtsView({
     setShowPrintInvoice(true);
   };
 
+  const handleResetDebt = async (customer: Customer) => {
+    const confirmed = await dialog.confirm(
+      `Hapus seluruh sisa hutang ${customer.name}? Saldo customer dan sisa bon terkait akan di-reset menjadi Rp 0. Tindakan ini tidak mencatat pembayaran ke kas.`
+    );
+    if (!confirmed) return;
+
+    const customerDebtInvoices = salesInvoices.filter(
+      (invoice) => invoice.customerId === customer.id && (invoice.splitRemainingDebt || 0) > 0
+    );
+    customerDebtInvoices.forEach((invoice) => {
+      onUpdateSalesInvoice?.({ ...invoice, splitRemainingDebt: 0 });
+    });
+
+    const updatedCustomers = customers.map((item) => {
+      if (item.id !== customer.id) return item;
+      return {
+        ...item,
+        currentDebt: 0,
+        debtStatus: 'Cleared' as const,
+        overdueAmount: 0,
+        pendingAmount: 0,
+        nextDueDate: undefined,
+        lastTransactions: [
+          {
+            orderName: 'Reset hutang manual',
+            date: new Date().toISOString().split('T')[0],
+            amount: -(item.currentDebt || 0),
+          },
+          ...item.lastTransactions,
+        ],
+      };
+    });
+    onUpdateCustomers(updatedCustomers);
+    onAddActivity('Reset Hutang Manual', `Saldo hutang ${customer.name} dihapus oleh ${currentUser?.name || 'Owner'}`, 0, 'overdue');
+    setSelectedCustomerForAction(null);
+    triggerToast(`Seluruh hutang ${customer.name} berhasil di-reset.`);
+  };
+
   const submitRepayment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCustomerForAction) return;
@@ -185,12 +228,22 @@ export default function DebtsView({
       newPending = 0;
     }
 
+    const updatedInvoiceRemaining = Math.max(0, selectedInvoiceDebt - payment);
     if (selectedDebtInvoice && onUpdateSalesInvoice) {
       onUpdateSalesInvoice({
         ...selectedDebtInvoice,
-        splitRemainingDebt: Math.max(0, selectedInvoiceDebt - payment),
+        splitRemainingDebt: updatedInvoiceRemaining,
       });
     }
+
+    const nextInvoiceDueDate = selectedDebtInvoice
+      ? getCustomerDebtInvoices(selectedCustomerForAction)
+        .filter((invoice) => invoice.invoiceNumber !== selectedDebtInvoice.invoiceNumber && (invoice.splitRemainingDebt || 0) > 0)
+        .map((invoice) => invoice.splitDueDate)
+        .filter((date): date is string => Boolean(date))
+        .concat(updatedInvoiceRemaining > 0 && selectedDebtInvoice.splitDueDate ? [selectedDebtInvoice.splitDueDate] : [])
+        .sort()[0]
+      : selectedCustomerForAction.nextDueDate;
 
     const updated = customers.map(c => {
       if (c.id === selectedCustomerForAction.id) {
@@ -206,7 +259,7 @@ export default function DebtsView({
           overdueAmount: newOverdue,
           pendingAmount: newPending,
           lastTransactions: updatedTransactions,
-          nextDueDate: remaining === 0 ? undefined : c.nextDueDate
+          nextDueDate: remaining === 0 ? undefined : nextInvoiceDueDate || c.nextDueDate
         };
       }
       return c;
@@ -481,6 +534,18 @@ export default function DebtsView({
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             <span>Cicil / Lunas</span>
+                          </Button>
+                        )}
+                        {canResetDebt && cust.currentDebt > 0 && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(event) => { event.stopPropagation(); void handleResetDebt(cust); }}
+                            className="text-[10px] text-red-600 border-red-200 hover:bg-red-50"
+                            title="Reset hutang manual"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span className="hidden lg:inline">Reset</span>
                           </Button>
                         )}
                       </div>
