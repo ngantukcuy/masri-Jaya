@@ -12,7 +12,6 @@ import {
 import { PO, Supplier, Product } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDialog } from '../../components/shared/DialogProvider';
-import { addMutation } from '../../lib/cashSession';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
 import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
@@ -106,14 +105,10 @@ export default function PurchaseView({
     });
     onUpdateProducts(updatedProducts);
 
-    if (po.paymentMethod === 'Cash') {
-      addMutation('out', 'Pembelian Stok Pemasok', po.total, `PO ${po.poNumber} - ${po.supplier}`);
-    }
-
-    // Tempo creates supplier debt; cash and transfer are already paid.
+    // Update supplier's outstanding debt (payable) and latest PO reference
     const updatedSuppliers = suppliers.map((s) =>
       s.name === po.supplier
-        ? { ...s, debt: po.paymentMethod === 'Tempo' || !po.paymentMethod ? s.debt + po.total : s.debt, recentPO: po.poNumber }
+        ? { ...s, debt: s.debt + po.total, recentPO: po.poNumber }
         : s
     );
     onUpdateSuppliers(updatedSuppliers);

@@ -28,7 +28,6 @@ import { Product, SkuLocation, Supplier, PO, SalesInvoice } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import { uploadProductImage } from '../../lib/uploadProductImage';
-import { addMutation } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
@@ -67,7 +66,6 @@ interface ProductsViewProps {
   currentUser?: CurrentUser;
   skuLocations?: SkuLocation[];
   suppliers?: Supplier[];
-  onUpdateSuppliers: (updatedSuppliers: Supplier[]) => void;
   pos?: PO[];
   onUpdatePOs: (updatedPOs: PO[]) => void;
   salesInvoices?: SalesInvoice[];
@@ -83,7 +81,7 @@ interface IncomingProductForm {
   locationId: string;
 }
 
-export default function ProductsView({ products, onUpdateProducts, onAddActivity, currentUserName, currentUser, skuLocations = [], suppliers = [], onUpdateSuppliers, pos = [], onUpdatePOs, salesInvoices = [] }: ProductsViewProps) {
+export default function ProductsView({ products, onUpdateProducts, onAddActivity, currentUserName, currentUser, skuLocations = [], suppliers = [], pos = [], onUpdatePOs, salesInvoices = [] }: ProductsViewProps) {
   const dialog = useDialog();
   const can = (key: string) => hasPermission(currentUser, key);
   // Halaman Stok dibuka dengan tampilan "hub" (kartu Pengaturan Stok +
@@ -310,9 +308,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       receivedAt: incomingStatus === 'Received' ? new Date().toISOString() : undefined,
     };
 
-    const previousPO = pos.find((po) => po.poNumber === newPO.poNumber);
-    const isNewlyReceived = incomingStatus === 'Received' && previousPO?.status !== 'Received';
-
     onUpdatePOs([newPO, ...pos.filter((po) => po.poNumber !== newPO.poNumber)]);
     if (incomingStatus === 'Received') {
       const updatedProducts = products.map((product) => {
@@ -331,17 +326,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
         };
       });
       onUpdateProducts(updatedProducts);
-
-      if (isNewlyReceived && incomingPaymentMethod === 'Cash') {
-        addMutation('out', 'Pembelian Stok Pemasok', incomingTotal, `PO ${newPO.poNumber} - ${incomingSupplier}`);
-      }
-
-      if (isNewlyReceived && incomingPaymentMethod === 'Tempo') {
-        const updatedSuppliers = suppliers.map((supplier) => supplier.name === incomingSupplier
-          ? { ...supplier, debt: supplier.debt + incomingTotal, recentPO: newPO.poNumber }
-          : supplier);
-        onUpdateSuppliers(updatedSuppliers);
-      }
     }
     onAddActivity(`Produk Masuk: ${newPO.poNumber}`, `${poItems.length} jenis produk dari ${incomingSupplier}`, incomingTotal, 'arrival');
     setShowIncomingModal(false);
@@ -1181,7 +1165,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                             <div><Label>Qty</Label><NumberInput min={1} value={item.quantity} onChange={(value) => setIncomingItems((items) => items.map((current, itemIndex) => itemIndex === index ? { ...current, quantity: value } : current))} /></div>
                             <div><Label>Harga Modal (Rp)</Label><NumberInput min={0} value={item.price} disabled={item.bonus} onChange={(value) => updateIncomingItem(index, { price: value })} /></div>
                             <div className="sm:col-span-2"><Label>Diskon Satuan</Label>{item.discounts.map((discount, discountIndex) => <div key={discountIndex} className="flex gap-2 mt-1"><Select value={discount.type} onValueChange={(value) => updateIncomingDiscount(index, discountIndex, { type: value as 'percent' | 'amount' })}><SelectTrigger className="w-28"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percent">Persen (%)</SelectItem><SelectItem value="amount">Rupiah (Rp)</SelectItem></SelectContent></Select><NumberInput min={0} max={discount.type === 'percent' ? 100 : undefined} value={discount.value} onChange={(value) => updateIncomingDiscount(index, discountIndex, { value })} /><Button type="button" variant="ghost" size="icon" onClick={() => updateIncomingItem(index, { discounts: item.discounts.filter((_, currentIndex) => currentIndex !== discountIndex) })} className="text-red-600"><Trash2 className="w-3.5 h-3.5" /></Button></div>)}<Button type="button" variant="outline" size="sm" onClick={() => updateIncomingItem(index, { discounts: [...item.discounts, { type: 'amount', value: 0 }] })} className="mt-1"><Plus className="w-3 h-3" /> Tambah Diskon</Button></div>
-                            <div className="sm:col-span-2"><Label>Total Diskon</Label></div>
                             <div><Label>Pilih Lokasi SKU</Label><Select value={item.locationId} onValueChange={(value) => updateIncomingItem(index, { locationId: value })}><SelectTrigger><SelectValue placeholder="Pilih lokasi" /></SelectTrigger><SelectContent>{skuLocations.map((location) => <SelectItem key={location.id} value={location.id}>{location.name}</SelectItem>)}</SelectContent></Select></div>
                             <div className="flex items-end"><label className="flex items-center gap-2 h-10 cursor-pointer"><Checkbox checked={item.taxIncluded} onCheckedChange={(checked) => updateIncomingItem(index, { taxIncluded: checked === true })} /><span className="font-bold">Sudah PPN</span></label><label className="flex items-center gap-2 h-10 ml-4 cursor-pointer"><Checkbox checked={item.bonus} onCheckedChange={(checked) => updateIncomingItem(index, { bonus: checked === true })} /><span className="font-bold text-amber-700">Bonus (Rp 0)</span></label></div>
                           </div>

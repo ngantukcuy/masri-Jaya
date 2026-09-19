@@ -471,7 +471,6 @@ function Dashboard({
                       currentUser={currentUser}
                       skuLocations={skuLocations}
                       suppliers={suppliers}
-                      onUpdateSuppliers={setSuppliers}
                       pos={pos}
                       onUpdatePOs={setPOs}
                       salesInvoices={salesInvoices}
