@@ -31,6 +31,7 @@ import { uploadProductImage } from '../../lib/uploadProductImage';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
+import PODetailDialog from '../../components/shared/PODetailDialog';
 import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
 import BarcodeScannerModal from '../../components/shared/BarcodeScannerModal';
 import { generateSkuCode } from '../../lib/generateSku';
@@ -91,6 +92,8 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const [stokView, setStokView] = useState<'hub' | 'list' | 'pemasok' | 'transfer' | 'incoming'>('hub');
   const [rightPanelTab, setRightPanelTab] = useState<'menipis' | 'opname' | 'terlaris' | 'baru-masuk'>('menipis');
   const [incomingTab, setIncomingTab] = useState<'masuk' | 'eceran'>('masuk');
+  // Bon (PO) yang sedang dipreview isinya saat baris tabel Stok Supplier diklik.
+  const [previewPO, setPreviewPO] = useState<PO | null>(null);
   const [showIncomingModal, setShowIncomingModal] = useState(false);
   const [returnToIncomingPage, setReturnToIncomingPage] = useState(false);
   const [incomingStep, setIncomingStep] = useState<1 | 2>(1);
@@ -845,7 +848,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
           <div>
             <h2 className="text-lg font-black text-foreground">Stok Supplier</h2>
-            <p className="text-xs text-muted-foreground">Kelola produk masuk, harga eceran, dan stok aktual.</p>
+            <p className="text-xs text-muted-foreground">Kelola produk masuk, harga eceran, dan stok aktual. Klik salah satu bon untuk melihat isinya.</p>
           </div>
           {incomingTab === 'masuk' && (
             <Button onClick={() => { setReturnToIncomingPage(true); setStokView('hub'); setRightPanelTab('baru-masuk'); openIncomingModal(); }} disabled={products.length === 0}>
@@ -865,7 +868,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                   <TableHead>Tgl</TableHead><TableHead>Nomor PO</TableHead><TableHead className="text-right">Total Pembelian</TableHead><TableHead>Status</TableHead><TableHead>Pemasok</TableHead><TableHead>Metode Bayar</TableHead><TableHead>No. Surat Jalan</TableHead>
                 </TableRow></TableHeader><TableBody>
                   {receivedPOs.length === 0 ? <TableRow><TableCell colSpan={7} className="p-8 text-center text-xs text-muted-foreground">Belum ada produk masuk.</TableCell></TableRow> : receivedPOs.map((po) => (
-                    <TableRow key={po.poNumber}><TableCell className="text-xs whitespace-nowrap">{po.createdDate}</TableCell><TableCell className="font-mono font-bold text-xs">{po.poNumber}</TableCell><TableCell className="text-right font-bold text-xs">Rp {po.total.toLocaleString('id-ID')}</TableCell><TableCell><Badge variant={po.status === 'Received' ? 'success' : 'warning'}>{po.status === 'Received' ? 'Diterima' : 'Dalam Perjalanan'}</Badge></TableCell><TableCell className="text-xs font-semibold">{po.supplier}</TableCell><TableCell className="text-xs">{po.paymentMethod || '-'}</TableCell><TableCell className="text-xs">{po.deliveryNoteNumber || '-'}</TableCell></TableRow>
+                    <TableRow key={po.poNumber} onClick={() => setPreviewPO(po)} className="cursor-pointer" title="Klik untuk melihat isi bon"><TableCell className="text-xs whitespace-nowrap">{po.createdDate}</TableCell><TableCell className="font-mono font-bold text-xs">{po.poNumber}</TableCell><TableCell className="text-right font-bold text-xs">Rp {po.total.toLocaleString('id-ID')}</TableCell><TableCell><Badge variant={po.status === 'Received' ? 'success' : 'warning'}>{po.status === 'Received' ? 'Diterima' : 'Dalam Perjalanan'}</Badge></TableCell><TableCell className="text-xs font-semibold">{po.supplier}</TableCell><TableCell className="text-xs">{po.paymentMethod || '-'}</TableCell><TableCell className="text-xs">{po.deliveryNoteNumber || '-'}</TableCell></TableRow>
                   ))}
                 </TableBody></Table>
               </div>
@@ -877,6 +880,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
             </TabsContent>
           </Tabs>
         </Card>
+        <PODetailDialog po={previewPO} onClose={() => setPreviewPO(null)} />
       </div>
     );
   }
@@ -1037,7 +1041,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                           {receivedPOs.length === 0 ? (
                             <TableRow><TableCell colSpan={7} className="p-6 text-center text-xs text-muted-foreground">Belum ada produk masuk.</TableCell></TableRow>
                           ) : receivedPOs.map((po) => (
-                            <TableRow key={po.poNumber}>
+                            <TableRow key={po.poNumber} onClick={() => setPreviewPO(po)} className="cursor-pointer" title="Klik untuk melihat isi bon">
                               <TableCell className="text-xs whitespace-nowrap">{po.createdDate}</TableCell>
                               <TableCell className="font-mono font-bold text-xs">{po.poNumber}</TableCell>
                               <TableCell className="text-right font-bold text-xs">Rp {po.total.toLocaleString('id-ID')}</TableCell>
@@ -1120,6 +1124,8 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
             </Tabs>
           </Card>
         </div>
+
+        <PODetailDialog po={previewPO} onClose={() => setPreviewPO(null)} />
 
         {/* Penerimaan produk masuk: langkah pertama menyimpan header PO, langkah kedua menyimpan item dan lokasi SKU. */}
         <Dialog open={showIncomingModal} onOpenChange={(open) => {

@@ -95,6 +95,92 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secondsLeft]);
 
+  // ---- Reset Registrasi Toko: dilindungi PIN Owner ----
+  // Tombol reset terlihat di halaman awal (sebelum login), jadi siapa pun yang
+  // memegang perangkat bisa menekannya. Karena itu reset hanya jalan setelah
+  // PIN Owner yang benar dimasukkan. Percobaan salah dibatasi seperti login
+  // (MAX_ATTEMPTS kali, lalu terkunci LOCKOUT_MS) dan disimpan di localStorage.
+  const RESET_LOCK_KEY = '__reset_registration__';
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetPinInput, setResetPinInput] = useState('');
+  const [resetPinError, setResetPinError] = useState(false);
+  const [resetLockedUntil, setResetLockedUntil] = useState<number | null>(null);
+  const resetSecondsLeft = resetLockedUntil ? Math.max(0, Math.ceil((resetLockedUntil - nowTick) / 1000)) : 0;
+  const isResetLocked = !!resetLockedUntil && resetSecondsLeft > 0;
+
+  useEffect(() => {
+    if (!resetLockedUntil) return;
+    const interval = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [resetLockedUntil]);
+
+  useEffect(() => {
+    if (resetLockedUntil && resetSecondsLeft === 0) {
+      setResetLockedUntil(null);
+      writeLockout(RESET_LOCK_KEY, 0, null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetSecondsLeft]);
+
+  const openResetModal = () => {
+    const { lockedUntil: storedUntil } = readLockout(RESET_LOCK_KEY);
+    setResetLockedUntil(storedUntil && storedUntil > Date.now() ? storedUntil : null);
+    setNowTick(Date.now());
+    setResetPinInput('');
+    setResetPinError(false);
+    setShowResetModal(true);
+  };
+
+  const closeResetModal = () => {
+    setShowResetModal(false);
+    setResetPinInput('');
+    setResetPinError(false);
+  };
+
+  const handleVerifyResetPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isResetLocked || resetPinInput.length !== 6) return;
+
+    // PIN Owner tersimpan di store_owner dan di akun Owner pada daftar staf
+    const ownerPins = [
+      registeredOwner?.pin,
+      ...staffList.filter((s) => s.role === 'Owner').map((s) => s.pin),
+    ].filter(Boolean);
+
+    if (!ownerPins.includes(resetPinInput)) {
+      const { attempts } = readLockout(RESET_LOCK_KEY);
+      const nextAttempts = attempts + 1;
+      if (nextAttempts >= MAX_ATTEMPTS) {
+        const until = Date.now() + LOCKOUT_MS;
+        writeLockout(RESET_LOCK_KEY, nextAttempts, until);
+        setResetLockedUntil(until);
+        setNowTick(Date.now());
+      } else {
+        writeLockout(RESET_LOCK_KEY, nextAttempts, null);
+      }
+      setResetPinError(true);
+      setResetPinInput('');
+      if (navigator.vibrate) navigator.vibrate(100);
+      return;
+    }
+
+    writeLockout(RESET_LOCK_KEY, 0, null);
+    closeResetModal();
+    const conf = await dialog.confirm(
+      "Apakah Anda yakin ingin mereset data registrasi toko? Ini akan menghapus semua kredensial (Owner dan seluruh akun staf).",
+      { title: 'Reset Registrasi Toko', confirmLabel: 'Ya, Reset', danger: true }
+    );
+    if (conf) {
+      setRegisteredOwner(null);
+      setStaffList([]);
+      setIsRegistered(false);
+      setStoreName('');
+      setOwnerName('');
+      setEmail('');
+      setOwnerPin('');
+    }
+  };
+
   // React to the registered-owner / staff-list Supabase rows as they load or change
   useEffect(() => {
     if (registeredOwner) {
@@ -381,18 +467,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                   <div className="pt-6 border-t border-gray-200 text-center">
                     <Button
                       variant="link"
-                      onClick={async () => {
-                        const conf = await dialog.confirm("Apakah Anda yakin ingin mereset data registrasi toko? Ini akan menghapus semua kredensial.");
-                        if (conf) {
-                          setRegisteredOwner(null);
-                          setStaffList([]);
-                          setIsRegistered(false);
-                          setStoreName('');
-                          setOwnerName('');
-                          setEmail('');
-                          setOwnerPin('');
-                        }
-                      }}
+                      onClick={openResetModal}
                       className="h-auto p-0 text-[9px] text-red-700 uppercase tracking-widest"
                     >
                       Reset Registrasi Toko
@@ -510,6 +585,53 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Verifikasi PIN Owner sebelum reset registrasi */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm px-4">
+          <form
+            onSubmit={handleVerifyResetPin}
+            className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 space-y-4 select-text"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-600 shrink-0">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-black text-gray-900 uppercase tracking-wide">Khusus Owner</h2>
+                <p className="text-xs text-gray-600 mt-0.5">Masukkan PIN Owner untuk melanjutkan reset registrasi toko.</p>
+              </div>
+            </div>
+
+            <Input
+              type="password"
+              inputMode="numeric"
+              autoFocus
+              maxLength={6}
+              value={resetPinInput}
+              disabled={isResetLocked}
+              onChange={(e) => {
+                setResetPinInput(e.target.value.replace(/\D/g, '').slice(0, 6));
+                setResetPinError(false);
+              }}
+              placeholder="PIN Owner 6 digit"
+              className="h-11 font-mono text-center text-lg tracking-widest"
+            />
+
+            {resetPinError && !isResetLocked && (
+              <p className="text-[10px] font-extrabold text-red-700 uppercase tracking-wider text-center">PIN salah. Reset dibatalkan.</p>
+            )}
+            {isResetLocked && (
+              <p className="text-[10px] font-extrabold text-red-700 uppercase tracking-wider text-center">Terlalu banyak percobaan. Coba lagi dalam {resetSecondsLeft} detik.</p>
+            )}
+
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="outline" size="sm" onClick={closeResetModal}>Batal</Button>
+              <Button type="submit" size="sm" disabled={isResetLocked || resetPinInput.length !== 6} className="bg-red-600 hover:bg-red-700">Lanjutkan</Button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <p className="text-[10px] text-gray-600 mt-8 font-mono text-center uppercase tracking-[0.2em]">
         MASRI JAYA • SECURE ACCESS CONTROL • v{__APP_VERSION__}

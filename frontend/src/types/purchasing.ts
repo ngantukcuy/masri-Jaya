@@ -26,6 +26,11 @@ export interface PO {
   additionalCostName?: string;
   receivedAt?: string;
   dueDate?: string;
+  /** Diisi saat bon dibayar dari halaman Pembayaran > Pembayaran ke Supplier
+   * (dipakai untuk bon Tempo). Bon Cash/Transfer dianggap lunas saat diterima. */
+  paidAt?: string;
+  paidAmount?: number;
+  paidMethod?: 'Tunai' | 'Transfer';
 }
 
 export interface Supplier {

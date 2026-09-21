@@ -11,6 +11,7 @@ import {
   Wifi, 
   WifiOff,
   Trash2,
+  Pencil,
   Warehouse,
   CreditCard,
   Bluetooth,
@@ -42,6 +43,7 @@ import { Textarea } from '../../components/ui/textarea';
 import { Checkbox } from '../../components/ui/checkbox';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog';
 import { Badge } from '../../components/ui/badge';
 import { supabase } from '../../lib/supabase';
 import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
@@ -145,6 +147,9 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const [newStaffRole, setNewStaffRole] = useState<'Owner' | 'Admin' | 'Kasir' | 'Stoker'>('Kasir');
   const [newStaffPermissions, setNewStaffPermissions] = useState<string[]>(ROLE_DEFAULT_PERMISSIONS['Kasir']);
   const [staffList, setStaffList] = useSupabaseTable<StaffMember>('staff_list', [], (s) => s.id!);
+  // Form staf (tambah & edit) tampil sebagai dialog, hanya saat tombolnya diklik.
+  const [showStaffModal, setShowStaffModal] = useState(false);
+  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
 
   // Printers: the saved list (name + connection type) lives in Supabase and
   // is shared across devices; the actual LIVE connection (paired
@@ -299,34 +304,110 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     );
   };
 
-  const handleAddStaff = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newStaffName.trim()) {
-      dialog.alert("Nama staf tidak boleh kosong!");
-      return;
-    }
-    if (newStaffPin.length !== 6 || isNaN(Number(newStaffPin))) {
-      dialog.alert("PIN harus berupa 6 digit angka!");
-      return;
-    }
-
-    const updated = [...staffList, { id: `staff-${Date.now()}`, name: newStaffName.trim(), phone: newStaffPhone.trim(), pin: newStaffPin, role: newStaffRole, permissions: newStaffPermissions }];
-    setStaffList(updated);
-
-    triggerToast(`Akun Staf "${newStaffName}" berhasil didaftarkan!`);
-    onAddActivity(
-      "Pendaftaran Staf Baru",
-      `Staf "${newStaffName}" ditambahkan sebagai ${newStaffRole}`,
-      0,
-      'quote'
-    );
-
-    // Reset forms
+  const resetStaffForm = () => {
     setNewStaffName('');
     setNewStaffPhone('');
     setNewStaffPin('');
     setNewStaffRole('Kasir');
     setNewStaffPermissions(ROLE_DEFAULT_PERMISSIONS['Kasir']);
+  };
+
+  const openAddStaff = () => {
+    resetStaffForm();
+    setEditingStaffId(null);
+    setShowStaffModal(true);
+  };
+
+  const openEditStaff = (st: StaffMember) => {
+    const role = st.role || 'Kasir';
+    setEditingStaffId(st.id || null);
+    setNewStaffName(st.name);
+    setNewStaffPhone(st.phone || '');
+    setNewStaffPin(''); // dikosongkan: PIN lama tidak ditampilkan, isi hanya kalau mau diganti
+    setNewStaffRole(role);
+    setNewStaffPermissions(st.permissions && st.permissions.length > 0 ? st.permissions : (ROLE_DEFAULT_PERMISSIONS[role] || []));
+    setShowStaffModal(true);
+  };
+
+  const closeStaffModal = () => {
+    setShowStaffModal(false);
+    setEditingStaffId(null);
+    resetStaffForm();
+  };
+
+  const handleSaveStaff = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newStaffName.trim();
+    const target = editingStaffId ? staffList.find((s) => s.id === editingStaffId) : null;
+    const isEdit = !!editingStaffId;
+
+    if (isEdit && !can('manage_user_update')) {
+      dialog.alert('Anda tidak memiliki izin untuk mengubah akun staf.');
+      return;
+    }
+    if (!isEdit && !can('manage_user_add')) {
+      dialog.alert('Anda tidak memiliki izin untuk menambah akun staf.');
+      return;
+    }
+    if (isEdit && !target) {
+      dialog.alert('Akun staf tidak ditemukan. Mungkin sudah dihapus.');
+      closeStaffModal();
+      return;
+    }
+    // Akun Owner hanya boleh diubah oleh Owner sendiri (mencegah staf lain
+    // yang punya izin "Ubah User" mengganti PIN pemilik toko).
+    if (target?.role === 'Owner' && currentUser?.role !== 'Owner') {
+      dialog.alert('Akun Owner hanya bisa diubah oleh Owner.');
+      return;
+    }
+    if (!name) {
+      dialog.alert("Nama staf tidak boleh kosong!");
+      return;
+    }
+    // Saat edit, PIN boleh dikosongkan (= PIN lama tetap dipakai).
+    const pinRequired = !isEdit || newStaffPin.length > 0;
+    if (pinRequired && (newStaffPin.length !== 6 || isNaN(Number(newStaffPin)))) {
+      dialog.alert("PIN harus berupa 6 digit angka!");
+      return;
+    }
+
+    if (target) {
+      const isOwnerEntry = target.role === 'Owner';
+      const updatedStaff: StaffMember = {
+        ...target,
+        name,
+        phone: newStaffPhone.trim(),
+        pin: newStaffPin || target.pin,
+        role: isOwnerEntry ? 'Owner' : newStaffRole,
+        permissions: isOwnerEntry ? target.permissions : newStaffPermissions,
+      };
+      setStaffList(staffList.map((s) => (s.id === target.id ? updatedStaff : s)));
+      // PIN Owner disimpan di dua tempat (daftar staf untuk login, dan
+      // store_owner untuk kredensial utama) — jaga keduanya tetap sama.
+      if (isOwnerEntry && newStaffPin) {
+        setRegisteredOwner((prev) => prev ? { ...prev, pin: newStaffPin } : prev);
+        setOwnerPin(newStaffPin);
+      }
+      triggerToast(`Akun Staf "${name}" berhasil diperbarui!`);
+      onAddActivity(
+        "Akun Staf Diubah",
+        `Akun "${name}" (${updatedStaff.role}) diperbarui`,
+        0,
+        'quote'
+      );
+    } else {
+      const updated = [...staffList, { id: `staff-${Date.now()}`, name, phone: newStaffPhone.trim(), pin: newStaffPin, role: newStaffRole, permissions: newStaffPermissions }];
+      setStaffList(updated);
+      triggerToast(`Akun Staf "${name}" berhasil didaftarkan!`);
+      onAddActivity(
+        "Pendaftaran Staf Baru",
+        `Staf "${name}" ditambahkan sebagai ${newStaffRole}`,
+        0,
+        'quote'
+      );
+    }
+
+    closeStaffModal();
   };
 
   const handleTogglePermission = (key: string) => {
@@ -1221,6 +1302,8 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                         return;
                       }
                       setRegisteredOwner((prev) => prev ? { ...prev, pin: ownerPin } : prev);
+                      // Halaman login memeriksa PIN dari daftar staf, jadi akun Owner di sana ikut diperbarui.
+                      setStaffList(staffList.map((st) => (st.role === 'Owner' ? { ...st, pin: ownerPin } : st)));
                       triggerToast("PIN Utama Owner berhasil dimodifikasi.");
                     }}
                     className="text-[10px]"
@@ -1236,93 +1319,130 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
               <h4 className="font-extrabold text-sm text-gray-800 border-b border-gray-100 pb-2 mb-3">Daftarkan &amp; Kelola Akun Staf Kasir</h4>
               
               {can('manage_user_add') && (
-              <form onSubmit={handleAddStaff} className="p-4 border border-blue-100 rounded-xl bg-blue-50/20 space-y-3.5">
-                <span className="font-black text-[10px] uppercase text-blue-600 tracking-wider">Formulir Tambah Staf Baru</span>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-[9px]">Nama Lengkap Staf</Label>
-                    <Input
-                      type="text"
-                      placeholder="Masukkan nama staf..."
-                      value={newStaffName}
-                      onChange={(e) => setNewStaffName(e.target.value)}
-                      className="bg-white"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[9px]">6-Digit PIN Kasir (Hanya Angka)</Label>
-                    <Input
-                      type="password"
-                      placeholder="Contoh: 123456"
-                      value={newStaffPin}
-                      maxLength={6}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '').slice(0, 6);
-                        setNewStaffPin(val);
-                      }}
-                      className="bg-white font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-[9px]">Peran (Role)</Label>
-                  <Select
-                    value={newStaffRole}
-                    onValueChange={(v) => {
-                      const role = v as 'Admin' | 'Kasir' | 'Stoker';
-                      setNewStaffRole(role);
-                      setNewStaffPermissions(ROLE_DEFAULT_PERMISSIONS[role]);
-                    }}
-                  >
-                    <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Admin">Admin</SelectItem>
-                      <SelectItem value="Kasir">Kasir</SelectItem>
-                      <SelectItem value="Stoker">Stoker</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label className="mb-1.5">Akses Menu (Tab yang Bisa Dibuka)</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 bg-white border border-gray-200 rounded-lg p-2.5">
-                    {TAB_DEFS.map((tab) => (
-                      <label key={tab.key} className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox
-                          checked={newStaffPermissions.includes(tab.key)}
-                          onCheckedChange={() => handleTogglePermission(tab.key)}
-                        />
-                        <span className="text-gray-700 font-medium">{tab.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="mb-1.5">Akses Fitur (Custom Permission)</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 bg-white border border-gray-200 rounded-lg p-2.5">
-                    {PERMISSION_DEFS.map((perm) => (
-                      <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox
-                          checked={newStaffPermissions.includes(perm.key)}
-                          onCheckedChange={() => handleTogglePermission(perm.key)}
-                        />
-                        <span className="text-gray-700 font-medium">{perm.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-1.5">
-                  <Button type="submit" size="sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 border border-blue-100 rounded-xl bg-blue-50/20">
+                  <p className="text-[11px] text-gray-500">Tambah akun baru untuk kasir, admin, atau stoker. Untuk mengubah akun yang sudah ada, klik ikon pensil di daftar bawah.</p>
+                  <Button size="sm" onClick={openAddStaff} className="shrink-0">
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Daftarkan Akun Staf</span>
+                    <span>Tambah Akun Staf</span>
                   </Button>
                 </div>
-              </form>
               )}
+
+              {/* Form tambah / edit staf — muncul sebagai dialog hanya saat tombol diklik */}
+              <Dialog open={showStaffModal} onOpenChange={(open) => { if (!open) closeStaffModal(); }}>
+                <DialogContent className="max-w-2xl text-xs">
+                  <DialogHeader>
+                    <DialogTitle>{editingStaffId ? 'Edit Akun Staf' : 'Tambah Staf Baru'}</DialogTitle>
+                    <DialogDescription>
+                      {editingStaffId ? 'Ubah data, PIN, peran, atau hak akses akun ini.' : 'Isi data akun, lalu atur hak aksesnya.'}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleSaveStaff} className="space-y-3.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-[9px]">Nama Lengkap Staf</Label>
+                        <Input
+                          type="text"
+                          placeholder="Masukkan nama staf..."
+                          value={newStaffName}
+                          onChange={(e) => setNewStaffName(e.target.value)}
+                          className="bg-white"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[9px]">No. HP (Opsional)</Label>
+                        <Input
+                          type="tel"
+                          placeholder="Contoh: 0812..."
+                          value={newStaffPhone}
+                          onChange={(e) => setNewStaffPhone(e.target.value)}
+                          className="bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-[9px]">{editingStaffId ? '6-Digit PIN Baru (Kosongkan jika tidak diganti)' : '6-Digit PIN Kasir (Hanya Angka)'}</Label>
+                      <Input
+                        type="password"
+                        placeholder={editingStaffId ? 'Kosongkan = PIN lama tetap dipakai' : 'Contoh: 123456'}
+                        value={newStaffPin}
+                        maxLength={6}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                          setNewStaffPin(val);
+                        }}
+                        className="bg-white font-mono"
+                      />
+                    </div>
+
+                    {editingStaffId && staffList.find((s) => s.id === editingStaffId)?.role === 'Owner' ? (
+                      <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        Ini akun Owner: perannya tetap Owner dan selalu memiliki seluruh hak akses, jadi pilihan peran dan akses tidak ditampilkan.
+                      </p>
+                    ) : (
+                      <>
+                        <div>
+                          <Label className="text-[9px]">Peran (Role)</Label>
+                          <Select
+                            value={newStaffRole}
+                            onValueChange={(v) => {
+                              const role = v as 'Admin' | 'Kasir' | 'Stoker';
+                              setNewStaffRole(role);
+                              setNewStaffPermissions(ROLE_DEFAULT_PERMISSIONS[role]);
+                            }}
+                          >
+                            <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Admin">Admin</SelectItem>
+                              <SelectItem value="Kasir">Kasir</SelectItem>
+                              <SelectItem value="Stoker">Stoker</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label className="mb-1.5">Akses Menu (Tab yang Bisa Dibuka)</Label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 bg-white border border-gray-200 rounded-lg p-2.5">
+                            {TAB_DEFS.map((tab) => (
+                              <label key={tab.key} className="flex items-center gap-2 cursor-pointer">
+                                <Checkbox
+                                  checked={newStaffPermissions.includes(tab.key)}
+                                  onCheckedChange={() => handleTogglePermission(tab.key)}
+                                />
+                                <span className="text-gray-700 font-medium">{tab.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label className="mb-1.5">Akses Fitur (Custom Permission)</Label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 bg-white border border-gray-200 rounded-lg p-2.5">
+                            {PERMISSION_DEFS.map((perm) => (
+                              <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
+                                <Checkbox
+                                  checked={newStaffPermissions.includes(perm.key)}
+                                  onCheckedChange={() => handleTogglePermission(perm.key)}
+                                />
+                                <span className="text-gray-700 font-medium">{perm.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    <div className="flex justify-end gap-2 pt-1.5 border-t border-gray-100">
+                      <Button type="button" variant="outline" size="sm" onClick={closeStaffModal}>Batal</Button>
+                      <Button type="submit" size="sm">
+                        {editingStaffId ? <Save className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                        <span>{editingStaffId ? 'Simpan Perubahan' : 'Daftarkan Akun Staf'}</span>
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {/* Existing Registered Staff List */}
@@ -1334,7 +1454,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                   <p className="p-4 text-center text-gray-400">Belum ada staf kasir terdaftar. Owner dapat mendaftarkan beberapa staf di atas.</p>
                 ) : (
                   staffList.map((st, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-3 text-xs bg-gray-50/30 hover:bg-gray-100/20 transition-colors">
+                    <div key={st.id || idx} className="flex justify-between items-center p-3 text-xs bg-gray-50/30 hover:bg-gray-100/20 transition-colors">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center font-bold text-gray-700">
                           {st.name.slice(0, 2).toUpperCase()}
@@ -1345,17 +1465,30 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                         </div>
                       </div>
 
-                      {can('manage_user_delete') && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteStaff(idx)}
-                          className="w-8 h-8 text-red-400 hover:text-red-600"
-                          title="Hapus Akun Staf"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {can('manage_user_update') && st.id && (st.role !== 'Owner' || currentUser?.role === 'Owner') && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditStaff(st)}
+                            className="w-8 h-8 text-blue-500 hover:text-blue-700"
+                            title="Edit Akun Staf"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {can('manage_user_delete') && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteStaff(idx)}
+                            className="w-8 h-8 text-red-400 hover:text-red-600"
+                            title="Hapus Akun Staf"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}

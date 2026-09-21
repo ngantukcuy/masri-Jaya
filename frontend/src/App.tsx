@@ -522,6 +522,9 @@ function Dashboard({
                       onUpdateExpenses={setExpenses}
                       onAddActivity={handleAddActivity}
                       currentUser={currentUser}
+                      pos={pos}
+                      onUpdatePOs={setPOs}
+                      salesInvoices={salesInvoices}
                     />
                   );
                 case 'reports':
