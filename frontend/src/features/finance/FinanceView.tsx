@@ -58,7 +58,7 @@ interface PendingApproval {
   item: string;
   submittedBy: string;
   amount: number;
-  category: 'Office' | 'Travel' | 'Logistics' | 'Supplies' | 'Utility';
+  category: 'Bensin' | 'Gaji' | 'Bon' | 'Lainnya';
 }
 
 export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity, currentUser, pos = [], onUpdatePOs, salesInvoices = [] }: FinanceViewProps) {
@@ -83,11 +83,10 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
 
   // Translate categories
   const categoryTranslationMap: Record<string, string> = {
-    'Office': 'Kantor',
-    'Travel': 'Perjalanan / BBM',
-    'Logistics': 'Logistik Armada',
-    'Supplies': 'Perlengkapan Toko',
-    'Utility': 'Utilitas & Listrik'
+    'Bensin': 'Bensin / Transportasi',
+    'Gaji': 'Gaji Karyawan',
+    'Bon': 'Bon / Tagihan',
+    'Lainnya': 'Lainnya'
   };
 
   // Pending claims in IDR equivalents (local queue — not yet wired to a shared backend table)
@@ -96,7 +95,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   // Form states for new expense
   const [newExpDesc, setNewExpDesc] = useState('');
   const [newExpAmount, setNewExpAmount] = useState(150000);
-  const [newExpCat, setNewExpCat] = useState<'Office' | 'Travel' | 'Logistics' | 'Supplies' | 'Utility'>('Supplies');
+  const [newExpCat, setNewExpCat] = useState<'Bensin' | 'Gaji' | 'Bon' | 'Lainnya'>('Bensin');
   const [newExpUser, setNewExpUser] = useState('');
   const [newExpMethod, setNewExpMethod] = useState<'Tunai' | 'Transfer' | 'Giro'>('Tunai');
 
@@ -586,7 +585,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
           </div>
 
           <div className="flex gap-1.5 overflow-x-auto pb-1 max-w-full scrollbar-none">
-            {['Semua', 'Office', 'Travel', 'Logistics', 'Supplies', 'Utility'].map((cat) => (
+            {['Semua', 'Bensin', 'Gaji', 'Bon', 'Lainnya'].map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategoryFilter(cat)}
@@ -790,11 +789,10 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                     onChange={(e) => setNewExpCat(e.target.value as any)}
                     className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-semibold text-gray-750 outline-none"
                   >
-                    <option value="Supplies">Perlengkapan Toko</option>
-                    <option value="Office">Kebutuhan Kantor / ATK</option>
-                    <option value="Travel">BBM / Perjalanan Armada</option>
-                    <option value="Logistics">Transportasi Logistik Cargo</option>
-                    <option value="Utility">Utilitas &amp; Biaya Listrik / Air</option>
+                    <option value="Bensin">Bensin / Transportasi</option>
+                    <option value="Gaji">Gaji Karyawan</option>
+                    <option value="Bon">Bon / Tagihan (listrik, air, dll)</option>
+                    <option value="Lainnya">Lainnya</option>
                   </select>
                 </div>
 

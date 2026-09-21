@@ -361,7 +361,7 @@ function Dashboard({
                       onRecordSale={handleRecordSale}
                       cashierName={currentUser?.name}
                       currentUser={currentUser}
-                      loginAt={loginAt}
+                      loginAt={loginAt ?? undefined}
                       onLogout={onLogout}
                       storeProfile={registeredOwner ? {
                         storeName: registeredOwner.storeName,

@@ -1,7 +1,7 @@
 export interface Expense {
   id: string;
   date: string;
-  category: 'Logistics' | 'Supplies' | 'Travel' | 'Utility' | 'Office';
+  category: 'Bensin' | 'Gaji' | 'Bon' | 'Lainnya';
   description: string;
   submittedBy: string;
   amount: number;
