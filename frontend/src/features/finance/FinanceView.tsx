@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { 
   Wallet, 
-  TrendingUp, 
   TrendingDown, 
   Plus, 
   Check,
@@ -9,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Expense, PO, SalesInvoice } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { addMutation, getCurrentSession, getSessionHistory } from '../../lib/cashSession';
+import { addMutation } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
@@ -66,10 +65,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   // Same gap as the retur bug: without this, anyone who can open the Finance
   // tab could approve/reject reimbursement claims regardless of role.
   const canApproveFinance = hasPermission(currentUser, 'manage_finance_approve');
-  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('Semua');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [hoveredDayIdx, setHoveredDayIdx] = useState<number | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
 
   // Tab halaman Pembayaran + state tiap tab
   const [activeTab, setActiveTab] = useState<FinanceTab>('supplier');
@@ -98,17 +94,6 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   const [newExpCat, setNewExpCat] = useState<'Bensin' | 'Gaji' | 'Bon' | 'Lainnya'>('Bensin');
   const [newExpUser, setNewExpUser] = useState('');
   const [newExpMethod, setNewExpMethod] = useState<'Tunai' | 'Transfer' | 'Giro'>('Tunai');
-
-  // Weekly Cash Flow chart data in IDR
-  const weeklyCashFlow = [
-    { day: 'Sen', sales: 12400000, supplier: 4000000, expense: 1200000 },
-    { day: 'Sel', sales: 18500000, supplier: 2500000, expense: 2100000 },
-    { day: 'Rab', sales: 14200000, supplier: 6500000, expense: 1800000 },
-    { day: 'Kam', sales: 24500000, supplier: 3000000, expense: 3200000 },
-    { day: 'Jum', sales: 32100000, supplier: 12400000, expense: 4500000 },
-    { day: 'Sab', sales: 15400000, supplier: 0, expense: 800000 },
-    { day: 'Min', sales: 9800000, supplier: 0, expense: 500000 }
-  ];
 
   const handleApproveClaim = (claim: PendingApproval) => {
     if (!canApproveFinance) {
@@ -256,31 +241,6 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   const salesPageCount = Math.ceil(filteredInvoices.length / PAGE_SIZE);
   const safeSalesPage = Math.min(salesPage, Math.max(1, salesPageCount));
 
-  // Filtered Expenses
-  const filteredExpenses = expenses.filter((e) => {
-    if (activeCategoryFilter === 'Semua') return true;
-    return e.category === activeCategoryFilter;
-  });
-
-  const cashJournalEntries = [...getSessionHistory(), getCurrentSession()].filter(Boolean).flatMap((session) =>
-    session!.mutations.map((mutation) => ({
-      id: mutation.id,
-      date: session!.date,
-      category: mutation.category,
-      description: mutation.note || `${mutation.type === 'in' ? 'Kas masuk' : 'Kas keluar'} dari Kas Harian`,
-      submittedBy: session!.cashierName || 'Kasir',
-      amount: mutation.amount,
-      status: 'Approved' as const,
-      direction: mutation.type,
-    }))
-  );
-  const journalEntries = [
-    ...filteredExpenses.map((expense) => ({ ...expense, direction: 'out' as const })),
-    ...cashJournalEntries.filter((entry) => activeCategoryFilter === 'Semua' || entry.category === activeCategoryFilter),
-  ];
-  const pageCount = Math.ceil(journalEntries.length / PAGE_SIZE);
-  const safePage = Math.min(currentPage, Math.max(1, pageCount));
-
   const totalExpensesThisMonth = expenses.reduce((acc, e) => acc + e.amount, 0);
 
   return (
@@ -397,7 +357,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
           </div>
 
       {/* Finance Metrics KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div className="bg-white p-4 rounded-xl border border-gray-200 flex items-center gap-4">
           <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
             <Wallet className="w-5 h-5" />
@@ -405,16 +365,6 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
           <div>
             <p className="text-[10px] text-gray-400 font-bold uppercase">BIAYA OPERASIONAL BULAN INI</p>
             <h4 className="text-lg font-black text-gray-800 mt-0.5">Rp {totalExpensesThisMonth.toLocaleString('id-ID')}</h4>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-gray-200 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
-            <TrendingUp className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-400 font-bold uppercase">RASIO ARUS KAS MASUK</p>
-            <h4 className="text-lg font-black text-emerald-600 mt-0.5">74.2% Efisien</h4>
           </div>
         </div>
 
@@ -431,220 +381,55 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
         </div>
       </div>
 
-      {/* Weekly Cash Flow Visualiser (Weekly Bar Chart) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* Left: Weekly Cash Flow Visualiser */}
-        <div className="lg:col-span-8 bg-white border border-gray-200 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div>
-            <h4 className="text-sm font-black text-gray-800 tracking-tight">Rasio Aliran Kas Mingguan</h4>
-            <p className="text-[11px] text-gray-400 mt-0.5">Laporan komparatif pemasukan kasir vs belanja modal supplier &amp; operasional harian</p>
-          </div>
+      {/* Employee Claim Approvals list */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs space-y-4">
+        <div>
+          <h4 className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">Klaim Reimbursement Karyawan</h4>
+          <p className="text-[11px] text-gray-400 mt-0.5">Verifikasi pengajuan nota bensin, servis armada, atau pembelian alat kantor.</p>
+        </div>
 
-          {/* Bar Charts Graph with Hover State */}
-          <div className="relative h-44 mt-6 flex items-end justify-between px-2">
-            {weeklyCashFlow.map((day, idx) => {
-              const maxVal = 40000000;
-              const salesHeight = (day.sales / maxVal) * 120;
-              const supplierHeight = (day.supplier / maxVal) * 120;
-              const expenseHeight = (day.expense / maxVal) * 120;
+        <div className="space-y-3.5">
+          {pendingClaims.length === 0 ? (
+            <div className="py-8 text-center text-gray-400 font-bold border border-dashed border-gray-200 rounded-xl">
+              Tidak ada pengajuan reimbursement baru.
+            </div>
+          ) : (
+            pendingClaims.map((claim) => (
+              <div key={claim.id} className="p-4 border border-gray-200 rounded-xl space-y-3 hover:border-gray-300 transition-all bg-gray-50/50">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-extrabold text-xs text-gray-900 leading-snug">{claim.item}</p>
+                    <span className="text-[10px] text-gray-400 mt-0.5 block">Diajukan: {claim.submittedBy} • {categoryTranslationMap[claim.category]}</span>
+                  </div>
+                  <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded uppercase font-mono">{claim.id}</span>
+                </div>
 
-              return (
-                <div 
-                  key={day.day} 
-                  className="flex flex-col items-center flex-1 group"
-                  onMouseEnter={() => setHoveredDayIdx(idx)}
-                  onMouseLeave={() => setHoveredDayIdx(null)}
-                >
-                  {/* Floating value popovers */}
-                  <AnimatePresence>
-                    {hoveredDayIdx === idx && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: -5 }}
-                        animate={{ opacity: 1, y: -15 }}
-                        exit={{ opacity: 0, y: -5 }}
-                        className="absolute bottom-24 bg-gray-900 text-white rounded-lg p-2.5 shadow-xl text-[10px] w-48 border border-gray-800 z-10 space-y-1"
+                <div className="flex justify-between items-center pt-2 border-t border-gray-150">
+                  <span className="font-black text-xs text-gray-950">Rp {claim.amount.toLocaleString('id-ID')}</span>
+                  {canApproveFinance ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleRejectClaim(claim)}
+                        className="w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
+                        title="Tolak Klaim"
                       >
-                        <p className="font-extrabold text-blue-400 mb-1 border-b border-gray-800 pb-1 uppercase">{day.day} - Detail Arus Kas</p>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Kas Masuk:</span>
-                          <span className="font-bold text-emerald-400">Rp {day.sales.toLocaleString('id-ID')}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Supplier:</span>
-                          <span className="font-bold text-amber-400">Rp {day.supplier.toLocaleString('id-ID')}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-400">Pengeluaran:</span>
-                          <span className="font-bold text-red-400">Rp {day.expense.toLocaleString('id-ID')}</span>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Bars stack column */}
-                  <div className="flex items-end gap-1.5 h-32 relative">
-                    <div 
-                      style={{ height: `${salesHeight}px` }} 
-                      className="w-2 bg-blue-600 rounded-t transition-all group-hover:brightness-110" 
-                      title="Kas Masuk"
-                    />
-                    <div 
-                      style={{ height: `${supplierHeight}px` }} 
-                      className="w-2 bg-amber-500 rounded-t transition-all group-hover:brightness-110" 
-                      title="Supplier"
-                    />
-                    <div 
-                      style={{ height: `${expenseHeight}px` }} 
-                      className="w-2 bg-red-500 rounded-t transition-all group-hover:brightness-110" 
-                      title="Operasional"
-                    />
-                  </div>
-
-                  <span className="text-[10px] font-bold text-gray-400 mt-2">{day.day}</span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex justify-center gap-6 mt-4 pt-3 border-t border-gray-100 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 bg-blue-600 rounded-full" />
-              <span>Pemasukan Toko</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 bg-amber-500 rounded-full" />
-              <span>Biaya Supplier</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 bg-red-500 rounded-full" />
-              <span>Pengeluaran Operasional</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right: Employee Claim Approvals list */}
-        <div className="lg:col-span-4 bg-white border border-gray-200 rounded-2xl p-5 shadow-xs space-y-4">
-          <div>
-            <h4 className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">Klaim Reimbursement Karyawan</h4>
-            <p className="text-[11px] text-gray-400 mt-0.5">Verifikasi pengajuan nota bensin, servis armada, atau pembelian alat kantor.</p>
-          </div>
-
-          <div className="space-y-3.5">
-            {pendingClaims.length === 0 ? (
-              <div className="py-8 text-center text-gray-400 font-bold border border-dashed border-gray-200 rounded-xl">
-                Tidak ada pengajuan reimbursement baru.
-              </div>
-            ) : (
-              pendingClaims.map((claim) => (
-                <div key={claim.id} className="p-4 border border-gray-200 rounded-xl space-y-3 hover:border-gray-300 transition-all bg-gray-50/50">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-extrabold text-xs text-gray-900 leading-snug">{claim.item}</p>
-                      <span className="text-[10px] text-gray-400 mt-0.5 block">Diajukan: {claim.submittedBy} • {categoryTranslationMap[claim.category]}</span>
+                        <X className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleApproveClaim(claim)}
+                        className="w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
+                        title="Setujui Klaim"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
                     </div>
-                    <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded uppercase font-mono">{claim.id}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-2 border-t border-gray-150">
-                    <span className="font-black text-xs text-gray-950">Rp {claim.amount.toLocaleString('id-ID')}</span>
-                    {canApproveFinance ? (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleRejectClaim(claim)}
-                          className="w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
-                          title="Tolak Klaim"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleApproveClaim(claim)}
-                          className="w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
-                          title="Setujui Klaim"
-                        >
-                          <Check className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-gray-400 italic">Menunggu persetujuan Owner/Admin.</span>
-                    )}
-                  </div>
+                  ) : (
+                    <span className="text-[10px] text-gray-400 italic">Menunggu persetujuan Owner/Admin.</span>
+                  )}
                 </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Cash Ledger / Jurnal Kas Table */}
-      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-xs">
-        <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <h4 className="text-sm font-bold text-gray-800">Log Buku Kas Jurnal Pengeluaran</h4>
-            <p className="text-[11px] text-gray-400 mt-0.5">Arsip seluruh bukti nota fisik dan status pencairan pengeluaran kas toko</p>
-          </div>
-
-          <div className="flex gap-1.5 overflow-x-auto pb-1 max-w-full scrollbar-none">
-            {['Semua', 'Bensin', 'Gaji', 'Bon', 'Lainnya'].map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategoryFilter(cat)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  activeCategoryFilter === cat || (cat === 'Semua' && activeCategoryFilter === 'Semua')
-                    ? 'bg-blue-100 text-blue-800' 
-                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                }`}
-              >
-                {cat === 'Semua' ? 'Semua Pengeluaran' : (categoryTranslationMap[cat] || cat)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 text-[10px] text-gray-400 font-bold uppercase border-b border-gray-100">
-                <th className="py-3 px-4">Nomor Ref</th>
-                <th className="py-3 px-4">Tanggal Pencatatan</th>
-                <th className="py-3 px-4">Kategori</th>
-                <th className="py-3 px-4">Rincian Deskripsi</th>
-                <th className="py-3 px-4">Penerima Manfaat</th>
-                <th className="py-3 px-4 text-right">Nilai Pengeluaran</th>
-                <th className="py-3 px-4 text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
-              {journalEntries.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-gray-400 font-bold">Belum ada jurnal kas yang cocok dengan kategori filter.</td>
-                </tr>
-              ) : (
-                journalEntries.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE).map((exp) => (
-                  <tr key={exp.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-gray-800">{exp.id}</td>
-                    <td className="py-3.5 px-4 text-gray-500 font-medium">{exp.date}</td>
-                    <td className="py-3.5 px-4 font-bold text-gray-600">
-                      {categoryTranslationMap[exp.category] || exp.category}
-                    </td>
-                    <td className="py-3.5 px-4 font-medium text-gray-900">{exp.description}</td>
-                    <td className="py-3.5 px-4 font-medium text-gray-600">{exp.submittedBy}</td>
-                    <td className="py-3.5 px-4 text-right font-bold text-red-600">
-                      <span className={exp.direction === 'in' ? 'text-emerald-600' : 'text-red-600'}>{exp.direction === 'in' ? '+' : '-'}Rp {exp.amount.toLocaleString('id-ID')}</span>
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                        exp.status === 'Approved' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-                      }`}>
-                        {exp.status === 'Approved' ? 'DISETUJUI' : 'DRAFT'}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-          <Pagination page={safePage} pageCount={pageCount} onPageChange={setCurrentPage} />
+              </div>
+            ))
+          )}
         </div>
       </div>
 

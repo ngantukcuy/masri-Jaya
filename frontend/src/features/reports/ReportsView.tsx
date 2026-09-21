@@ -16,6 +16,7 @@ import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
 import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
 import { buildDateBuckets, toDateInputValue } from '../../lib/dateBuckets';
+import { getCurrentSession, getSessionHistory } from '../../lib/cashSession';
 
 interface ReportsViewProps {
   salesInvoices: SalesInvoice[];
@@ -61,6 +62,7 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
   const [inventoryPage, setInventoryPage] = useState(1);
   const [purchasePage, setPurchasePage] = useState(1);
   const [financePage, setFinancePage] = useState(1);
+  const [financeCategoryFilter, setFinanceCategoryFilter] = useState<string>('Semua');
 
   // Chart date range — defaults to the last 6 weeks (same window the chart
   // used to be hardcoded to), but the user can now pick any range.
@@ -155,6 +157,14 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
     return { totalSpend, byStatus };
   }, [pos]);
 
+  // Translate operational expense categories to Indonesian labels.
+  const categoryTranslationMap: Record<string, string> = {
+    'Bensin': 'Bensin / Transportasi',
+    'Gaji': 'Gaji Karyawan',
+    'Bon': 'Bon / Tagihan',
+    'Lainnya': 'Lainnya'
+  };
+
   // Finance (expense) summary — real, from the expenses prop.
   const financeSummary = useMemo(() => {
     const totalApproved = expenses.filter((e) => e.status === 'Approved').reduce((sum, e) => sum + e.amount, 0);
@@ -165,12 +175,38 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
     }, {});
     return { totalApproved, totalPending, byCategory };
   }, [expenses]);
+
+  // Log Buku Kas Jurnal — gabungan pengeluaran manual (expenses) dengan
+  // seluruh mutasi Kas Harian (penjualan, bayar bon supplier, retur, dll),
+  // dipindahkan ke sini dari tab Pembayaran Lainnya agar halaman Pembayaran
+  // hanya menampilkan pembayaran operasional.
+  const cashJournalEntries = useMemo(() => [...getSessionHistory(), getCurrentSession()].filter(Boolean).flatMap((session) =>
+    session!.mutations.map((mutation) => ({
+      id: mutation.id,
+      date: session!.date,
+      category: mutation.category,
+      description: mutation.note || `${mutation.type === 'in' ? 'Kas masuk' : 'Kas keluar'} dari Kas Harian`,
+      submittedBy: session!.cashierName || 'Kasir',
+      amount: mutation.amount,
+      status: 'Approved' as const,
+      direction: mutation.type,
+    }))
+  ), []);
+  const journalEntries = useMemo(() => [
+    ...expenses.map((expense) => ({ ...expense, direction: 'out' as const })),
+    ...cashJournalEntries,
+  ].filter((entry) => financeCategoryFilter === 'Semua' || entry.category === financeCategoryFilter),
+  [expenses, cashJournalEntries, financeCategoryFilter]);
+  const journalCategories = useMemo(() => ['Semua', ...Array.from(new Set([
+    ...Object.keys(categoryTranslationMap),
+    ...cashJournalEntries.map((entry) => entry.category),
+  ]))], [cashJournalEntries]);
   const inventoryRows = [...outOfStockProducts, ...lowStockProducts];
   const inventoryPageCount = Math.ceil(inventoryRows.length / PAGE_SIZE);
   const safeInventoryPage = Math.min(inventoryPage, Math.max(1, inventoryPageCount));
   const purchasePageCount = Math.ceil(pos.length / PAGE_SIZE);
   const safePurchasePage = Math.min(purchasePage, Math.max(1, purchasePageCount));
-  const financePageCount = Math.ceil(expenses.length / PAGE_SIZE);
+  const financePageCount = Math.ceil(journalEntries.length / PAGE_SIZE);
   const safeFinancePage = Math.min(financePage, Math.max(1, financePageCount));
 
   // A short, honestly-computed observation from real numbers (was: a
@@ -231,7 +267,7 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
       downloadCSV(
         `laporan-keuangan-${Date.now()}.csv`,
         ['Tanggal', 'Kategori', 'Deskripsi', 'Diajukan Oleh', 'Status', 'Jumlah'],
-        expenses.map((e) => [e.date, e.category, e.description, e.submittedBy, e.status, e.amount])
+        journalEntries.map((e) => [e.date, e.category, e.description, e.submittedBy, e.status, e.amount])
       );
     }
   };
@@ -613,10 +649,26 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
           </div>
 
           <div className="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-x-auto">
-            <div className="p-4 border-b border-gray-100">
-              <h4 className="text-sm font-black text-gray-800">Klaim &amp; Pengeluaran</h4>
+            <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <h4 className="text-sm font-black text-gray-800">Log Buku Kas Jurnal Pengeluaran</h4>
+                <p className="text-[11px] text-gray-400 mt-0.5">Arsip seluruh bukti nota fisik dan status pencairan pengeluaran kas toko</p>
+              </div>
+              <div className="flex gap-1.5 overflow-x-auto pb-1 max-w-full scrollbar-none">
+                {journalCategories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => { setFinanceCategoryFilter(cat); setFinancePage(1); }}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      financeCategoryFilter === cat ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {cat === 'Semua' ? 'Semua' : (categoryTranslationMap[cat] || cat)}
+                  </button>
+                ))}
+              </div>
             </div>
-            <Table className="min-w-[520px]">
+            <Table className="min-w-[720px]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent bg-gray-50">
                   <TableHead>Tanggal</TableHead>
@@ -628,21 +680,23 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {expenses.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="p-6 text-center text-gray-400">Belum ada pengeluaran tercatat.</TableCell></TableRow>
+                {journalEntries.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="p-6 text-center text-gray-400">Belum ada jurnal kas yang cocok dengan kategori filter.</TableCell></TableRow>
                 ) : (
-                  expenses.slice((safeFinancePage - 1) * PAGE_SIZE, safeFinancePage * PAGE_SIZE).map((e) => (
+                  journalEntries.slice((safeFinancePage - 1) * PAGE_SIZE, safeFinancePage * PAGE_SIZE).map((e) => (
                     <TableRow key={e.id}>
                       <TableCell className="text-gray-500">{e.date}</TableCell>
-                      <TableCell className="text-gray-600">{e.category}</TableCell>
+                      <TableCell className="text-gray-600">{categoryTranslationMap[e.category] || e.category}</TableCell>
                       <TableCell className="text-gray-800">{e.description}</TableCell>
                       <TableCell className="text-gray-500">{e.submittedBy}</TableCell>
                       <TableCell className="text-center">
                         <Badge className={`border-transparent ${
                           e.status === 'Approved' ? 'bg-emerald-50 text-emerald-700' : e.status === 'Rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
-                        }`}>{e.status}</Badge>
+                        }`}>{e.status === 'Approved' ? 'DISETUJUI' : e.status === 'Rejected' ? 'DITOLAK' : 'DRAFT'}</Badge>
                       </TableCell>
-                      <TableCell className="text-right font-bold text-gray-900">Rp {e.amount.toLocaleString('id-ID')}</TableCell>
+                      <TableCell className={`text-right font-bold ${e.direction === 'in' ? 'text-emerald-600' : 'text-gray-900'}`}>
+                        {e.direction === 'in' ? '+' : '-'}Rp {e.amount.toLocaleString('id-ID')}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
