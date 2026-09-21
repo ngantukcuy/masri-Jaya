@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { SalesInvoice } from '../../../types';
 import { savePdfDoc } from '../../../lib/savePdf';
+import { registerReceiptFont } from '../../../lib/fonts/registerReceiptFont';
 
 interface StoreProfileLite {
   storeName: string;
@@ -194,6 +195,7 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   const estimatedHeight = Math.max(120, (baseLines + itemLines) * lineHeight);
 
   const doc = new jsPDF({ unit: 'mm', format: [pageWidth, estimatedHeight] });
+  registerReceiptFont(doc);
   let y = 8;
 
   // Warna aksen sama persis dengan struk on-screen (ReceiptModal): biru
@@ -204,7 +206,7 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
 
   const center = (text: string, size: number, bold = false, color: [number, number, number] = COLOR_BLACK) => {
     doc.setFontSize(size);
-    doc.setFont('JetBrains Mono', bold ? 'bold' : 'normal');
+    doc.setFont('JetBrainsMono', bold ? 'bold' : 'normal');
     doc.setTextColor(...color);
     doc.text(text, pageWidth / 2, y, { align: 'center' });
     y += lineHeight;
@@ -212,10 +214,47 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
 
   const row = (left: string, right: string, bold = false, size = 8, color: [number, number, number] = COLOR_BLACK) => {
     doc.setFontSize(size);
-    doc.setFont('JetBrains Mono', bold ? 'bold' : 'normal');
+    doc.setFont('JetBrainsMono', bold ? 'bold' : 'normal');
     doc.setTextColor(...color);
     doc.text(left, marginX, y);
     doc.text(right, pageWidth - marginX, y, { align: 'right' });
+    y += lineHeight;
+  };
+
+  // Ikon kecil di depan status pengambilan (mis. truk untuk "DIANTAR"),
+  // menyamai ikon Truck/Store dari lucide-react di struk on-screen
+  // (ReceiptModal / InvoicePrintModal). jsPDF tidak bisa merender SVG/emoji
+  // ikon lucide secara langsung, jadi digambar ulang sebagai bentuk vektor
+  // sederhana seukuran teks di sebelahnya.
+  const drawFulfillmentIcon = (type: 'delivery' | 'pickup', x: number, yBaseline: number, color: [number, number, number]) => {
+    doc.setDrawColor(...color);
+    doc.setFillColor(...color);
+    doc.setLineWidth(0.12);
+    const top = yBaseline - 2.1;
+    if (type === 'delivery') {
+      // Truk: bak (kotak) + kabin (kotak lebih kecil di kanan) + 2 roda.
+      doc.rect(x, top + 0.3, 1.9, 1.15, 'S');
+      doc.rect(x + 1.9, top + 0.65, 0.9, 0.8, 'S');
+      doc.circle(x + 0.55, top + 1.75, 0.32, 'F');
+      doc.circle(x + 2.15, top + 1.75, 0.32, 'F');
+    } else {
+      // Toko: atap segitiga + badan kotak, mewakili ikon "Store".
+      doc.triangle(x, top + 0.75, x + 1.4, top + 0.75, x + 0.7, top, 'S');
+      doc.rect(x + 0.15, top + 0.75, 1.1, 1.15, 'S');
+    }
+  };
+
+  const fulfillmentRow = (label: string, value: string, type: 'delivery' | 'pickup', color: [number, number, number] = COLOR_BLACK) => {
+    doc.setFontSize(7.5);
+    doc.setFont('JetBrainsMono', 'bold');
+    doc.setTextColor(...color);
+    doc.text(label, marginX, y);
+    const textWidth = doc.getTextWidth(value);
+    const iconWidth = 2.6;
+    const gap = 1;
+    const textStartX = pageWidth - marginX - textWidth;
+    drawFulfillmentIcon(type, textStartX - gap - iconWidth, y, color);
+    doc.text(value, pageWidth - marginX, y, { align: 'right' });
     y += lineHeight;
   };
 
@@ -250,10 +289,10 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
     if (invoice.paymentAccountHolder) row('PEMILIK:', invoice.paymentAccountHolder, false, 7.5);
   }
   if (invoice.fulfillmentMethod) {
-    row('Pengambilan:', invoice.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI', true, 7.5);
+    fulfillmentRow('Pengambilan:', invoice.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI', invoice.fulfillmentMethod === 'Delivery' ? 'delivery' : 'pickup');
     if (invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress) {
       doc.setFontSize(7.5);
-      doc.setFont('JetBrains Mono', 'normal');
+      doc.setFont('JetBrainsMono', 'normal');
       doc.setTextColor(...COLOR_BLACK);
       const wrapped = doc.splitTextToSize(invoice.deliveryAddress, contentWidth - 20);
       doc.text('Alamat:', marginX, y);
@@ -265,7 +304,7 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
 
   invoice.items.forEach((item) => {
     doc.setFontSize(7.5);
-    doc.setFont('JetBrains Mono', 'bold');
+    doc.setFont('JetBrainsMono', 'bold');
     doc.setTextColor(...COLOR_BLACK);
     const nameLines = doc.splitTextToSize(item.name, contentWidth);
     doc.text(nameLines, marginX, y);
@@ -326,6 +365,7 @@ export async function generateDeliveryNotePDF(
   const deliveryItems = itemsOverride && itemsOverride.length > 0 ? itemsOverride : invoice.items;
   const storeName = storeProfile?.storeName || 'Toko Saya';
   const doc = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'landscape' });
+  registerReceiptFont(doc);
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginX = 12;
   const contentWidth = pageWidth - marginX * 2;
@@ -334,7 +374,7 @@ export async function generateDeliveryNotePDF(
 
   const setFont = (size: number, bold = false) => {
     doc.setFontSize(size);
-    doc.setFont('JetBrains Mono', bold ? 'bold' : 'normal');
+    doc.setFont('JetBrainsMono', bold ? 'bold' : 'normal');
   };
 
   // Header / letterhead

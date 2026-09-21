@@ -20,6 +20,7 @@ import { Product, Bundle, BundleItem, SkuLocation, Supplier } from '../../types'
 import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import { uploadProductImage } from '../../lib/uploadProductImage';
 import BarcodeScannerModal from '../../components/shared/BarcodeScannerModal';
+import SearchableSelect from '../../components/shared/SearchableSelect';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
@@ -102,7 +103,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     sku: generateSkuCode(),
     image: '',
     name: '',
-    supplier: suppliers[0]?.name || '',
+    supplier: '',
     brand: '',
     alias: '',
     unit: units[0]?.name || '',
@@ -491,12 +492,13 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
               <div>
                 <Label>Supplier</Label>
-                <Select value={skuForm.supplier} onValueChange={(v) => setSkuForm({ ...skuForm, supplier: v })}>
-                  <SelectTrigger><SelectValue placeholder="Pilih Supplier..." /></SelectTrigger>
-                  <SelectContent>
-                      {suppliers.map(s => <SelectItem key={s.name} value={s.name}>{s.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                <SearchableSelect
+                  value={skuForm.supplier}
+                  onChange={(v) => setSkuForm({ ...skuForm, supplier: v })}
+                  options={suppliers.map((s) => ({ value: s.name, label: s.name }))}
+                  placeholder="Pilih Supplier..."
+                  searchPlaceholder="Cari supplier..."
+                />
                 </div>
 
               <div>
@@ -549,30 +551,33 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <Label>Kategori 1</Label>
-                  <Select value={skuForm.category1} onValueChange={(v) => setSkuForm({ ...skuForm, category1: v })}>
-                    <SelectTrigger><SelectValue placeholder="Pilih..." /></SelectTrigger>
-                    <SelectContent>
-                      {kategori1List.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={skuForm.category1}
+                    onChange={(v) => setSkuForm({ ...skuForm, category1: v })}
+                    options={kategori1List.map((c) => ({ value: c.name, label: c.name }))}
+                    placeholder="Pilih..."
+                    searchPlaceholder="Cari kategori..."
+                  />
                 </div>
                 <div>
                   <Label>Sub Kategori 2</Label>
-                  <Select value={skuForm.category2} onValueChange={(v) => setSkuForm({ ...skuForm, category2: v })}>
-                    <SelectTrigger><SelectValue placeholder="Pilih..." /></SelectTrigger>
-                    <SelectContent>
-                      {kategori2List.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={skuForm.category2}
+                    onChange={(v) => setSkuForm({ ...skuForm, category2: v })}
+                    options={kategori2List.map((c) => ({ value: c.name, label: c.name }))}
+                    placeholder="Pilih..."
+                    searchPlaceholder="Cari sub kategori..."
+                  />
                 </div>
                 <div>
                   <Label>Sub Kategori 3</Label>
-                  <Select value={skuForm.category3} onValueChange={(v) => setSkuForm({ ...skuForm, category3: v })}>
-                    <SelectTrigger><SelectValue placeholder="Pilih..." /></SelectTrigger>
-                    <SelectContent>
-                      {kategori3List.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect
+                    value={skuForm.category3}
+                    onChange={(v) => setSkuForm({ ...skuForm, category3: v })}
+                    options={kategori3List.map((c) => ({ value: c.name, label: c.name }))}
+                    placeholder="Pilih..."
+                    searchPlaceholder="Cari sub kategori..."
+                  />
                 </div>
               </div>
 
@@ -630,12 +635,13 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                   <p className="font-black text-[10px] uppercase text-muted-foreground text-center">Produk Induk</p>
                   <div>
                     <Label>Pilih produk induk <span className="text-red-500">*</span></Label>
-                    <Select value={eceranForm.parentSku} onValueChange={(v) => setEceranForm({ ...eceranForm, parentSku: v })}>
-                      <SelectTrigger><SelectValue placeholder="Pilih produk induk..." /></SelectTrigger>
-                      <SelectContent>
-                        {indukProducts.map(p => <SelectItem key={p.sku} value={p.sku}>{p.name} ({p.unit})</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect
+                      value={eceranForm.parentSku}
+                      onChange={(v) => setEceranForm({ ...eceranForm, parentSku: v })}
+                      options={indukProducts.map((p) => ({ value: p.sku, label: `${p.name} (${p.unit})`, sublabel: p.sku }))}
+                      placeholder="Pilih produk induk..."
+                      searchPlaceholder="Cari nama atau SKU produk..."
+                    />
                   </div>
                   {/* Preview produk induk yang lagi dipilih — buat konfirmasi visual
                       sebelum lanjut isi nilai konversi, sama kayak referensi desain. */}
@@ -1022,14 +1028,14 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
             <div className="border border-border rounded-xl p-3 space-y-2">
               <Label className="mb-0">Tambah Produk ke Paket</Label>
               <div className="flex gap-2">
-                <Select value={pickSku} onValueChange={setPickSku}>
-                  <SelectTrigger className="flex-1"><SelectValue placeholder="Pilih produk..." /></SelectTrigger>
-                  <SelectContent>
-                    {products.map((p) => (
-                      <SelectItem key={p.sku} value={p.sku}>{p.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={pickSku}
+                  onChange={setPickSku}
+                  options={products.map((p) => ({ value: p.sku, label: p.name, sublabel: p.sku }))}
+                  placeholder="Pilih produk..."
+                  searchPlaceholder="Cari nama atau SKU produk..."
+                  className="flex-1"
+                />
                 <NumberInput
                   min={1}
                   value={pickQty}

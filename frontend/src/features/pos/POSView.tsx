@@ -238,12 +238,6 @@ export default function POSView({
     .map((category) => category.name);
   const categories = ['Semua Kategori', ...categoryNames];
 
-  useEffect(() => {
-    if (!newProductCategory && categoryNames.length > 0) {
-      setNewProductCategory(categoryNames[0]);
-    }
-  }, [categoryNames, newProductCategory]);
-
   // Filtered Products
   const filteredProducts = products.filter((prod) => {
     const matchesCategory = selectedCategory === 'Semua Kategori' || prod.category === selectedCategory;
@@ -254,7 +248,7 @@ export default function POSView({
     return matchesCategory && matchesSearch;
   });
 
-  const handleAddCustomer = (name: string, loyaltyTier: string) => {
+  const handleAddCustomer = (name: string, loyaltyTier: string, phone?: string) => {
     const nextId = `CUST-${Math.floor(10000 + Math.random() * 90000)}`;
     const newC: Customer = {
       id: nextId,
@@ -265,7 +259,8 @@ export default function POSView({
       totalPurchases: 0,
       debtStatus: "Cleared",
       logoLetters: name.slice(0, 2).toUpperCase(),
-      lastTransactions: []
+      lastTransactions: [],
+      ...(phone ? { phone } : {}),
     };
 
     onUpdateCustomers([newC, ...customers]);

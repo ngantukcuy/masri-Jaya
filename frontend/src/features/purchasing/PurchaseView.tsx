@@ -15,6 +15,7 @@ import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
 import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
+import SearchableSelect from '../../components/shared/SearchableSelect';
 
 interface PurchaseViewProps {
   pos: PO[];
@@ -50,7 +51,7 @@ export default function PurchaseView({
   const [showEditPOModal, setShowEditPOModal] = useState(false);
 
   // Form states for new PO
-  const [newPOSupplier, setNewPOSupplier] = useState(suppliers[0]?.name || '');
+  const [newPOSupplier, setNewPOSupplier] = useState('');
   const [newPOItemName, setNewPOItemName] = useState('');
   const [newPOItemQuantity, setNewPOItemQuantity] = useState(10);
   const [newPOItemPrice, setNewPOItemPrice] = useState(100000);
@@ -146,6 +147,10 @@ export default function PurchaseView({
     e.preventDefault();
     if (!newPOItemName.trim()) {
       dialog.alert("Silakan masukkan nama material pesanan!");
+      return;
+    }
+    if (!newPOSupplier) {
+      dialog.alert("Silakan pilih supplier terlebih dahulu!");
       return;
     }
 
@@ -536,15 +541,13 @@ export default function PurchaseView({
               <form onSubmit={handleCreatePO} className="space-y-4 text-xs">
                 <div>
                   <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Pilih Supplier Resmi</label>
-                  <select 
+                  <SearchableSelect
                     value={newPOSupplier}
-                    onChange={(e) => setNewPOSupplier(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-semibold text-gray-700 outline-none"
-                  >
-                    {suppliers.map(s => (
-                      <option key={s.name} value={s.name}>{s.name}</option>
-                    ))}
-                  </select>
+                    onChange={setNewPOSupplier}
+                    options={suppliers.map((s) => ({ value: s.name, label: s.name }))}
+                    placeholder="Pilih supplier..."
+                    searchPlaceholder="Cari supplier..."
+                  />
                 </div>
 
                 <div>
@@ -633,15 +636,13 @@ export default function PurchaseView({
               <form onSubmit={handleEditPOSubmit} className="space-y-4">
                 <div>
                   <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Pemasok Bahan (Supplier)</label>
-                  <select 
+                  <SearchableSelect
                     value={editPOSupplier}
-                    onChange={(e) => setEditPOSupplier(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-semibold text-gray-750 outline-none"
-                  >
-                    {suppliers.map((sup, idx) => (
-                      <option key={idx} value={sup.name}>{sup.name}</option>
-                    ))}
-                  </select>
+                    onChange={setEditPOSupplier}
+                    options={suppliers.map((sup) => ({ value: sup.name, label: sup.name }))}
+                    placeholder="Pilih supplier..."
+                    searchPlaceholder="Cari supplier..."
+                  />
                 </div>
 
                 <div>

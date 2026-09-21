@@ -6,6 +6,7 @@ import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../../components/ui/select';
+import SearchableSelect from '../../../components/shared/SearchableSelect';
 
 interface AddProductModalProps {
   onClose: () => void;
@@ -78,14 +79,13 @@ export default function AddProductModal({
             </div>
             <div>
               <Label>Kategori</Label>
-              <Select value={category} onValueChange={onCategoryChange}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {categories.filter((cat) => cat !== 'Semua Kategori').map((cat) => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={category}
+                onChange={onCategoryChange}
+                options={categories.filter((cat) => cat !== 'Semua Kategori').map((cat) => ({ value: cat, label: cat }))}
+                placeholder="Pilih kategori..."
+                searchPlaceholder="Cari kategori..."
+              />
             </div>
             <div>
               <Label>Satuan</Label>

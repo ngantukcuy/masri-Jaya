@@ -34,6 +34,7 @@ import NumberInput from '../../components/shared/NumberInput';
 import PODetailDialog from '../../components/shared/PODetailDialog';
 import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
 import BarcodeScannerModal from '../../components/shared/BarcodeScannerModal';
+import SearchableSelect from '../../components/shared/SearchableSelect';
 import { generateSkuCode } from '../../lib/generateSku';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -156,7 +157,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   };
 
   // Adjustment states
-  const [adjustProductSku, setAdjustProductSku] = useState(products[0]?.sku || '');
+  const [adjustProductSku, setAdjustProductSku] = useState('');
   const [adjustValue, setAdjustValue] = useState(10);
   const [adjustType, setAdjustType] = useState<'add' | 'remove'>('add');
   const [adjustNotes, setAdjustNotes] = useState('');
@@ -178,10 +179,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   .slice()
   .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
   .map((unit) => unit.name);
-
-  React.useEffect(() => {
-    if (!formCategory && categoryNames.length > 0) setFormCategory(categoryNames[0]);
-  }, [categoryNames, formCategory]);
 
   const saveSubmissions = (subs: any[]) => {
     setOpnameSubmissions(subs);
@@ -248,12 +245,12 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const openIncomingModal = () => {
     setIncomingDate(new Date().toISOString().slice(0, 10));
     setIncomingPoNumber(`PO-2026-${Math.floor(1000 + Math.random() * 9000)}`);
-    setIncomingSupplier(suppliers[0]?.name || '');
+    setIncomingSupplier('');
     setIncomingPaymentMethod('Cash');
     setIncomingDueDate('');
     setIncomingDeliveryNote('');
     setIncomingStatus('Received');
-    setIncomingItems([{ productSku: products[0]?.sku || '', quantity: 1, price: products[0]?.costPrice ?? products[0]?.retailPrice ?? 0, taxIncluded: false, discounts: [], bonus: false, locationId: products[0]?.skuLocationId || '' }]);
+    setIncomingItems([{ productSku: '', quantity: 1, price: 0, taxIncluded: false, discounts: [], bonus: false, locationId: '' }]);
     setIncomingAdditionalCosts([]);
     setIncomingProductSearch('');
     setActiveProductSearchIndex(null);
@@ -750,6 +747,10 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       dialog.alert("Nama dan SKU produk wajib diisi!");
       return;
     }
+    if (!formCategory) {
+      dialog.alert("Kategori produk wajib dipilih!");
+      return;
+    }
 
     // Check duplicate SKU
     if (products.some(p => p.sku.toLowerCase() === formSku.trim().toLowerCase())) {
@@ -795,6 +796,10 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     e.preventDefault();
     if (!formName.trim()) {
       dialog.alert("Nama produk wajib diisi!");
+      return;
+    }
+    if (!formCategory) {
+      dialog.alert("Kategori produk wajib dipilih!");
       return;
     }
 
@@ -1146,7 +1151,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div><Label>Tanggal</Label><Input type="date" value={incomingDate} onChange={(event) => setIncomingDate(event.target.value)} required /></div>
                     <div><Label>Nomor PO</Label><Input value={incomingPoNumber} onChange={(event) => setIncomingPoNumber(event.target.value)} placeholder="PO-2026-XXXX" required /></div>
-                    <div><Label>Supplier</Label><Select value={incomingSupplier} onValueChange={setIncomingSupplier}><SelectTrigger><SelectValue placeholder="Pilih pemasok" /></SelectTrigger><SelectContent>{suppliers.map((supplier) => <SelectItem key={supplier.name} value={supplier.name}>{supplier.name}</SelectItem>)}</SelectContent></Select></div>
+                    <div><Label>Supplier</Label><SearchableSelect value={incomingSupplier} onChange={setIncomingSupplier} options={suppliers.map((supplier) => ({ value: supplier.name, label: supplier.name }))} placeholder="Pilih pemasok" searchPlaceholder="Cari supplier..." /></div>
                     <div><Label>Metode Bayar</Label><Select value={incomingPaymentMethod} onValueChange={(value) => setIncomingPaymentMethod(value as typeof incomingPaymentMethod)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Cash">Tunai</SelectItem><SelectItem value="Transfer">Transfer</SelectItem><SelectItem value="Tempo">Tempo</SelectItem></SelectContent></Select>{incomingPaymentMethod === 'Tempo' && <div className="mt-2"><Label htmlFor="incoming-due-date">Jatuh Tempo</Label><div className="relative"><CalendarDays className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><Input id="incoming-due-date" type="date" value={incomingDueDate} min={incomingDate} onChange={(event) => setIncomingDueDate(event.target.value)} className="pl-9" required /></div></div>}</div>
                     <div><Label>No. Surat Jalan</Label><Input value={incomingDeliveryNote} onChange={(event) => setIncomingDeliveryNote(event.target.value)} placeholder="Nomor surat jalan pemasok" /></div>
                     <div><Label>Status</Label><Select value={incomingStatus} onValueChange={(value) => setIncomingStatus(value as typeof incomingStatus)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Received">Diterima</SelectItem><SelectItem value="In Transit">Dalam Perjalanan</SelectItem></SelectContent></Select></div>
@@ -1180,7 +1185,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                       );
                     })}
                   </div>
-                  <Button type="button" variant="outline" onClick={() => setIncomingItems((items) => [...items, { productSku: products[0]?.sku || '', quantity: 1, price: products[0]?.costPrice ?? products[0]?.retailPrice ?? 0, taxIncluded: false, discounts: [], bonus: false, locationId: products[0]?.skuLocationId || '' }])} className="w-full"><Plus className="w-3.5 h-3.5" /> Tambah Produk Lain</Button>
+                  <Button type="button" variant="outline" onClick={() => setIncomingItems((items) => [...items, { productSku: '', quantity: 1, price: 0, taxIncluded: false, discounts: [], bonus: false, locationId: '' }])} className="w-full"><Plus className="w-3.5 h-3.5" /> Tambah Produk Lain</Button>
                   <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-2"><div className="flex items-center justify-between"><p className="font-extrabold text-xs">Ringkasan Biaya Tambahan</p><Button type="button" variant="outline" size="sm" onClick={() => setIncomingAdditionalCosts((costs) => [...costs, { name: '', amount: 0 }])}><Plus className="w-3 h-3" /> Tambah Biaya</Button></div>{incomingAdditionalCosts.length === 0 && <p className="text-[10px] text-muted-foreground">Belum ada biaya tambahan.</p>}{incomingAdditionalCosts.map((cost, costIndex) => <div key={costIndex} className="flex gap-2"><Input value={cost.name} onChange={(event) => setIncomingAdditionalCosts((costs) => costs.map((current, index) => index === costIndex ? { ...current, name: event.target.value } : current))} placeholder="Label biaya, contoh: Ongkir" /><NumberInput min={0} value={cost.amount} onChange={(value) => setIncomingAdditionalCosts((costs) => costs.map((current, index) => index === costIndex ? { ...current, amount: value } : current))} /><Button type="button" variant="ghost" size="icon" onClick={() => setIncomingAdditionalCosts((costs) => costs.filter((_, index) => index !== costIndex))} className="text-red-600"><Trash2 className="w-3.5 h-3.5" /></Button></div>)}<div className="flex justify-between border-t border-border pt-2 font-black text-[11px]"><span>Total Biaya Tambahan</span><span>Rp {incomingAdditionalCost.toLocaleString('id-ID')}</span></div></div>
                   <div className="flex justify-between rounded-lg bg-primary/5 p-3 font-black text-sm"><span>Total Pembelian</span><span className="text-primary">Rp {incomingTotal.toLocaleString('id-ID')}</span></div>
                   <DialogFooter><Button type="button" variant="outline" onClick={() => setIncomingStep(1)}>Kembali</Button><Button type="submit">Simpan Produk Masuk</Button></DialogFooter>
@@ -1202,14 +1207,13 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
             <form onSubmit={handleExecuteAdjustment} className="space-y-4 text-xs">
               <div>
                 <Label>Pilih Bahan Bangunan (SKU)</Label>
-                <Select value={adjustProductSku} onValueChange={setAdjustProductSku}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {sortedProducts.map(p => (
-                      <SelectItem key={p.sku} value={p.sku}>{p.name} ({p.sku})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={adjustProductSku}
+                  onChange={setAdjustProductSku}
+                  options={sortedProducts.map((p) => ({ value: p.sku, label: p.name, sublabel: p.sku }))}
+                  placeholder="Pilih produk..."
+                  searchPlaceholder="Cari nama atau SKU produk..."
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1323,12 +1327,13 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
         <Card className="p-5 max-w-md space-y-4">
           <div>
             <Label>Pilih Produk</Label>
-            <Select value={transferSku} onValueChange={setTransferSku}>
-              <SelectTrigger><SelectValue placeholder="Pilih produk..." /></SelectTrigger>
-              <SelectContent>
-                {sortedProducts.map((p) => <SelectItem key={p.sku} value={p.sku}>{p.name} ({p.sku})</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={transferSku}
+              onChange={setTransferSku}
+              options={sortedProducts.map((p) => ({ value: p.sku, label: p.name, sublabel: p.sku }))}
+              placeholder="Pilih produk..."
+              searchPlaceholder="Cari nama atau SKU produk..."
+            />
           </div>
           {currentProd && (
             <p className="text-xs text-muted-foreground">Lokasi saat ini: <span className="font-bold text-foreground/80">{currentProd.warehouseLocation || '-'}</span> &middot; Stok: <span className="font-bold text-foreground/80">{currentProd.stock} {currentProd.unit}</span></p>
@@ -1457,7 +1462,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
         <div className="lg:col-span-8 space-y-4">
           
           {/* Filter bars and search */}
-          <Card className="flex-row flex-col sm:flex-row gap-3 items-center justify-between p-3">
+          <Card className="flex flex-col sm:flex-row gap-3 items-center justify-between p-3">
             <div className="relative w-full sm:max-w-xs">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -1711,14 +1716,13 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
           <form onSubmit={handleExecuteAdjustment} className="space-y-4 text-xs">
             <div>
               <Label>Pilih Bahan Bangunan (SKU)</Label>
-              <Select value={adjustProductSku} onValueChange={setAdjustProductSku}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {products.map(p => (
-                    <SelectItem key={p.sku} value={p.sku}>{p.name} ({p.sku})</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={adjustProductSku}
+                onChange={setAdjustProductSku}
+                options={products.map((p) => ({ value: p.sku, label: p.name, sublabel: p.sku }))}
+                placeholder="Pilih produk..."
+                searchPlaceholder="Cari nama atau SKU produk..."
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -1838,14 +1842,13 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Kategori</Label>
-                <Select value={formCategory} onValueChange={setFormCategory}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {categoryNames.map((category) => (
-                      <SelectItem key={category} value={category}>{category}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={formCategory}
+                  onChange={setFormCategory}
+                  options={categoryNames.map((category) => ({ value: category, label: category }))}
+                  placeholder="Pilih kategori..."
+                  searchPlaceholder="Cari kategori..."
+                />
               </div>
               <div>
                 <Label>Satuan Unit</Label>
@@ -1986,14 +1989,13 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Kategori</Label>
-                <Select value={formCategory} onValueChange={setFormCategory}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {categoryNames.map((category) => (
-                      <SelectItem key={category} value={category}>{category}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={formCategory}
+                  onChange={setFormCategory}
+                  options={categoryNames.map((category) => ({ value: category, label: category }))}
+                  placeholder="Pilih kategori..."
+                  searchPlaceholder="Cari kategori..."
+                />
               </div>
               <div>
                 <Label>Satuan Unit</Label>

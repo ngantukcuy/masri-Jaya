@@ -8,17 +8,18 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '.
 
 interface AddCustomerModalProps {
   onClose: () => void;
-  onSubmit: (name: string, loyaltyTier: string) => void;
+  onSubmit: (name: string, loyaltyTier: string, phone?: string) => void;
 }
 
 export default function AddCustomerModal({ onClose, onSubmit }: AddCustomerModalProps) {
   const [name, setName] = useState('');
   const [loyaltyTier, setLoyaltyTier] = useState('Pelanggan Retail');
+  const [phone, setPhone] = useState('');
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onSubmit(name.trim(), loyaltyTier);
+    onSubmit(name.trim(), loyaltyTier, phone.trim() || undefined);
   };
 
   return (
@@ -39,6 +40,16 @@ export default function AddCustomerModal({ onClose, onSubmit }: AddCustomerModal
               placeholder="Contoh: CV. Berkah Abadi, Ahmad"
               value={name}
               onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <Label>Nomor HP <span className="text-muted-foreground font-normal normal-case">(opsional)</span></Label>
+            <Input
+              type="tel"
+              placeholder="Contoh: 0812-3456-7890"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
             />
           </div>
 

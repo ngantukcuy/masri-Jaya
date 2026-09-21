@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   server: {
     // Keep everything (including the deep links your app already uses)
     // loading from inside the bundled web assets rather than a remote URL.
-    androidScheme: 'https',
+    androidScheme: 'http',
   },
 };
 
