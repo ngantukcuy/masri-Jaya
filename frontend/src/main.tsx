@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import {Capacitor} from '@capacitor/core';
 import App from './App.tsx';
 import { DialogProvider } from './components/shared/DialogProvider.tsx';
+import ErrorBoundary from './components/shared/ErrorBoundary.tsx';
 import './index.css';
 
 // After a new deploy, the hashed chunk filenames (DashboardView-xxxx.js etc.)
@@ -14,15 +15,26 @@ import './index.css';
 // failure doesn't reload in a loop.
 const RELOAD_FLAG = 'vite-reload-on-preload-error';
 window.addEventListener('vite:preloadError', () => {
-  if (!sessionStorage.getItem(RELOAD_FLAG)) {
-    sessionStorage.setItem(RELOAD_FLAG, '1');
-    window.location.reload();
+  try {
+    if (!sessionStorage.getItem(RELOAD_FLAG)) {
+      sessionStorage.setItem(RELOAD_FLAG, '1');
+      window.location.reload();
+    }
+  } catch {
+    // Storage diblokir (mis. browser dalam aplikasi lain) — lewati auto-reload.
   }
 });
 // Reaching this line means the current load succeeded, so clear the flag —
 // otherwise a real preload error on some future deploy would only be
 // allowed to auto-reload once, ever, per browser.
-sessionStorage.removeItem(RELOAD_FLAG);
+// Dibungkus try/catch: di sebagian WebView/in-app browser, mengakses
+// sessionStorage melempar SecurityError, dan karena ini jalan di level
+// modul, error itu sebelumnya membuat seluruh aplikasi jadi layar putih.
+try {
+  sessionStorage.removeItem(RELOAD_FLAG);
+} catch {
+  // abaikan
+}
 
 // Register the service worker so the browser recognizes this app as an
 // installable PWA (Add to Home Screen / Install app). Registered after
@@ -69,8 +81,10 @@ if (Capacitor.isNativePlatform()) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <DialogProvider>
-      <App />
-    </DialogProvider>
+    <ErrorBoundary>
+      <DialogProvider>
+        <App />
+      </DialogProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );

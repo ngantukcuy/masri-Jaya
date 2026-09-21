@@ -31,6 +31,41 @@
   </head>
   <body class="bg-gray-50 text-gray-900 min-h-screen">
     <div id="root"></div>
+    <noscript>Aplikasi ini membutuhkan JavaScript. Aktifkan JavaScript di browser Anda.</noscript>
+    <!-- Jaring pengaman: kalau JS gagal dimuat/dijalankan SEBELUM React sempat
+         tampil (browser HP terlalu lama, file gagal diunduh, error saat start),
+         layar tidak dibiarkan putih — pesan errornya ditampilkan. Skrip biasa
+         (bukan module) supaya tetap jalan walau bundle utama gagal. -->
+    <script>
+      (function () {
+        var shown = false;
+        function show(msg) {
+          var root = document.getElementById('root');
+          if (shown || !root || root.childNodes.length > 0) return;
+          shown = true;
+          root.innerHTML =
+            '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#f8fafc;font-family:system-ui,sans-serif">' +
+            '<div style="max-width:420px;width:100%;background:#fff;border:1px solid #fecaca;border-radius:16px;padding:20px;box-shadow:0 10px 25px rgba(0,0,0,.08)">' +
+            '<h2 style="margin:0 0 8px;font-size:15px;color:#0f172a">Aplikasi gagal dimuat</h2>' +
+            '<p style="margin:0 0 10px;font-size:12px;color:#475569">Coba muat ulang. Kalau tetap begini, kirim pesan di bawah ini ke pengembang.</p>' +
+            '<pre style="margin:0 0 12px;font-size:11px;background:#fef2f2;color:#991b1b;padding:10px;border-radius:8px;white-space:pre-wrap;word-break:break-word;max-height:160px;overflow:auto"></pre>' +
+            '<button onclick="location.reload()" style="padding:8px 14px;border:0;border-radius:8px;background:#2563eb;color:#fff;font-weight:700;font-size:12px">Muat Ulang</button>' +
+            '</div></div>';
+          root.querySelector('pre').textContent = msg;
+        }
+        window.addEventListener('error', function (e) {
+          show((e && e.message ? e.message : 'Error tidak diketahui') + (e && e.filename ? '\n' + e.filename + ':' + e.lineno : ''));
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+          var r = e && e.reason;
+          show('Promise ditolak: ' + (r && r.message ? r.message : String(r)));
+        });
+        // Kalau setelah 10 detik root masih kosong, anggap gagal start.
+        setTimeout(function () {
+          show('Tidak ada tampilan setelah 10 detik. Kemungkinan file aplikasi gagal diunduh, atau browser HP terlalu lama untuk menjalankannya.');
+        }, 10000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

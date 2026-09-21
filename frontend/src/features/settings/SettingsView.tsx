@@ -150,6 +150,8 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   // Form staf (tambah & edit) tampil sebagai dialog, hanya saat tombolnya diklik.
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+  // Akun staf yang sedang dilihat detailnya (klik baris di daftar staf).
+  const [previewStaffId, setPreviewStaffId] = useState<string | null>(null);
 
   // Printers: the saved list (name + connection type) lives in Supabase and
   // is shared across devices; the actual LIVE connection (paired
@@ -304,6 +306,18 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     );
   };
 
+  // Hak akses yang benar-benar berlaku untuk sebuah akun: Owner selalu punya
+  // semuanya; akun lama tanpa daftar izin memakai bawaan role-nya.
+  const getEffectivePermissions = (st: StaffMember): string[] => {
+    if (st.role === 'Owner') return ROLE_DEFAULT_PERMISSIONS.Owner;
+    return st.permissions && st.permissions.length > 0 ? st.permissions : (ROLE_DEFAULT_PERMISSIONS[st.role || 'Kasir'] || []);
+  };
+  const canEditStaff = (st: StaffMember) =>
+    can('manage_user_update') && !!st.id && (st.role !== 'Owner' || currentUser?.role === 'Owner');
+  const previewStaff = previewStaffId ? staffList.find((s) => s.id === previewStaffId) || null : null;
+  const editingStaff = editingStaffId ? staffList.find((s) => s.id === editingStaffId) || null : null;
+  const editingOwner = editingStaff?.role === 'Owner';
+
   const resetStaffForm = () => {
     setNewStaffName('');
     setNewStaffPhone('');
@@ -325,7 +339,8 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     setNewStaffPhone(st.phone || '');
     setNewStaffPin(''); // dikosongkan: PIN lama tidak ditampilkan, isi hanya kalau mau diganti
     setNewStaffRole(role);
-    setNewStaffPermissions(st.permissions && st.permissions.length > 0 ? st.permissions : (ROLE_DEFAULT_PERMISSIONS[role] || []));
+    setNewStaffPermissions(getEffectivePermissions(st));
+    setPreviewStaffId(null);
     setShowStaffModal(true);
   };
 
@@ -388,7 +403,8 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
         setRegisteredOwner((prev) => prev ? { ...prev, pin: newStaffPin } : prev);
         setOwnerPin(newStaffPin);
       }
-      triggerToast(`Akun Staf "${name}" berhasil diperbarui!`);
+      const editingSelf = target.name === currentUser?.name;
+      triggerToast(`Akun Staf "${name}" berhasil diperbarui!${editingSelf ? ' Perubahan akses akun Anda berlaku setelah login ulang.' : ''}`);
       onAddActivity(
         "Akun Staf Diubah",
         `Akun "${name}" (${updatedStaff.role}) diperbarui`,
@@ -411,6 +427,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   };
 
   const handleTogglePermission = (key: string) => {
+    if (editingOwner) return; // Owner selalu punya semua akses
     setNewStaffPermissions((prev) =>
       prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]
     );
@@ -1376,62 +1393,67 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                       />
                     </div>
 
-                    {editingStaffId && staffList.find((s) => s.id === editingStaffId)?.role === 'Owner' ? (
+                    {editingOwner && (
                       <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                        Ini akun Owner: perannya tetap Owner dan selalu memiliki seluruh hak akses, jadi pilihan peran dan akses tidak ditampilkan.
+                        Ini akun Owner: perannya tetap Owner dan selalu memiliki seluruh hak akses, jadi daftar di bawah hanya untuk dilihat.
                       </p>
-                    ) : (
-                      <>
-                        <div>
-                          <Label className="text-[9px]">Peran (Role)</Label>
-                          <Select
-                            value={newStaffRole}
-                            onValueChange={(v) => {
-                              const role = v as 'Admin' | 'Kasir' | 'Stoker';
-                              setNewStaffRole(role);
-                              setNewStaffPermissions(ROLE_DEFAULT_PERMISSIONS[role]);
-                            }}
-                          >
-                            <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Admin">Admin</SelectItem>
-                              <SelectItem value="Kasir">Kasir</SelectItem>
-                              <SelectItem value="Stoker">Stoker</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label className="mb-1.5">Akses Menu (Tab yang Bisa Dibuka)</Label>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 bg-white border border-gray-200 rounded-lg p-2.5">
-                            {TAB_DEFS.map((tab) => (
-                              <label key={tab.key} className="flex items-center gap-2 cursor-pointer">
-                                <Checkbox
-                                  checked={newStaffPermissions.includes(tab.key)}
-                                  onCheckedChange={() => handleTogglePermission(tab.key)}
-                                />
-                                <span className="text-gray-700 font-medium">{tab.label}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label className="mb-1.5">Akses Fitur (Custom Permission)</Label>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 bg-white border border-gray-200 rounded-lg p-2.5">
-                            {PERMISSION_DEFS.map((perm) => (
-                              <label key={perm.key} className="flex items-center gap-2 cursor-pointer">
-                                <Checkbox
-                                  checked={newStaffPermissions.includes(perm.key)}
-                                  onCheckedChange={() => handleTogglePermission(perm.key)}
-                                />
-                                <span className="text-gray-700 font-medium">{perm.label}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      </>
                     )}
+
+                    <div>
+                      <Label className="text-[9px]">Peran (Role)</Label>
+                      <Select
+                        value={newStaffRole}
+                        disabled={editingOwner}
+                        onValueChange={(v) => {
+                          const role = v as 'Admin' | 'Kasir' | 'Stoker';
+                          setNewStaffRole(role);
+                          setNewStaffPermissions(ROLE_DEFAULT_PERMISSIONS[role]);
+                        }}
+                      >
+                        <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {editingOwner && <SelectItem value="Owner">Owner</SelectItem>}
+                          <SelectItem value="Admin">Admin</SelectItem>
+                          <SelectItem value="Kasir">Kasir</SelectItem>
+                          <SelectItem value="Stoker">Stoker</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {!editingOwner && (
+                        <p className="text-[10px] text-gray-400 mt-1">Mengganti peran akan mengisi ulang centang akses sesuai bawaan peran itu. Setelahnya kamu tetap bisa menyesuaikan centang secara manual.</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label className="mb-1.5">Akses Menu (Tab yang Bisa Dibuka)</Label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 bg-white border border-gray-200 rounded-lg p-2.5">
+                        {TAB_DEFS.map((tab) => (
+                          <label key={tab.key} className={`flex items-center gap-2 ${editingOwner ? 'opacity-70' : 'cursor-pointer'}`}>
+                            <Checkbox
+                              checked={newStaffPermissions.includes(tab.key)}
+                              disabled={editingOwner}
+                              onCheckedChange={() => handleTogglePermission(tab.key)}
+                            />
+                            <span className="text-gray-700 font-medium">{tab.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="mb-1.5">Akses Fitur (Custom Permission)</Label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 bg-white border border-gray-200 rounded-lg p-2.5">
+                        {PERMISSION_DEFS.map((perm) => (
+                          <label key={perm.key} className={`flex items-center gap-2 ${editingOwner ? 'opacity-70' : 'cursor-pointer'}`}>
+                            <Checkbox
+                              checked={newStaffPermissions.includes(perm.key)}
+                              disabled={editingOwner}
+                              onCheckedChange={() => handleTogglePermission(perm.key)}
+                            />
+                            <span className="text-gray-700 font-medium">{perm.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
 
                     <div className="flex justify-end gap-2 pt-1.5 border-t border-gray-100">
                       <Button type="button" variant="outline" size="sm" onClick={closeStaffModal}>Batal</Button>
@@ -1454,23 +1476,28 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                   <p className="p-4 text-center text-gray-400">Belum ada staf kasir terdaftar. Owner dapat mendaftarkan beberapa staf di atas.</p>
                 ) : (
                   staffList.map((st, idx) => (
-                    <div key={st.id || idx} className="flex justify-between items-center p-3 text-xs bg-gray-50/30 hover:bg-gray-100/20 transition-colors">
+                    <div
+                      key={st.id || idx}
+                      onClick={() => st.id && setPreviewStaffId(st.id)}
+                      className={`flex justify-between items-center p-3 text-xs bg-gray-50/30 hover:bg-gray-100/40 transition-colors ${st.id ? 'cursor-pointer' : ''}`}
+                      title="Klik untuk melihat detail akun"
+                    >
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center font-bold text-gray-700">
                           {st.name.slice(0, 2).toUpperCase()}
                         </div>
                         <div>
                           <p className="font-bold text-gray-800">{st.name} <span className="ml-1 text-[9px] font-bold uppercase text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{st.role || 'Kasir'}</span></p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">PIN: **** (Terenkripsi) · {(st.permissions || []).length} akses fitur khusus</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">{st.phone ? `${st.phone} · ` : ''}{getEffectivePermissions(st).length} hak akses</p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-1">
-                        {can('manage_user_update') && st.id && (st.role !== 'Owner' || currentUser?.role === 'Owner') && (
+                        {canEditStaff(st) && (
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => openEditStaff(st)}
+                            onClick={(e) => { e.stopPropagation(); openEditStaff(st); }}
                             className="w-8 h-8 text-blue-500 hover:text-blue-700"
                             title="Edit Akun Staf"
                           >
@@ -1481,7 +1508,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleDeleteStaff(idx)}
+                            onClick={(e) => { e.stopPropagation(); handleDeleteStaff(idx); }}
                             className="w-8 h-8 text-red-400 hover:text-red-600"
                             title="Hapus Akun Staf"
                           >
@@ -1494,6 +1521,81 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                 )}
               </div>
             </div>
+
+            {/* Preview detail akun staf (klik baris di daftar) */}
+            <Dialog open={!!previewStaff} onOpenChange={(open) => { if (!open) setPreviewStaffId(null); }}>
+              <DialogContent className="max-w-lg text-xs">
+                {previewStaff && (() => {
+                  const perms = getEffectivePermissions(previewStaff);
+                  const tabAccess = TAB_DEFS.filter((t) => perms.includes(t.key));
+                  const featureAccess = PERMISSION_DEFS.filter((p) => perms.includes(p.key));
+                  return (
+                    <>
+                      <DialogHeader>
+                        <DialogTitle>Detail Akun Staf</DialogTitle>
+                        <DialogDescription>Ringkasan akun dan hak aksesnya.</DialogDescription>
+                      </DialogHeader>
+
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 rounded-full bg-zinc-200 flex items-center justify-center font-black text-gray-700 text-sm">
+                          {previewStaff.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-black text-sm text-gray-900 break-words">{previewStaff.name}</p>
+                          <span className="inline-block mt-1 text-[9px] font-bold uppercase text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{previewStaff.role || 'Kasir'}</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div>
+                          <p className="text-[10px] font-bold uppercase text-gray-400">No. HP</p>
+                          <p className="mt-1 font-semibold text-gray-800">{previewStaff.phone || '-'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold uppercase text-gray-400">PIN</p>
+                          <p className="mt-1 font-mono font-semibold text-gray-800">●●●●●● <span className="font-sans font-normal text-gray-400">(disembunyikan)</span></p>
+                        </div>
+                      </div>
+
+                      {previewStaff.role === 'Owner' ? (
+                        <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                          Akun Owner memiliki seluruh hak akses ({tabAccess.length} menu dan {featureAccess.length} fitur), termasuk Dashboard.
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase text-gray-400 mb-1.5">Akses Menu ({tabAccess.length})</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {tabAccess.length === 0
+                                ? <span className="text-gray-400">Tidak ada akses menu.</span>
+                                : tabAccess.map((t) => <span key={t.key} className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold text-[10px]">{t.label}</span>)}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase text-gray-400 mb-1.5">Akses Fitur ({featureAccess.length})</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {featureAccess.length === 0
+                                ? <span className="text-gray-400">Tidak ada akses fitur khusus.</span>
+                                : featureAccess.map((p) => <span key={p.key} className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-[10px]">{p.label}</span>)}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex justify-end gap-2 pt-3 mt-4 border-t border-gray-100">
+                        <Button type="button" variant="outline" size="sm" onClick={() => setPreviewStaffId(null)}>Tutup</Button>
+                        {canEditStaff(previewStaff) && (
+                          <Button type="button" size="sm" onClick={() => openEditStaff(previewStaff)}>
+                            <Pencil className="w-3.5 h-3.5" />
+                            <span>Edit Akun</span>
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+              </DialogContent>
+            </Dialog>
 
             {/* Emergency Protocols */}
             <div className="p-4 bg-red-50 border border-red-200 rounded-xl space-y-2">

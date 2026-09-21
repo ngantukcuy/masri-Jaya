@@ -12,6 +12,7 @@ import { useSupabaseReady } from './lib/useSupabaseReady';
 import { useDialog } from './components/shared/DialogProvider';
 import { CurrentUser, canAccessTab, firstAccessibleTab } from './lib/permissions';
 import { initPushNotifications } from './lib/push/pushNotifications';
+import ErrorBoundary from './components/shared/ErrorBoundary';
 import { setAuditActorName } from './lib/supabase';
 import { initOfflineSync } from './lib/offlineSync';
 import PushToastListener from './components/shared/PushToastListener';
@@ -315,6 +316,8 @@ function Dashboard({
           transition={{ duration: 0.25, ease: 'easeOut' }}
           className="w-full"
         >
+          {/* Error di satu halaman tidak lagi mematikan seluruh aplikasi (layar putih) */}
+          <ErrorBoundary scope="page" key={currentTab}>
           <Suspense fallback={<ViewLoadingFallback />}>
             {(() => {
               const baseTab = currentTab.split(':')[0];
@@ -558,6 +561,7 @@ function Dashboard({
               }
             })()}
           </Suspense>
+          </ErrorBoundary>
         </motion.div>
       </AnimatePresence>
     );
