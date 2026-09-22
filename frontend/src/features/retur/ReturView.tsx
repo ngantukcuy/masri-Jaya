@@ -341,66 +341,6 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
                   )
                 )}
               </div>
-
-              <div className="divide-y divide-gray-100 max-h-[500px] overflow-y-auto">
-                {activeTab === 'pembelian' ? (
-                  filteredInvoices.length === 0 ? (
-                    salesInvoices.length === 0 ? (
-                      <div className="p-6 text-center space-y-3">
-                        <p className="text-xs text-gray-400">Belum ada transaksi penjualan yang tercatat. Retur hanya bisa diajukan dari transaksi yang sudah ada.</p>
-                        {onNavigateToPOS && (
-                          <Button onClick={onNavigateToPOS} size="sm">
-                            Buat Transaksi di Kasir (POS)
-                          </Button>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="p-6 text-center text-xs text-gray-400">Tidak ada invoice yang cocok.</p>
-                    )
-                  ) : (
-                    filteredInvoices.map((inv) => (
-                      <button
-                        key={inv.invoiceNumber}
-                        onClick={() => { setSelectedInvoice(inv); setReturnQtys({}); setConditions({}); setDiscount(0); }}
-                        className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 rounded-lg cursor-pointer"
-                      >
-                        <div>
-                          <p className="font-bold text-xs text-gray-800">{inv.invoiceNumber}</p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">{inv.customerName} · {inv.date}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-xs text-gray-700">Rp {inv.total.toLocaleString('id-ID')}</span>
-                          <ChevronRight className="w-4 h-4 text-gray-300" />
-                        </div>
-                      </button>
-                    ))
-                  )
-                ) : (
-                  filteredPOs.length === 0 ? (
-                    <p className="p-6 text-center text-xs text-gray-400">
-                      {receivedPOs.length === 0 ? 'Belum ada pembelian berstatus Received.' : 'Tidak ada PO yang cocok.'}
-                    </p>
-                  ) : (
-                    filteredPOs.map((po) => (
-                      <button
-                        key={po.poNumber}
-                        onClick={() => { setSelectedPO(po); setReturnQtys({}); setConditions({}); setDiscount(0); }}
-                        className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 rounded-lg cursor-pointer"
-                      >
-                        <div>
-                          <p className="font-bold text-xs text-gray-800">{po.poNumber}</p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">{po.supplier} · {po.createdDate}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-xs text-gray-700">Rp {po.total.toLocaleString('id-ID')}</span>
-                          <ChevronRight className="w-4 h-4 text-gray-300" />
-                        </div>
-                      </button>
-                    ))
-                  )
-                )}
-              </div>
-
             </>
           ) : (
             <>
