@@ -159,11 +159,13 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
               </>
             )}
             {lastOrderDetails.paymentMethod === 'Split' && typeof lastOrderDetails.splitPaidAmount === 'number' && (
+              <div className="flex justify-between pt-1">
+                <span>DIBAYAR SEKARANG:</span>
+                <span>Rp {lastOrderDetails.splitPaidAmount.toLocaleString('id-ID')}</span>
+              </div>
+            )}
+            {(lastOrderDetails.paymentMethod === 'Split' || lastOrderDetails.paymentMethod === 'Piutang') && (
               <>
-                <div className="flex justify-between pt-1">
-                  <span>DIBAYAR SEKARANG:</span>
-                  <span>Rp {lastOrderDetails.splitPaidAmount.toLocaleString('id-ID')}</span>
-                </div>
                 <div className="flex justify-between font-bold text-amber-600">
                   <span>SISA (PIUTANG):</span>
                   <span>Rp {(lastOrderDetails.splitRemainingDebt || 0).toLocaleString('id-ID')}</span>

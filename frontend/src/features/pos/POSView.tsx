@@ -34,6 +34,7 @@ import SelectCustomerModal from './components/SelectCustomerModal';
 import PaymentMethodModal from './components/PaymentMethodModal';
 import CashPaymentModal from './components/CashPaymentModal';
 import SplitPaymentModal from './components/SplitPaymentModal';
+import PiutangDueDateModal from './components/PiutangDueDateModal';
 import { recordSale, getCurrentSession, subscribeCurrentSession } from '../../lib/cashSession';
 import ProfileBadge from '../../components/shared/ProfileBadge';
 import { CurrentUser } from '../../lib/permissions';
@@ -200,6 +201,7 @@ export default function POSView({
   const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
   const [showCashPaymentModal, setShowCashPaymentModal] = useState(false);
   const [showSplitPaymentModal, setShowSplitPaymentModal] = useState(false);
+  const [showPiutangDueDateModal, setShowPiutangDueDateModal] = useState(false);
   const [mobileActiveSubTab, setMobileActiveSubTab] = useState<'products' | 'cart'>('products');
   
   // Audio & scanner simulation states
@@ -555,7 +557,7 @@ const commitQtyInput = (sku: string) => {
     setShowPaymentMethodModal(true);
   };
 
-  const handleSelectPaymentMethod = (method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' | 'Piutang', transferAccount?: BankAccount, dueDate?: string) => {
+  const handleSelectPaymentMethod = (method: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' | 'Piutang', transferAccount?: BankAccount) => {
     setPaymentMethod(method);
     setShowPaymentMethodModal(false);
 
@@ -595,7 +597,7 @@ const commitQtyInput = (sku: string) => {
       return;
     }
     if (method === 'Piutang') {
-      executeFinalCheckout(method, { dueDate });
+      setShowPiutangDueDateModal(true);
       return;
     }
     setShowSplitPaymentModal(true);
@@ -723,7 +725,7 @@ const commitQtyInput = (sku: string) => {
         changeAmount: methodUsed === 'Cash' ? paymentDetails.changeAmount : undefined,
         splitPaidAmount: methodUsed === 'Split' ? paymentDetails.splitPaidAmount : undefined,
         splitRemainingDebt: (methodUsed === 'Split' || methodUsed === 'Piutang') ? splitRemainingDebt : undefined,
-        splitDueDate: methodUsed === 'Split' ? paymentDetails.dueDate : undefined,
+        splitDueDate: (methodUsed === 'Split' || methodUsed === 'Piutang') ? paymentDetails.dueDate : undefined,
         paymentAccountName: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.name : undefined,
         paymentAccountNumber: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.accountNumber : undefined,
         paymentAccountHolder: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.holderName : undefined
@@ -752,7 +754,7 @@ const commitQtyInput = (sku: string) => {
       changeAmount: methodUsed === 'Cash' ? paymentDetails.changeAmount : undefined,
       splitPaidAmount: methodUsed === 'Split' ? paymentDetails.splitPaidAmount : undefined,
       splitRemainingDebt: (methodUsed === 'Split' || methodUsed === 'Piutang') ? splitRemainingDebt : undefined,
-      splitDueDate: methodUsed === 'Split' ? paymentDetails.dueDate : undefined,
+      splitDueDate: (methodUsed === 'Split' || methodUsed === 'Piutang') ? paymentDetails.dueDate : undefined,
       transferAccount: methodUsed === 'Transfer' ? paymentDetails.transferAccount : undefined,
       date: new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     };
@@ -1555,6 +1557,18 @@ const commitQtyInput = (sku: string) => {
             onConfirm={(paidNow, dueDate) => {
               setShowSplitPaymentModal(false);
               executeFinalCheckout('Split', { splitPaidAmount: paidNow, splitRemainingDebt: totalAmount - paidNow, dueDate });
+            }}
+            totalAmount={totalAmount}
+            customer={selectedCustomer}
+          />
+        )}
+
+        {showPiutangDueDateModal && (
+          <PiutangDueDateModal
+            onClose={() => setShowPiutangDueDateModal(false)}
+            onConfirm={(dueDate) => {
+              setShowPiutangDueDateModal(false);
+              executeFinalCheckout('Piutang', { dueDate });
             }}
             totalAmount={totalAmount}
             customer={selectedCustomer}

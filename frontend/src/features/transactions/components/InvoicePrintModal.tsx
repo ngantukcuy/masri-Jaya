@@ -356,11 +356,13 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
                 </>
               )}
               {printableInvoice.paymentMethod === 'Split' && typeof printableInvoice.splitPaidAmount === 'number' && (
+                <div className="flex justify-between pt-1">
+                  <span>DIBAYAR SEKARANG:</span>
+                  <span>Rp {printableInvoice.splitPaidAmount.toLocaleString('id-ID')}</span>
+                </div>
+              )}
+              {(printableInvoice.paymentMethod === 'Split' || printableInvoice.paymentMethod === 'Piutang') && (
                 <>
-                  <div className="flex justify-between pt-1">
-                    <span>DIBAYAR SEKARANG:</span>
-                    <span>Rp {printableInvoice.splitPaidAmount.toLocaleString('id-ID')}</span>
-                  </div>
                   <div className="flex justify-between font-bold text-amber-600">
                     <span>SISA (PIUTANG):</span>
                     <span>Rp {(printableInvoice.splitRemainingDebt || 0).toLocaleString('id-ID')}</span>

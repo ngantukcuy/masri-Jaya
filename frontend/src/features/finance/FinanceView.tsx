@@ -66,6 +66,8 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   // tab could approve/reject reimbursement claims regardless of role.
   const canApproveFinance = hasPermission(currentUser, 'manage_finance_approve');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState<string>('Semua');
+  const [expensePage, setExpensePage] = useState(1);
 
   // Tab halaman Pembayaran + state tiap tab
   const [activeTab, setActiveTab] = useState<FinanceTab>('supplier');
@@ -242,6 +244,14 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   const safeSalesPage = Math.min(salesPage, Math.max(1, salesPageCount));
 
   const totalExpensesThisMonth = expenses.reduce((acc, e) => acc + e.amount, 0);
+
+  // Daftar pengeluaran operasional untuk tab ini — sumbernya cuma `expenses`
+  // (kategori sudah dibatasi ke Bensin/Gaji/Bon/Lainnya), jadi tidak perlu
+  // sentuh mutasi Kas Harian sama sekali dan tidak ada celah data penjualan
+  // atau bon supplier ikut nyasar ke sini.
+  const filteredExpenses = expenses.filter((e) => expenseCategoryFilter === 'Semua' || e.category === expenseCategoryFilter);
+  const expensePageCount = Math.ceil(filteredExpenses.length / PAGE_SIZE);
+  const safeExpensePage = Math.min(expensePage, Math.max(1, expensePageCount));
 
   return (
     <div className="space-y-6">
@@ -430,6 +440,72 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
               </div>
             ))
           )}
+        </div>
+      </div>
+
+      {/* Riwayat Pengeluaran Operasional (Bensin/Gaji/Bon/Lainnya) — murni dari expenses, tanpa data penjualan atau bon supplier */}
+      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-xs">
+        <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <h4 className="text-sm font-bold text-gray-800">Riwayat Pengeluaran Operasional</h4>
+            <p className="text-[11px] text-gray-400 mt-0.5">Bensin, gaji, bon/tagihan, dan pengeluaran operasional lain yang dicatat di sini.</p>
+          </div>
+
+          <div className="flex gap-1.5 overflow-x-auto pb-1 max-w-full scrollbar-none">
+            {['Semua', 'Bensin', 'Gaji', 'Bon', 'Lainnya'].map((cat) => (
+              <button
+                key={cat}
+                onClick={() => { setExpenseCategoryFilter(cat); setExpensePage(1); }}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  expenseCategoryFilter === cat ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                {cat === 'Semua' ? 'Semua' : (categoryTranslationMap[cat] || cat)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-gray-50 text-[10px] text-gray-400 font-bold uppercase border-b border-gray-100">
+                <th className="py-3 px-4">Nomor Ref</th>
+                <th className="py-3 px-4">Tanggal</th>
+                <th className="py-3 px-4">Kategori</th>
+                <th className="py-3 px-4">Deskripsi</th>
+                <th className="py-3 px-4">Dicatat Oleh</th>
+                <th className="py-3 px-4 text-right">Jumlah</th>
+                <th className="py-3 px-4 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
+              {filteredExpenses.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-gray-400 font-bold">Belum ada pengeluaran operasional yang cocok dengan filter.</td>
+                </tr>
+              ) : (
+                filteredExpenses.slice((safeExpensePage - 1) * PAGE_SIZE, safeExpensePage * PAGE_SIZE).map((exp) => (
+                  <tr key={exp.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="py-3.5 px-4 font-mono font-bold text-gray-800">{exp.id}</td>
+                    <td className="py-3.5 px-4 text-gray-500 font-medium">{exp.date}</td>
+                    <td className="py-3.5 px-4 font-bold text-gray-600">{categoryTranslationMap[exp.category] || exp.category}</td>
+                    <td className="py-3.5 px-4 font-medium text-gray-900">{exp.description}</td>
+                    <td className="py-3.5 px-4 font-medium text-gray-600">{exp.submittedBy}</td>
+                    <td className="py-3.5 px-4 text-right font-bold text-red-600">-Rp {exp.amount.toLocaleString('id-ID')}</td>
+                    <td className="py-3.5 px-4 text-center">
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                        exp.status === 'Approved' ? 'bg-emerald-50 text-emerald-700' : exp.status === 'Rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+                      }`}>
+                        {exp.status === 'Approved' ? 'DISETUJUI' : exp.status === 'Rejected' ? 'DITOLAK' : 'DRAFT'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+          <Pagination page={safeExpensePage} pageCount={expensePageCount} onPageChange={setExpensePage} />
         </div>
       </div>
 

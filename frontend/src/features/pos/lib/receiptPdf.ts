@@ -343,6 +343,8 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   }
   if (invoice.paymentMethod === 'Split' && typeof invoice.splitPaidAmount === 'number') {
     row('Dibayar Sekarang:', rupiah(invoice.splitPaidAmount), false, 7.5);
+  }
+  if (invoice.paymentMethod === 'Split' || invoice.paymentMethod === 'Piutang') {
     row('Sisa (Piutang):', rupiah(invoice.splitRemainingDebt || 0), true, 7.5);
     row('Jatuh Tempo:', invoice.splitDueDate ? new Date(`${invoice.splitDueDate}T00:00:00`).toLocaleDateString('id-ID') : '-', false, 7.5);
   }
