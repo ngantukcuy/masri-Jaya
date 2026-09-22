@@ -302,7 +302,7 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
                     filteredInvoices.map((inv) => (
                       <button
                         key={inv.invoiceNumber}
-                        onClick={() => { setSelectedInvoice(inv); setReturnQtys({}); setConditions({}); setDiscount(0); }}
+                        onClick={() => {  setSelectedPO(null) ; setSelectedInvoice(inv); setReturnQtys({}); setConditions({}); setDiscount(0); }}
                         className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 rounded-lg cursor-pointer"
                       >
                         <div>
@@ -325,7 +325,7 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
                     filteredPOs.map((po) => (
                       <button
                         key={po.poNumber}
-                        onClick={() => { setSelectedPO(po); setReturnQtys({}); setConditions({}); setDiscount(0); }}
+                        onClick={() => { setSelectedInvoice(null); setSelectedPO(po); setReturnQtys({}); setConditions({}); setDiscount(0); }}
                         className="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 rounded-lg cursor-pointer"
                       >
                         <div>
