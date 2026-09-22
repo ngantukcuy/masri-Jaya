@@ -349,7 +349,7 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
                   <p className="font-extrabold text-sm text-gray-900">{selectedInvoice ? selectedInvoice.invoiceNumber : selectedPO!.poNumber}</p>
                   <p className="text-[10px] text-gray-400">{selectedInvoice ? selectedInvoice.customerName : selectedPO!.supplier}</p>
                 </div>
-                <Button variant="ghost" size="icon" onClick={resetForm} className="w-7 h-7 text-gray-400">
+                <Button type="button" variant="ghost" size="icon" onClick={resetForm} className="w-7 h-7 text-gray-400">
                   <X className="w-4 h-4" />
                 </Button>
               </div>
