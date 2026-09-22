@@ -268,7 +268,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
           <p className="text-lg font-black text-gray-900">{filtered.length}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-          <p className="text-[10px] text-gray-400 font-bold uppercase">{isFiltered ? 'Omzet Sesuai Filter' : 'Total Omzet'}</p>
+          <p className="text-[10px] text-gray-400 font-bold uppercase">{isFiltered ? 'Omzet Sesuai Filter' : 'Total Penjualan'}</p>
           <p className="text-lg font-black text-emerald-600">Rp {totalOmzet.toLocaleString('id-ID')}</p>
         </div>
       </div>
@@ -498,7 +498,10 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <Button
                   variant="secondary"
-                  onClick={() => setPrintTarget({ invoice: selected, docType: 'invoice' })}
+                  onClick={() => {
+                    setSelected(null);
+                    setPrintTarget({ invoice: selected, docType: 'invoice' });
+                  }}
                   className="w-full bg-blue-50 hover:bg-blue-100 text-blue-600"
                 >
                   <Receipt className="w-3.5 h-3.5" />
@@ -507,7 +510,10 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                 {selected.fulfillmentMethod === 'Delivery' && (
                   <Button
                     variant="secondary"
-                    onClick={() => setPrintTarget({ invoice: selected, docType: 'delivery' })}
+                    onClick={() => {
+                      setSelected(null);
+                      setPrintTarget({ invoice: selected, docType: 'delivery' });
+                    }}
                     className="w-full bg-amber-50 hover:bg-amber-100 text-amber-600"
                   >
                     <Truck className="w-3.5 h-3.5" />
