@@ -281,7 +281,7 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   row('Invoice:', invoice.invoiceNumber, true, 7.5);
   row('Tanggal:', invoice.date, false, 7.5);
   row('Kasir:', cashierName || 'Staff Aktif', false, 7.5);
-  y += 0.5;
+  y += lineHeight;
   dashedLine();
 
   row('Pelanggan:', invoice.customerName, false, 7.5);
@@ -463,7 +463,7 @@ export async function generateDeliveryNotePDF(
   setFont(9, true);
   const secondBoxX = marginX + boxWidth + 7.5;
   const thirdBoxX = secondBoxX + boxWidth + 7.5;
-  doc.text('Sopir,', marginX, y);
+  doc.text('Sopir,', marginX + boxWidth +7.5 , y);
   doc.text('Pemeriksa,', secondBoxX, y);
   doc.text('Penerima,', thirdBoxX, y);
   y += 20;
@@ -473,7 +473,7 @@ export async function generateDeliveryNotePDF(
   doc.line(thirdBoxX, y, thirdBoxX + boxWidth, y);
   y += 8;
   if (invoice.driverName) {
-    doc.text(`${invoice.driverName}`, marginX + 24, y);
+    doc.text(`${invoice.driverName}`, marginX + 24, y, { align: 'left' });
     y += lineHeight;
   }
   doc.text('( Nama )', secondBoxX, y);
