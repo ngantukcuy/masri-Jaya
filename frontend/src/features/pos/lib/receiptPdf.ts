@@ -117,7 +117,6 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
         changeAmount: orderDetails.changeAmount,
         splitPaidAmount: orderDetails.splitPaidAmount,
         splitRemainingDebt: orderDetails.splitRemainingDebt,
-        splitDueDate: orderDetails.splitDueDate,
         paymentAccountName: orderDetails.transferAccount?.name,
         paymentAccountNumber: orderDetails.transferAccount?.accountNumber,
         paymentAccountHolder: orderDetails.transferAccount?.holderName,
@@ -161,7 +160,6 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
       changeAmount: orderDetails.changeAmount,
       splitPaidAmount: orderDetails.splitPaidAmount,
       splitRemainingDebt: orderDetails.splitRemainingDebt,
-      splitDueDate: orderDetails.splitDueDate,
       paymentAccountName: orderDetails.transferAccount?.name,
       paymentAccountNumber: orderDetails.transferAccount?.accountNumber,
       paymentAccountHolder: orderDetails.transferAccount?.holderName,
@@ -283,6 +281,9 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   row('Invoice:', invoice.invoiceNumber, true, 7.5);
   row('Tanggal:', invoice.date, false, 7.5);
   row('Kasir:', cashierName || 'Staff Aktif', false, 7.5);
+  y += 0.5;
+  dashedLine();
+
   row('Pelanggan:', invoice.customerName, false, 7.5);
   if (invoice.driverName) row('Sopir:', invoice.driverName, false, 7.5);
   row('Metode:', invoice.paymentMethod === 'Cash' ? 'TUNAI' : invoice.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : invoice.paymentMethod, true, 7.5, COLOR_PRIMARY);
@@ -349,7 +350,7 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   }
   if (invoice.paymentMethod === 'Split' || invoice.paymentMethod === 'Piutang') {
     row('Sisa (Piutang):', rupiah(invoice.splitRemainingDebt || 0), true, 7.5);
-    row('Jatuh Tempo:', invoice.splitDueDate ? new Date(`${invoice.splitDueDate}T00:00:00`).toLocaleDateString('id-ID') : '-', false, 7.5);
+    row('Jatuh Tempo:', invoice.splitDueDate ? new Date(`${invoice.splitDueDate}T00:00:00`).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric' }) : '-', false, 7.5);
   }
   y += 2;
 
