@@ -44,6 +44,7 @@ export interface PO {
   paidMethod?: 'Tunai' | 'Transfer';
   /** Riwayat cicilan pembayaran bon ini (tiap entri bisa punya bukti bayar sendiri). */
   paymentHistory?: POPayment[];
+  paidHistory?: { date: string; amount: number; method: string; receiptName?: string }[];
   /** True kalau barang pesanan ini dikirim langsung ke customer oleh
    * supplier (dropship) — tidak pernah singgah/masuk ke gudang toko, jadi
    * saat "Konfirmasi Barang Diterima" stok TIDAK ditambah. Tetap tercatat
@@ -51,6 +52,8 @@ export interface PO {
   dropship?: boolean;
   /** Catatan opsional tujuan pengiriman dropship (mis. nama/alamat customer). */
   dropshipNote?: string;
+  directToCustomer?: boolean;
+  directToCustomerName?: string;
 }
 
 export interface Supplier {

@@ -709,32 +709,118 @@ export default function DashboardView({
 
       {/* Preview gabungan Hutang (ke Supplier) & Piutang (dari Customer) — dibuka dari kotak KPI ke-4 */}
       <Dialog open={showDebtPreview} onOpenChange={setShowDebtPreview}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle className="text-sm normal-case tracking-widest">
-              <FileText className="w-5 h-5" /> Rincian Hutang &amp; Piutang
+            <DialogTitle className="text-sm normal-case tracking-widest flex items-center gap-2">
+              <FileText className="w-5 h-5 text-amber-600" /> Rincian Tagihan Hutang &amp; Piutang
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 text-xs">
-            <div className="bg-red-50 border border-red-100 rounded-xl p-4 space-y-1">
-              <p className="font-bold text-red-700 uppercase text-[10px] tracking-wider">Hutang ke Supplier (Bon Belum Lunas)</p>
-              <p className="text-xl font-black text-red-700">Rp {totalHutangAmount.toLocaleString('id-ID')}</p>
-              <p className="text-slate-500">{unpaidSupplierBons.length} bon dari supplier menunggu dibayar/dicicil.</p>
-              <Button variant="link" className="h-auto p-0 text-[11px] text-red-700" onClick={() => { setShowDebtPreview(false); onTabChange('finance'); }}>
-                Bayar di Pembayaran &gt; Supplier →
-              </Button>
+          <div className="space-y-4 text-xs max-h-[70vh] overflow-y-auto pr-1">
+            {/* Section 1: Bon Supplier Belum Lunas */}
+            <div className="bg-red-50/70 border border-red-150 rounded-xl p-4 space-y-2">
+              <div className="flex justify-between items-center">
+                <p className="font-extrabold text-red-800 uppercase text-[10px] tracking-wider">Hutang ke Supplier (Bon Belum Lunas)</p>
+                <span className="text-base font-black text-red-700">Rp {totalHutangAmount.toLocaleString('id-ID')}</span>
+              </div>
+              
+              {unpaidSupplierBons.length === 0 ? (
+                <p className="text-[11px] text-slate-500 italic">Tidak ada bon supplier yang belum lunas saat ini.</p>
+              ) : (
+                <div className="overflow-x-auto bg-white rounded-lg border border-red-100 mt-2">
+                  <table className="w-full text-left text-[11px]">
+                    <thead className="bg-red-100/50 text-red-900 font-bold text-[9px] uppercase">
+                      <tr>
+                        <th className="py-2 px-3">Supplier</th>
+                        <th className="py-2 px-3">No. PO</th>
+                        <th className="py-2 px-3 text-right">Sisa Bon</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-red-50 font-medium">
+                      {unpaidSupplierBons.slice(0, 5).map((po) => {
+                        const sisa = Math.max(0, po.total - (po.paidAmount || 0));
+                        return (
+                          <tr key={po.poNumber}>
+                            <td className="py-2 px-3 font-semibold text-slate-800">{po.supplier}</td>
+                            <td className="py-2 px-3 font-mono text-slate-600">{po.poNumber}</td>
+                            <td className="py-2 px-3 text-right font-bold text-red-600">Rp {sisa.toLocaleString('id-ID')}</td>
+                          </tr>
+                        );
+                      })}
+                      {unpaidSupplierBons.length > 5 && (
+                        <tr>
+                          <td colSpan={3} className="py-1.5 px-3 text-center text-[10px] text-slate-400 font-bold">
+                            + {unpaidSupplierBons.length - 5} bon supplier lainnya
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              
+              <div className="pt-1 text-right">
+                <Button variant="link" className="h-auto p-0 text-[11px] text-red-700 font-bold" onClick={() => { setShowDebtPreview(false); onTabChange('finance'); }}>
+                  Bayar di Pembayaran &gt; Supplier →
+                </Button>
+              </div>
             </div>
-            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 space-y-1">
-              <p className="font-bold text-amber-700 uppercase text-[10px] tracking-wider">Piutang dari Customer (Belum Lunas)</p>
-              <p className="text-xl font-black text-amber-700">Rp {totalPiutangAmount.toLocaleString('id-ID')}</p>
-              <p className="text-slate-500">{allPendingCustomers.length} pelanggan masih punya sisa tagihan{overdueCustomers.length > 0 ? `, ${overdueCustomers.length} sudah jatuh tempo` : ''}.</p>
-              <Button variant="link" className="h-auto p-0 text-[11px] text-amber-700" onClick={() => { setShowDebtPreview(false); onTabChange('debts'); }}>
-                Tagih di Utang &amp; Piutang →
-              </Button>
+
+            {/* Section 2: Piutang Customer Aktif */}
+            <div className="bg-amber-50/70 border border-amber-150 rounded-xl p-4 space-y-2">
+              <div className="flex justify-between items-center">
+                <p className="font-extrabold text-amber-800 uppercase text-[10px] tracking-wider">Piutang dari Customer (Belum Lunas)</p>
+                <span className="text-base font-black text-amber-700">Rp {totalPiutangAmount.toLocaleString('id-ID')}</span>
+              </div>
+              
+              {allPendingCustomers.length === 0 ? (
+                <p className="text-[11px] text-slate-500 italic">Tidak ada piutang customer aktif saat ini.</p>
+              ) : (
+                <div className="overflow-x-auto bg-white rounded-lg border border-amber-100 mt-2">
+                  <table className="w-full text-left text-[11px]">
+                    <thead className="bg-amber-100/50 text-amber-900 font-bold text-[9px] uppercase">
+                      <tr>
+                        <th className="py-2 px-3">Nama Customer</th>
+                        <th className="py-2 px-3">Status</th>
+                        <th className="py-2 px-3 text-right">Sisa Hutang</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-50 font-medium">
+                      {allPendingCustomers.slice(0, 5).map((c) => (
+                        <tr key={c.id}>
+                          <td className="py-2 px-3 font-semibold text-slate-800">{c.name}</td>
+                          <td className="py-2 px-3">
+                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              c.debtStatus === 'Overdue' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {c.debtStatus === 'Overdue' ? 'Jatuh Tempo' : 'Aktif'}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-right font-bold text-amber-700">Rp {(c.currentDebt || 0).toLocaleString('id-ID')}</td>
+                        </tr>
+                      ))}
+                      {allPendingCustomers.length > 5 && (
+                        <tr>
+                          <td colSpan={3} className="py-1.5 px-3 text-center text-[10px] text-slate-400 font-bold">
+                            + {allPendingCustomers.length - 5} customer lainnya
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              
+              <div className="pt-1 text-right">
+                <Button variant="link" className="h-auto p-0 text-[11px] text-amber-700 font-bold" onClick={() => { setShowDebtPreview(false); onTabChange('debts'); }}>
+                  Tagih di Utang &amp; Piutang →
+                </Button>
+              </div>
             </div>
-            <div className="flex justify-between items-center border-t border-slate-100 pt-3 font-black text-slate-800">
-              <span className="uppercase text-[10px] tracking-wider text-slate-400">Total Gabungan</span>
-              <span>Rp {totalHutangPiutang.toLocaleString('id-ID')}</span>
+
+            {/* Total Ringkasan Gabungan */}
+            <div className="flex justify-between items-center border-t border-slate-200 pt-3 font-black text-slate-900 bg-slate-50 p-3 rounded-xl">
+              <span className="uppercase text-[10px] tracking-wider text-slate-500">Total Gabungan Hutang &amp; Piutang</span>
+              <span className="text-lg">Rp {totalHutangPiutang.toLocaleString('id-ID')}</span>
             </div>
           </div>
           <DialogFooter className="justify-end">

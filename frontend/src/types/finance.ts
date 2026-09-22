@@ -15,6 +15,8 @@ export interface Expense {
    * pribadi/di luar kasir) sehingga tidak menyentuh mutasi Kas Harian.
    * Transfer/Giro juga tidak menyentuh Kas Harian. */
   paymentMethod?: 'Tunai Kas' | 'Tunai Luar' | 'Transfer' | 'Giro';
+  expenseDate?: string;
+  receiptFile?: string;
 }
 
 export interface BankAccount {

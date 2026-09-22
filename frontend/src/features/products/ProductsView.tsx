@@ -1923,7 +1923,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                         key={p.sku}
                         onClick={() => {
                           setNewPOItemName(p.name);
-                          setNewPOItemPrice(p.buyPrice || 100000);
+                          setNewPOItemPrice(p.costPrice || p.retailPrice || 100000);
                         }}
                         className="text-[10px] px-2 py-0.5 bg-muted rounded-md text-foreground/80 hover:bg-muted/80 font-medium"
                       >

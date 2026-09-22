@@ -176,11 +176,13 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
       const nextExpense: Expense = {
         id: `EXP-MAN-${Math.floor(1000 + Math.random() * 9000)}`,
         date: newExpDate,
+        expenseDate: newExpDate,
         category: newExpCat,
         description: newExpDesc,
         submittedBy: newExpUser,
         amount: newExpAmount,
         receiptName: newExpProofFile ? newExpProofFile.name : "BUKTI_MANUAL.pdf",
+        receiptFile: newExpProofFile ? newExpProofFile.name : undefined,
         receiptUrl,
         paymentMethod: newExpMethod,
         status: 'Approved'
@@ -274,6 +276,12 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
         proofUrl,
         by: currentUser?.name,
       };
+      const paidHistoryEntry = {
+        date: new Date().toISOString(),
+        amount,
+        method: payMethod,
+        receiptName: payProofFile ? payProofFile.name : undefined,
+      };
 
       onUpdatePOs(pos.map((item) => item.poNumber === po.poNumber
         ? {
@@ -282,6 +290,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
           paidAt: isFullyPaid ? new Date().toISOString() : item.paidAt,
           paidMethod: payMethod,
           paymentHistory: [...(item.paymentHistory || []), paymentEntry],
+          paidHistory: [...(item.paidHistory || []), paidHistoryEntry],
         }
         : item));
 
@@ -821,6 +830,18 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                   </select>
                 </div>
 
+                <div>
+                  <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Rincian / Deskripsi Pengeluaran</label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="Contoh: Beli sabun cuci toko &amp; plastik bungkus..."
+                    value={newExpDesc}
+                    onChange={(e) => setNewExpDesc(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-medium text-gray-750 outline-none"
+                  />
+                </div>
+
                 <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Jumlah Biaya Pengeluaran (IDR)</label>
@@ -846,18 +867,6 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                     <option value="Transfer">Transfer</option>
                     <option value="Giro">Giro</option>
                   </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Rincian Pengeluaran</label>
-                  <input 
-                    type="text"
-                    required
-                    placeholder="Contoh: Beli sabun cuci toko &amp; plastik bungkus..."
-                    value={newExpDesc}
-                    onChange={(e) => setNewExpDesc(e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-medium text-gray-750 outline-none"
-                  />
                 </div>
 
                 <div>
