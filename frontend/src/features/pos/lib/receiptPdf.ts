@@ -472,10 +472,9 @@ export async function generateDeliveryNotePDF(
   doc.line(secondBoxX, y, secondBoxX + boxWidth, y);
   doc.line(thirdBoxX, y, thirdBoxX + boxWidth, y);
   y += 8;
+
   if (invoice.driverName) {
     doc.text(`${invoice.driverName}`, marginX, y, { align: 'left' });
-    y += lineHeight;
-
   }
   doc.text('( Nama )', secondBoxX, y);
   doc.text('( Nama )', thirdBoxX, y);
