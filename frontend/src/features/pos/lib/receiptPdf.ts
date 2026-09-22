@@ -463,7 +463,7 @@ export async function generateDeliveryNotePDF(
   setFont(9, true);
   const secondBoxX = marginX + boxWidth + 7.5;
   const thirdBoxX = secondBoxX + boxWidth + 7.5;
-  doc.text('Sopir,', marginX + boxWidth +7.5 , y);
+  doc.text('Sopir,', marginX, y);
   doc.text('Pemeriksa,', secondBoxX, y);
   doc.text('Penerima,', thirdBoxX, y);
   y += 20;
@@ -473,8 +473,9 @@ export async function generateDeliveryNotePDF(
   doc.line(thirdBoxX, y, thirdBoxX + boxWidth, y);
   y += 8;
   if (invoice.driverName) {
-    doc.text(`${invoice.driverName}`, marginX + 24, y, { align: 'left' });
+    doc.text(`${invoice.driverName}`, marginX + 40, y, { align: 'left' });
     y += lineHeight;
+
   }
   doc.text('( Nama )', secondBoxX, y);
   doc.text('( Nama )', thirdBoxX, y);
