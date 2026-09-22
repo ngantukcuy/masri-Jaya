@@ -1,18 +1,20 @@
 export interface Expense {
   id: string;
+  /** Tanggal pengeluaran (ISO yyyy-mm-dd), dipilih manual lewat form — bukan selalu hari ini. */
   date: string;
-  /** Tanggal yang diisi user pada form (boleh berbeda dari tanggal pencatatan). */
-  expenseDate?: string;
   category: 'Bensin' | 'Gaji' | 'Bon' | 'Lainnya';
   description: string;
   submittedBy: string;
   amount: number;
   receiptName: string;
-  /** Nama file bukti pembayaran yang diunggah. */
-  receiptFile?: string;
-  /** Metode bayar: Tunai-Kas = kurangi Kas Harian, Tunai-NonKas = tunai tapi tidak kurangi kas. */
-  paymentMethod?: 'Tunai-Kas' | 'Tunai-NonKas' | 'Transfer' | 'Giro';
+  /** URL bukti pengeluaran (foto nota/struk) yang diupload ke Supabase Storage, kalau ada. */
+  receiptUrl?: string;
   status: 'Pending' | 'Approved' | 'Rejected';
+  /** Metode bayar pengeluaran ini. 'Tunai Kas' mengurangi Kas Harian toko;
+   * 'Tunai Luar' juga dibayar cash tapi BUKAN dari kas toko (mis. uang
+   * pribadi/di luar kasir) sehingga tidak menyentuh mutasi Kas Harian.
+   * Transfer/Giro juga tidak menyentuh Kas Harian. */
+  paymentMethod?: 'Tunai Kas' | 'Tunai Luar' | 'Transfer' | 'Giro';
 }
 
 export interface BankAccount {

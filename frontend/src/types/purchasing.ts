@@ -1,3 +1,14 @@
+export interface POPayment {
+  id: string;
+  /** Nominal yang dibayarkan pada cicilan/pembayaran ini (bukan sisa atau total). */
+  amount: number;
+  method: 'Tunai' | 'Transfer';
+  date: string;
+  /** URL bukti bayar (foto struk/transfer) yang diupload ke Supabase Storage. */
+  proofUrl?: string;
+  by?: string;
+}
+
 export interface POItem {
   name: string;
   sku: string;
@@ -31,16 +42,15 @@ export interface PO {
   paidAt?: string;
   paidAmount?: number;
   paidMethod?: 'Tunai' | 'Transfer';
-  /** Riwayat cicilan pembayaran bon — diisi tiap kali ada pembayaran dari
-   * tab Pembayaran > Pembayaran ke Supplier. Bon lunas ketika total cicilan
-   * >= total bon. */
-  paidHistory?: { date: string; amount: number; method: string; receiptName?: string }[];
-  /** Jika true, barang dipesan langsung diantarkan ke customer (tidak masuk
-   * gudang toko). Saat status berubah ke Received, stok tidak bertambah —
-   * hanya mencatat pengeluaran ke activity. */
-  directToCustomer?: boolean;
-  /** Nama / catatan customer tujuan untuk pesanan directToCustomer. */
-  directToCustomerName?: string;
+  /** Riwayat cicilan pembayaran bon ini (tiap entri bisa punya bukti bayar sendiri). */
+  paymentHistory?: POPayment[];
+  /** True kalau barang pesanan ini dikirim langsung ke customer oleh
+   * supplier (dropship) — tidak pernah singgah/masuk ke gudang toko, jadi
+   * saat "Konfirmasi Barang Diterima" stok TIDAK ditambah. Tetap tercatat
+   * sebagai bon/hutang ke supplier seperti biasa di Pembayaran > Supplier. */
+  dropship?: boolean;
+  /** Catatan opsional tujuan pengiriman dropship (mis. nama/alamat customer). */
+  dropshipNote?: string;
 }
 
 export interface Supplier {

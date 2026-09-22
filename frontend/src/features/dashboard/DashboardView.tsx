@@ -10,10 +10,7 @@ import {
   CheckCircle2, 
   AlertTriangle,
   Forklift,
-  Download,
-  CreditCard,
-  ArrowRight,
-  X
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, Activity, SalesInvoice, Customer, Expense, PO } from '../../types';
@@ -59,41 +56,21 @@ interface DashboardViewProps {
   activities: Activity[];
   salesInvoices: SalesInvoice[];
   customers: Customer[];
-  expenses: Expense[];
-  pos: PO[];
+  expenses?: Expense[];
+  pos?: PO[];
   totalSales: number;
   totalOrdersCount: number;
   onTabChange: (tab: string) => void;
   onQuickRestock: () => void;
 }
 
-/** Cek apakah tanggal ISO string masuk dalam rentang [fromDate, toDate] */
-function inRange(isoStr: string | undefined, fromDate: Date, toDate: Date): boolean {
-  if (!isoStr) return false;
-  const d = new Date(isoStr);
-  if (isNaN(d.getTime())) return false;
-  // toDate diset sampai akhir hari
-  const endOfDay = new Date(toDate);
-  endOfDay.setHours(23, 59, 59, 999);
-  return d >= fromDate && d <= endOfDay;
-}
-
-const isPOPaid = (po: PO): boolean => {
-  if (po.paidAt) return true;
-  if (po.paidHistory && po.paidHistory.length > 0) {
-    const totalPaid = po.paidHistory.reduce((s, h) => s + h.amount, 0);
-    if (totalPaid >= po.total) return true;
-  }
-  return po.paymentMethod === 'Cash' || po.paymentMethod === 'Transfer';
-};
-
 export default function DashboardView({ 
   products, 
   activities, 
   salesInvoices,
   customers,
-  expenses,
-  pos,
+  expenses = [],
+  pos = [],
   totalSales, 
   totalOrdersCount, 
   onTabChange, 
@@ -124,70 +101,22 @@ export default function DashboardView({
       return sum + itemProfit;
     }, 0);
 
-  // Parse filter dates
-  const filterFrom = useMemo(() => {
-    const d = new Date(chartDateFrom);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, [chartDateFrom]);
-  const filterTo = useMemo(() => {
-    const d = new Date(chartDateTo);
-    d.setHours(23, 59, 59, 999);
-    return d;
-  }, [chartDateTo]);
+  const sameDay = (isoA: string, dateB: Date) => new Date(isoA).toDateString() === dateB.toDateString();
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
 
-  // ---- KPI computations berdasarkan filter tanggal ----
-  const filteredInvoices = useMemo(
-    () => salesInvoices.filter((inv) => inRange(inv.createdAt, filterFrom, filterTo)),
-    [salesInvoices, filterFrom, filterTo]
-  );
+  const todayInvoices = salesInvoices.filter((inv) => inv.createdAt && sameDay(inv.createdAt, today));
+  const yesterdayInvoices = salesInvoices.filter((inv) => inv.createdAt && sameDay(inv.createdAt, yesterday));
 
-  // Card 1: Total Pendapatan (semua invoice dalam rentang)
-  const totalRevenue = filteredInvoices.reduce((s, inv) => s + inv.total, 0);
-
-  // Card 2: Total Pengeluaran (expenses approved + bon supplier yang diterima dalam rentang)
-  const filteredExpenses = useMemo(
-    () => expenses.filter((e) => {
-      const dateStr = e.expenseDate || e.date;
-      if (!dateStr) return false;
-      const d = new Date(dateStr);
-      return !isNaN(d.getTime()) && d >= filterFrom && d <= filterTo;
-    }),
-    [expenses, filterFrom, filterTo]
-  );
-  const totalExpenses = filteredExpenses.reduce((s, e) => s + e.amount, 0);
-
-  // Bon supplier yang sudah diterima/lunas dalam rentang (bayar tempo dihitung dari tanggal dibayar)
-  const filteredPOExpenses = useMemo(
-    () => pos.filter((po) => {
-      if (po.status !== 'Received') return false;
-      const dateStr = po.paidAt || po.receivedAt || po.createdDate;
-      if (!dateStr) return false;
-      const d = new Date(dateStr);
-      return !isNaN(d.getTime()) && d >= filterFrom && d <= filterTo;
-    }),
-    [pos, filterFrom, filterTo]
-  );
-  const totalPOExpenses = filteredPOExpenses.reduce((s, po) => s + po.total, 0);
-  const totalAllExpenses = totalExpenses + totalPOExpenses;
-
-  // Card 3: Estimasi Untung Bersih = Pendapatan - Pengeluaran
-  const estimatedNetProfit = totalRevenue - totalAllExpenses;
-
-  // Card 4: Hutang & Piutang — semua hutang bon belum lunas + piutang customer aktif
-  const unpaidPOs = pos.filter((po) => (po.status === 'Received' || po.status === 'In Transit') && !isPOPaid(po));
-  const totalUnpaidPOs = unpaidPOs.reduce((s, po) => s + po.total, 0);
-  const activeCustomerDebts = customers.filter((c) => c.currentDebt > 0);
-  const totalCustomerDebts = activeCustomerDebts.reduce((s, c) => s + c.currentDebt, 0);
-  const totalDebtAndReceivable = totalUnpaidPOs + totalCustomerDebts;
-
-  // ---- KPI trend helpers ----
   const pctChange = (current: number, previous: number) => {
     if (previous > 0) return ((current - previous) / previous) * 100;
     return current > 0 ? 100 : 0;
   };
 
-  // Data grafik tren pendapatan pada rentang tanggal terpilih
+  // Data grafik tren pendapatan pada rentang tanggal terpilih, dihitung
+  // langsung dari salesInvoices (database). Granularitas menyesuaikan
+  // rentang (harian/mingguan/bulanan) lewat buildDateBuckets.
   const monthlyData = useMemo(() => {
     const buckets = buildDateBuckets(chartDateFrom, chartDateTo);
     return buckets.map((b) => {
@@ -206,15 +135,82 @@ export default function DashboardView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [salesInvoices, chartDateFrom, chartDateTo]);
 
+  // KPI "hari ini" dihitung dari transaksi POS sungguhan, dibandingkan kemarin.
+  const liveTodaySales = todayInvoices.reduce((s, inv) => s + inv.total, 0);
+  const yesterdaySales = yesterdayInvoices.reduce((s, inv) => s + inv.total, 0);
+  const salesChangePct = pctChange(liveTodaySales, yesterdaySales);
+
+  const liveNetProfit = todayInvoices.reduce((s, inv) => s + estimateInvoiceProfit(inv), 0);
+
+  // Piutang jatuh tempo dihitung dari data pelanggan sungguhan (bukan angka tetap).
+  const overdueCustomers = customers.filter((c) => c.debtStatus === 'Overdue');
+  const totalOverdueAmount = overdueCustomers.reduce(
+    (s, c) => s + (c.overdueAmount ?? c.currentDebt ?? 0),
+    0
+  );
+
+  // ---- KPI 4 kotak dashboard, mengikuti filter tanggal (chartDateFrom/chartDateTo) ----
+  // Kotak 1 "Pendapatan Keseluruhan" & grafik pakai bucket yang sama supaya
+  // selalu konsisten satu sama lain.
+  const rangeTotalRevenue = monthlyData.reduce((s, d) => s + d.sales, 0);
+  const rangeInvoiceCount = salesInvoices.filter((inv) => {
+    if (!inv.createdAt) return false;
+    const t = new Date(inv.createdAt).getTime();
+    if (Number.isNaN(t)) return false;
+    const from = new Date(chartDateFrom); from.setHours(0, 0, 0, 0);
+    const to = new Date(chartDateTo); to.setHours(23, 59, 59, 999);
+    return t >= from.getTime() && t <= to.getTime();
+  }).length;
+
+  const inDateRange = (isoOrDateLike?: string) => {
+    if (!isoOrDateLike) return false;
+    const t = new Date(isoOrDateLike).getTime();
+    if (Number.isNaN(t)) return false;
+    const from = new Date(chartDateFrom); from.setHours(0, 0, 0, 0);
+    const to = new Date(chartDateTo); to.setHours(23, 59, 59, 999);
+    return t >= from.getTime() && t <= to.getTime();
+  };
+
+  // Kotak 2 "Total Pengeluaran" = seluruh minus: bon supplier yang sudah
+  // dibayar (lunas ATAU cicilan yang sudah masuk) + pengeluaran lain-lain,
+  // dibatasi ke rentang tanggal terpilih.
+  const isPOPaidForRange = (po: PO) => !!po.paidAt || po.paymentMethod === 'Cash' || po.paymentMethod === 'Transfer';
+  const rangePaidPOTotal = pos.reduce((sum, po) => {
+    if (!isPOPaidForRange(po)) return sum;
+    const effectiveDate = po.paidAt || po.receivedAt || po.createdDate;
+    if (!inDateRange(effectiveDate)) return sum;
+    // Kalau bon ini pernah dicicil, hanya nominal yang sudah masuk yang
+    // dihitung sebagai pengeluaran nyata (bukan total bon).
+    return sum + (po.paidAmount && po.paidAmount > 0 ? po.paidAmount : po.total);
+  }, 0);
+  const rangeExpenseTotal = expenses.reduce((sum, e) => (inDateRange(e.date) ? sum + e.amount : sum), 0);
+  const rangeTotalPengeluaran = rangePaidPOTotal + rangeExpenseTotal;
+
+  // Kotak 3 "Estimasi Untung Bersih" = total pendapatan keseluruhan dikurangi
+  // total pengeluaran keseluruhan pada rentang yang sama.
+  const rangeNetProfit = rangeTotalRevenue - rangeTotalPengeluaran;
+  const rangeMarginPct = rangeTotalRevenue > 0 ? (rangeNetProfit / rangeTotalRevenue) * 100 : 0;
+
+  // Kotak 4 "Tagihan Hutang & Piutang" = gabungan piutang dari customer
+  // (jatuh tempo/belum lunas) dan hutang ke supplier (bon belum lunas).
+  // Ini status LIVE hari ini (bukan per-rentang-tanggal) karena "jatuh
+  // tempo" itu relatif ke sekarang, bukan ke rentang grafik yang dipilih.
+  const allPendingCustomers = customers.filter((c) => (c.currentDebt || 0) > 0);
+  const totalPiutangAmount = allPendingCustomers.reduce((s, c) => s + (c.currentDebt || 0), 0);
+  const unpaidSupplierBons = pos.filter((po) => !isPOPaidForRange(po) && (po.status === 'Received' || po.status === 'In Transit' || po.receivedAt));
+  const totalHutangAmount = unpaidSupplierBons.reduce((s, po) => s + Math.max(0, po.total - (po.paidAmount || 0)), 0);
+  const totalHutangPiutang = totalPiutangAmount + totalHutangAmount;
+
   const handleExportReport = () => downloadSalesCSV(salesInvoices);
 
-  // Peringatan stok kritis
+  // Peringatan stok kritis: produk asli dengan status Low/Out of Stock (bukan contoh statis).
   const criticalStockProducts = [...products]
     .filter((p) => p.stockStatus === 'Low Stock' || p.stockStatus === 'Out of Stock')
     .sort((a, b) => a.stock - b.stock);
   const mostCriticalProduct = criticalStockProducts[0];
 
-  // Kontribusi penjualan per kategori
+  // Kontribusi penjualan per kategori: item invoice sungguhan di-join ke
+  // kategori produknya (bukan tiga baris persentase tetap 65/22/13%).
   const categoryBySku = new Map(products.map((p) => [p.sku, p.category]));
   const categoryRevenue = new Map<string, number>();
   salesInvoices.forEach((inv) => {
@@ -266,16 +262,11 @@ export default function DashboardView({
             </span>
           </p>
         </div>
-        {onClick && (
-          <div className="absolute bottom-3 right-3 text-slate-300 hover:text-slate-500 transition-colors">
-            <ArrowRight className="w-3.5 h-3.5" />
-          </div>
-        )}
       </motion.div>
     );
   };
 
-  // SVG Line Chart coordinates calculation
+  // SVG Line Chart coordinates calculation — skala mengikuti data asli (dengan padding 15%)
   const maxSalesValue = Math.max(1, ...monthlyData.map((d) => d.sales));
   const maxProfitValue = Math.max(1, ...monthlyData.map((d) => d.profit));
   const maxVal = (activeChartTab === 'sales' ? maxSalesValue : maxProfitValue) * 1.15;
@@ -288,13 +279,6 @@ export default function DashboardView({
   });
 
   const pathD = `M ${points.map(p => `${p.x} ${p.y}`).join(' L ')}`;
-
-  // Overdue customers untuk modal
-  const overdueCustomers = customers.filter((c) => c.debtStatus === 'Overdue');
-  const totalOverdueAmount = overdueCustomers.reduce(
-    (s, c) => s + (c.overdueAmount ?? c.currentDebt ?? 0),
-    0
-  );
 
   return (
     <div className="space-y-6">
@@ -323,6 +307,7 @@ export default function DashboardView({
                   className="h-8 text-[11px] w-auto"
                 />
                 </div>
+                <p className="text-[9px] text-slate-400 self-end pb-1 hidden md:block max-w-[160px] leading-snug">Filter ini berlaku untuk kotak pendapatan/pengeluaran/untung &amp; grafik di bawah.</p>
         </div>
         
         <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -337,41 +322,41 @@ export default function DashboardView({
         </div>
       </div>
 
-      {/* Bento Grid 4 KPI Cards — semua dipengaruhi filter tanggal */}
+      {/* Bento Grid 4 KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
         {renderKpiCard(
-          "Total Pendapatan",
-          `Rp ${totalRevenue.toLocaleString('id-ID')}`,
-          `${filteredInvoices.length} transaksi dalam periode`,
-          filteredInvoices.length > 0 ? "up" : "neutral",
+          "Pendapatan Keseluruhan",
+          `Rp ${rangeTotalRevenue.toLocaleString('id-ID')}`,
+          `${rangeInvoiceCount} transaksi pada periode ini`,
+          "neutral",
           <DollarSign className="w-4.5 h-4.5" />,
           "bg-emerald-500/10",
           "text-emerald-600"
         )}
         {renderKpiCard(
           "Total Pengeluaran",
-          `Rp ${totalAllExpenses.toLocaleString('id-ID')}`,
-          `${filteredExpenses.length} pengeluaran + ${filteredPOExpenses.length} bon`,
-          totalAllExpenses > 0 ? "down" : "neutral",
+          `Rp ${rangeTotalPengeluaran.toLocaleString('id-ID')}`,
+          "Bon supplier + pengeluaran lain",
+          "neutral",
           <TrendingDown className="w-4.5 h-4.5" />,
           "bg-red-500/10",
           "text-red-600"
         )}
         {renderKpiCard(
           "Estimasi Untung Bersih",
-          `Rp ${estimatedNetProfit.toLocaleString('id-ID')}`,
-          estimatedNetProfit >= 0 ? "Pendapatan melebihi pengeluaran" : "Pengeluaran melebihi pendapatan",
-          estimatedNetProfit >= 0 ? "up" : "down",
+          `Rp ${rangeNetProfit.toLocaleString('id-ID')}`,
+          `${rangeMarginPct >= 0 ? '+' : ''}${rangeMarginPct.toFixed(1)}% margin dari pendapatan`,
+          rangeNetProfit >= 0 ? "up" : "down",
           <TrendingUp className="w-4.5 h-4.5" />,
           "bg-blue-500/10",
           "text-blue-600"
         )}
         {renderKpiCard(
-          "Hutang & Piutang",
-          `Rp ${totalDebtAndReceivable.toLocaleString('id-ID')}`,
-          `${unpaidPOs.length} bon supplier · ${activeCustomerDebts.length} customer`,
-          totalDebtAndReceivable > 0 ? "down" : "neutral",
-          <CreditCard className="w-4.5 h-4.5" />,
+          "Tagihan Hutang & Piutang",
+          `Rp ${totalHutangPiutang.toLocaleString('id-ID')}`,
+          `${allPendingCustomers.length} piutang · ${unpaidSupplierBons.length} bon — klik untuk detail`,
+          totalHutangPiutang > 0 ? "down" : "neutral",
+          <FileText className="w-4.5 h-4.5" />,
           "bg-amber-500/10",
           "text-amber-600",
           () => setShowDebtPreview(true)
@@ -560,11 +545,11 @@ export default function DashboardView({
                 <div className="space-y-3">
                   <div className="bg-black/35 p-2.5 border border-slate-800/80 rounded-xl">
                     <div className="flex gap-2">
-                      {estimatedNetProfit >= 0
+                      {salesChangePct >= 0
                         ? <TrendingUp className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
                         : <TrendingDown className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />}
                       <p className="text-[11px] text-slate-300 uppercase tracking-wide leading-normal">
-                        Periode ini pendapatan <span className={`font-bold ${estimatedNetProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>Rp {totalRevenue.toLocaleString('id-ID')}</span> dengan pengeluaran <span className="font-bold text-red-400">Rp {totalAllExpenses.toLocaleString('id-ID')}</span>.
+                        Pendapatan hari ini {salesChangePct >= 0 ? 'naik' : 'turun'} <span className={`font-bold ${salesChangePct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{Math.abs(salesChangePct).toFixed(1)}%</span> dibanding kemarin, dari {todayInvoices.length} transaksi kasir.
                       </p>
                     </div>
                   </div>
@@ -722,106 +707,38 @@ export default function DashboardView({
         </div>
       </div>
 
-      {/* ====== Modal Preview Hutang & Piutang ====== */}
+      {/* Preview gabungan Hutang (ke Supplier) & Piutang (dari Customer) — dibuka dari kotak KPI ke-4 */}
       <Dialog open={showDebtPreview} onOpenChange={setShowDebtPreview}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-sm">
-              <CreditCard className="w-4 h-4 text-amber-500" />
-              Ringkasan Hutang &amp; Piutang
+            <DialogTitle className="text-sm normal-case tracking-widest">
+              <FileText className="w-5 h-5" /> Rincian Hutang &amp; Piutang
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-1">
-            {/* Hutang Bon Supplier */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h5 className="text-xs font-extrabold text-gray-700 uppercase tracking-wider">Bon Supplier Belum Lunas</h5>
-                <span className="text-xs font-black text-amber-600">Rp {totalUnpaidPOs.toLocaleString('id-ID')}</span>
-              </div>
-              {unpaidPOs.length === 0 ? (
-                <p className="text-[11px] text-gray-400 italic px-3 py-4 bg-gray-50 rounded-xl">Semua bon supplier sudah lunas.</p>
-              ) : (
-                <div className="border border-gray-200 rounded-xl overflow-hidden">
-                  <table className="w-full text-xs">
-                    <thead className="bg-gray-50 text-[10px] text-gray-400 font-bold uppercase">
-                      <tr>
-                        <th className="py-2 px-3 text-left">Supplier</th>
-                        <th className="py-2 px-3 text-left">No. PO</th>
-                        <th className="py-2 px-3 text-right">Total Bon</th>
-                        <th className="py-2 px-3 text-right">Sisa Bayar</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {unpaidPOs.slice(0, 10).map((po) => {
-                        const paid = po.paidHistory?.reduce((s, h) => s + h.amount, 0) ?? 0;
-                        const remaining = po.total - paid;
-                        return (
-                          <tr key={po.poNumber} className="hover:bg-amber-50/30">
-                            <td className="py-2 px-3 font-semibold text-gray-800">{po.supplier}</td>
-                            <td className="py-2 px-3 font-mono text-gray-500">{po.poNumber}</td>
-                            <td className="py-2 px-3 text-right text-gray-700">Rp {po.total.toLocaleString('id-ID')}</td>
-                            <td className="py-2 px-3 text-right font-bold text-amber-600">Rp {remaining.toLocaleString('id-ID')}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  {unpaidPOs.length > 10 && (
-                    <p className="text-[10px] text-gray-400 px-3 py-2 text-center">+{unpaidPOs.length - 10} bon lainnya</p>
-                  )}
-                </div>
-              )}
+          <div className="space-y-4 text-xs">
+            <div className="bg-red-50 border border-red-100 rounded-xl p-4 space-y-1">
+              <p className="font-bold text-red-700 uppercase text-[10px] tracking-wider">Hutang ke Supplier (Bon Belum Lunas)</p>
+              <p className="text-xl font-black text-red-700">Rp {totalHutangAmount.toLocaleString('id-ID')}</p>
+              <p className="text-slate-500">{unpaidSupplierBons.length} bon dari supplier menunggu dibayar/dicicil.</p>
+              <Button variant="link" className="h-auto p-0 text-[11px] text-red-700" onClick={() => { setShowDebtPreview(false); onTabChange('finance'); }}>
+                Bayar di Pembayaran &gt; Supplier →
+              </Button>
             </div>
-
-            {/* Piutang Customer */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h5 className="text-xs font-extrabold text-gray-700 uppercase tracking-wider">Piutang Customer Aktif</h5>
-                <span className="text-xs font-black text-red-600">Rp {totalCustomerDebts.toLocaleString('id-ID')}</span>
-              </div>
-              {activeCustomerDebts.length === 0 ? (
-                <p className="text-[11px] text-gray-400 italic px-3 py-4 bg-gray-50 rounded-xl">Tidak ada piutang customer yang aktif.</p>
-              ) : (
-                <div className="border border-gray-200 rounded-xl overflow-hidden">
-                  <table className="w-full text-xs">
-                    <thead className="bg-gray-50 text-[10px] text-gray-400 font-bold uppercase">
-                      <tr>
-                        <th className="py-2 px-3 text-left">Customer</th>
-                        <th className="py-2 px-3 text-left">Status</th>
-                        <th className="py-2 px-3 text-right">Sisa Hutang</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {activeCustomerDebts.slice(0, 10).map((c) => (
-                        <tr key={c.id} className="hover:bg-red-50/30">
-                          <td className="py-2 px-3 font-semibold text-gray-800">{c.name}</td>
-                          <td className="py-2 px-3">
-                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
-                              c.debtStatus === 'Overdue' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
-                            }`}>
-                              {c.debtStatus === 'Overdue' ? 'Jatuh Tempo' : 'Berjalan'}
-                            </span>
-                          </td>
-                          <td className="py-2 px-3 text-right font-bold text-red-600">Rp {c.currentDebt.toLocaleString('id-ID')}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {activeCustomerDebts.length > 10 && (
-                    <p className="text-[10px] text-gray-400 px-3 py-2 text-center">+{activeCustomerDebts.length - 10} customer lainnya</p>
-                  )}
-                </div>
-              )}
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 space-y-1">
+              <p className="font-bold text-amber-700 uppercase text-[10px] tracking-wider">Piutang dari Customer (Belum Lunas)</p>
+              <p className="text-xl font-black text-amber-700">Rp {totalPiutangAmount.toLocaleString('id-ID')}</p>
+              <p className="text-slate-500">{allPendingCustomers.length} pelanggan masih punya sisa tagihan{overdueCustomers.length > 0 ? `, ${overdueCustomers.length} sudah jatuh tempo` : ''}.</p>
+              <Button variant="link" className="h-auto p-0 text-[11px] text-amber-700" onClick={() => { setShowDebtPreview(false); onTabChange('debts'); }}>
+                Tagih di Utang &amp; Piutang →
+              </Button>
+            </div>
+            <div className="flex justify-between items-center border-t border-slate-100 pt-3 font-black text-slate-800">
+              <span className="uppercase text-[10px] tracking-wider text-slate-400">Total Gabungan</span>
+              <span>Rp {totalHutangPiutang.toLocaleString('id-ID')}</span>
             </div>
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowDebtPreview(false)}>Tutup</Button>
-            <Button onClick={() => { setShowDebtPreview(false); onTabChange('finance'); }} className="gap-1.5">
-              <ArrowRight className="w-3.5 h-3.5" /> Ke Halaman Pembayaran
-            </Button>
-            <Button variant="outline" onClick={() => { setShowDebtPreview(false); onTabChange('debts'); }} className="gap-1.5">
-              <ArrowRight className="w-3.5 h-3.5" /> Ke Utang-Piutang
-            </Button>
+          <DialogFooter className="justify-end">
+            <Button type="button" variant="outline" onClick={() => setShowDebtPreview(false)}>Tutup</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -837,7 +754,7 @@ export default function DashboardView({
           <div className="space-y-4 text-xs text-slate-600 max-h-96 overflow-y-auto pr-1 leading-relaxed">
             <p className="font-bold text-slate-800">Ringkasan Performa:</p>
             <p>
-              Total pendapatan periode ini Rp {totalRevenue.toLocaleString('id-ID')} dari {filteredInvoices.length} transaksi. Total pengeluaran Rp {totalAllExpenses.toLocaleString('id-ID')}. Estimasi untung bersih Rp {estimatedNetProfit.toLocaleString('id-ID')}.
+              Pendapatan hari ini {salesChangePct >= 0 ? 'naik' : 'turun'} {Math.abs(salesChangePct).toFixed(1)}% dibanding kemarin, dari {todayInvoices.length} transaksi kasir senilai Rp {liveTodaySales.toLocaleString('id-ID')}. Estimasi untung bersih hari ini sekitar Rp {liveNetProfit.toLocaleString('id-ID')}.
             </p>
             {mostCriticalProduct && (
               <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 text-amber-900 space-y-2">
@@ -861,12 +778,7 @@ export default function DashboardView({
               ) : (
                 <li>Tidak ada piutang jatuh tempo saat ini — arus kas dari penjualan kredit dalam kondisi aman.</li>
               )}
-              {unpaidPOs.length > 0 && (
-                <li>
-                  Ada {unpaidPOs.length} bon supplier senilai <span className="font-bold text-amber-600">Rp {totalUnpaidPOs.toLocaleString('id-ID')}</span> yang belum dibayar. Segera selesaikan agar hubungan supplier tetap baik.
-                </li>
-              )}
-              {!mostCriticalProduct && overdueCustomers.length === 0 && unpaidPOs.length === 0 && (
+              {!mostCriticalProduct && overdueCustomers.length === 0 && (
                 <li>Belum ada data transaksi yang cukup untuk rekomendasi tambahan. Rekomendasi akan muncul seiring bertambahnya data penjualan.</li>
               )}
             </ul>

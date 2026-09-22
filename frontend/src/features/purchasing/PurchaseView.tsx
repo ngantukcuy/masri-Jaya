@@ -56,6 +56,11 @@ export default function PurchaseView({
   const [newPOItemQuantity, setNewPOItemQuantity] = useState(10);
   const [newPOItemPrice, setNewPOItemPrice] = useState(100000);
   const [newPOLogistics, setNewPOLogistics] = useState('');
+  // Dropship: pesanan yang langsung dikirim supplier ke customer, tidak
+  // pernah singgah di gudang toko — jadi saat diterima, stok TIDAK
+  // bertambah, hanya tetap tercatat sebagai bon/pengeluaran ke supplier.
+  const [newPODropship, setNewPODropship] = useState(false);
+  const [newPODropshipNote, setNewPODropshipNote] = useState('');
 
   // Form states for editing PO
   const [editPOSupplier, setEditPOSupplier] = useState('');
@@ -79,7 +84,7 @@ export default function PurchaseView({
     // Transition status
     const updatedPOs = pos.map((p) => {
       if (p.poNumber === po.poNumber) {
-        return { ...p, status: 'Received' as const };
+        return { ...p, status: 'Received' as const, receivedAt: new Date().toISOString() };
       }
       return p;
     });
@@ -88,23 +93,29 @@ export default function PurchaseView({
     const refreshedSelected = updatedPOs.find(p => p.poNumber === po.poNumber) || null;
     setSelectedPO(refreshedSelected);
 
-    // Dynamic stock adjustment
-    const updatedProducts = [...products];
-    po.items.forEach((item) => {
-      // Find matching product
-      const match = updatedProducts.find(
-        (p) => p.name.toLowerCase().includes(item.name.toLowerCase()) || 
-               item.name.toLowerCase().includes(p.name.toLowerCase())
-      );
-      if (match) {
-        match.stock += item.quantity;
-        match.stockStatus = match.stock > 15 ? 'Healthy' : 'Low Stock';
-        // Tandai sebagai stok baru masuk — muncul di kartu "Stok Baru Masuk" halaman Stok.
-        match.lastRestock = new Date().toISOString();
-        match.lastRestockQty = item.quantity;
-      }
-    });
-    onUpdateProducts(updatedProducts);
+    // Dropship: barang langsung dikirim supplier ke customer, tidak pernah
+    // singgah di gudang toko — jadi stok TIDAK ditambah sama sekali. Bon-nya
+    // tetap tercatat sebagai hutang ke supplier (lihat update debt di bawah)
+    // dan baru jadi pengeluaran nyata saat dibayar lewat Pembayaran > Supplier.
+    if (!po.dropship) {
+      // Dynamic stock adjustment
+      const updatedProducts = [...products];
+      po.items.forEach((item) => {
+        // Find matching product
+        const match = updatedProducts.find(
+          (p) => p.name.toLowerCase().includes(item.name.toLowerCase()) || 
+                 item.name.toLowerCase().includes(p.name.toLowerCase())
+        );
+        if (match) {
+          match.stock += item.quantity;
+          match.stockStatus = match.stock > 15 ? 'Healthy' : 'Low Stock';
+          // Tandai sebagai stok baru masuk — muncul di kartu "Stok Baru Masuk" halaman Stok.
+          match.lastRestock = new Date().toISOString();
+          match.lastRestockQty = item.quantity;
+        }
+      });
+      onUpdateProducts(updatedProducts);
+    }
 
     // Update supplier's outstanding debt (payable) and latest PO reference
     const updatedSuppliers = suppliers.map((s) =>
@@ -116,13 +127,19 @@ export default function PurchaseView({
 
     // Add activity stream event
     onAddActivity(
-      `Penerimaan Barang PO: ${po.poNumber}`,
-      `Menambah ${po.items.reduce((acc, i) => acc + i.quantity, 0)} unit bahan bangunan dari ${po.supplier}`,
+      po.dropship ? `Dropship Langsung ke Customer: ${po.poNumber}` : `Penerimaan Barang PO: ${po.poNumber}`,
+      po.dropship
+        ? `${po.supplier} mengirim langsung ke customer (tidak masuk stok toko)${po.dropshipNote ? ' — ' + po.dropshipNote : ''}`
+        : `Menambah ${po.items.reduce((acc, i) => acc + i.quantity, 0)} unit bahan bangunan dari ${po.supplier}`,
       0,
       'arrival'
     );
 
-    dialog.alert(`Barang untuk nomor PO ${po.poNumber} berhasil diterima! Stok fisik di gudang telah bertambah.`);
+    dialog.alert(
+      po.dropship
+        ? `PO ${po.poNumber} ditandai selesai dikirim langsung ke customer. Stok TIDAK bertambah — bon tetap tercatat sebagai hutang ke ${po.supplier} dan akan jadi pengeluaran saat dibayar di Pembayaran > Supplier.`
+        : `Barang untuk nomor PO ${po.poNumber} berhasil diterima! Stok fisik di gudang telah bertambah.`
+    );
   };
 
   const handleApprovePO = (po: PO) => {
@@ -167,7 +184,9 @@ export default function PurchaseView({
       total: newPOItemQuantity * newPOItemPrice,
       status: 'Draft',
       createdDate: new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' }),
-      logisticsNote: newPOLogistics || 'Pengiriman logistik armada darat utama'
+      logisticsNote: newPOLogistics || 'Pengiriman logistik armada darat utama',
+      dropship: newPODropship,
+      dropshipNote: newPODropship ? newPODropshipNote : undefined,
     };
 
     onUpdatePOs([newPO, ...pos]);
@@ -187,6 +206,8 @@ export default function PurchaseView({
     setNewPOItemQuantity(10);
     setNewPOItemPrice(100000);
     setNewPOLogistics('');
+    setNewPODropship(false);
+    setNewPODropshipNote('');
     dialog.alert(`Draft PO ${nextPoNum} berhasil dibuat! Silakan klik tombol 'Setujui Pesanan PO' pada rincian kanan.`);
   };
 
@@ -376,7 +397,12 @@ export default function PurchaseView({
                     >
                       <td className="py-3.5 px-4 font-mono font-bold text-gray-800">{po.poNumber}</td>
                       <td className="py-3.5 px-4">
-                        <p className="font-extrabold text-gray-800">{po.supplier}</p>
+                        <p className="font-extrabold text-gray-800 flex items-center gap-1.5">
+                          {po.supplier}
+                          {po.dropship && (
+                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-amber-100 text-amber-700 uppercase">Dropship</span>
+                          )}
+                        </p>
                         <p className="text-[10px] text-gray-400 mt-0.5">{po.items[0]?.name} (+{po.items.length - 1} item)</p>
                       </td>
                       <td className="py-3.5 px-4 text-gray-500 font-medium">{po.createdDate}</td>
@@ -411,6 +437,11 @@ export default function PurchaseView({
                   </span>
                   <h4 className="font-black text-sm text-gray-900 mt-1.5">{selectedPO.poNumber}</h4>
                   <span className="text-[10px] text-gray-400 block mt-0.5">Supplier: {selectedPO.supplier}</span>
+                  {selectedPO.dropship && (
+                    <span className="inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700 uppercase">
+                      Dropship — Tidak Masuk Stok{selectedPO.dropshipNote ? `: ${selectedPO.dropshipNote}` : ''}
+                    </span>
+                  )}
                 </div>
                 <button 
                   onClick={() => setSelectedPO(null)}
@@ -595,6 +626,32 @@ export default function PurchaseView({
                     onChange={(e) => setNewPOLogistics(e.target.value)}
                     className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2.5 font-medium text-gray-750 outline-none"
                   />
+                </div>
+
+                <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-2.5">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newPODropship}
+                      onChange={(e) => setNewPODropship(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 accent-amber-600 cursor-pointer"
+                    />
+                    <span>
+                      <span className="block font-bold text-amber-900">Kirim Langsung ke Customer (Dropship)</span>
+                      <span className="block text-[10px] text-amber-700 mt-0.5 leading-relaxed">
+                        Pilih ini kalau barang tidak singgah di toko (mis. pasir 1 dam langsung diantar supplier ke lokasi customer). Stok toko TIDAK akan bertambah — bon tetap tercatat sebagai hutang/pengeluaran ke supplier.
+                      </span>
+                    </span>
+                  </label>
+                  {newPODropship && (
+                    <input
+                      type="text"
+                      placeholder="Catatan tujuan (opsional): nama/alamat customer..."
+                      value={newPODropshipNote}
+                      onChange={(e) => setNewPODropshipNote(e.target.value)}
+                      className="w-full bg-white border border-amber-200 rounded-lg p-2.5 font-medium text-gray-750 outline-none"
+                    />
+                  )}
                 </div>
 
                 <div className="pt-3 border-t border-gray-100 flex gap-2">

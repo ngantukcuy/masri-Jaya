@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   Calculator,
   PlusCircle,
-  ShoppingCart,
   Boxes,
   FileBarChart2,
   Users,
@@ -72,7 +71,15 @@ export default function Sidebar({
     { id: 'riwayat-transaksi', label: 'RIWAYAT TRANSAKSI', icon: History },
     { id: 'kas-harian', label: 'KAS HARIAN', icon: Wallet },
     { id: 'retur', label: 'RETUR', icon: CornerUpLeft },
-    { id: 'products', label: 'STOK', icon: Boxes },
+    {
+      id: 'stok-group',
+      label: 'STOK',
+      icon: Boxes,
+      children: [
+        { id: 'products', label: 'Ringkasan Stok', icon: Boxes },
+        { id: 'purchase', label: 'Pemasok (Pesanan Barang)', icon: Truck },
+      ]
+    },
     {
       id: 'master-data',
       label: 'PRODUCTS',
