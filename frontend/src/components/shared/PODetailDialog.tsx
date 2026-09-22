@@ -72,6 +72,13 @@ export default function PODetailDialog({ po, onClose }: PODetailDialogProps) {
               </div>
             </div>
 
+            {po.directToCustomer && (
+              <div className="mb-4 p-2.5 bg-indigo-50 border border-indigo-200 rounded-lg text-xs text-indigo-900 flex items-center justify-between">
+                <span className="font-bold">🚚 Pengiriman Langsung ke Customer (Tanpa Singgah di Toko)</span>
+                <span className="font-semibold text-indigo-700">{po.directToCustomerName ? `Tujuan: ${po.directToCustomerName}` : 'Tidak menambah stok toko'}</span>
+              </div>
+            )}
+
             <div className="border border-border rounded-lg overflow-hidden">
               <Table className="min-w-[520px]">
                 <TableHeader>

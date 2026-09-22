@@ -1,11 +1,17 @@
 export interface Expense {
   id: string;
   date: string;
+  /** Tanggal yang diisi user pada form (boleh berbeda dari tanggal pencatatan). */
+  expenseDate?: string;
   category: 'Bensin' | 'Gaji' | 'Bon' | 'Lainnya';
   description: string;
   submittedBy: string;
   amount: number;
   receiptName: string;
+  /** Nama file bukti pembayaran yang diunggah. */
+  receiptFile?: string;
+  /** Metode bayar: Tunai-Kas = kurangi Kas Harian, Tunai-NonKas = tunai tapi tidak kurangi kas. */
+  paymentMethod?: 'Tunai-Kas' | 'Tunai-NonKas' | 'Transfer' | 'Giro';
   status: 'Pending' | 'Approved' | 'Rejected';
 }
 

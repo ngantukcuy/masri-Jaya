@@ -100,7 +100,6 @@ export default function Sidebar({
 
   // Fitur tambahan (di luar daftar utama PRD) tetap disediakan agar tidak hilang
   const extraItems: NavItem[] = [
-    { id: 'purchase', label: 'PESANAN BARANG', icon: ShoppingCart },
     { id: 'toko-digital', label: 'TOKO DIGITAL', icon: Store },
     { id: 'reports', label: 'LAPORAN', icon: FileBarChart2 },
   ];

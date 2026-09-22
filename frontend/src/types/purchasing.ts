@@ -31,6 +31,16 @@ export interface PO {
   paidAt?: string;
   paidAmount?: number;
   paidMethod?: 'Tunai' | 'Transfer';
+  /** Riwayat cicilan pembayaran bon — diisi tiap kali ada pembayaran dari
+   * tab Pembayaran > Pembayaran ke Supplier. Bon lunas ketika total cicilan
+   * >= total bon. */
+  paidHistory?: { date: string; amount: number; method: string; receiptName?: string }[];
+  /** Jika true, barang dipesan langsung diantarkan ke customer (tidak masuk
+   * gudang toko). Saat status berubah ke Received, stok tidak bertambah —
+   * hanya mencatat pengeluaran ke activity. */
+  directToCustomer?: boolean;
+  /** Nama / catatan customer tujuan untuk pesanan directToCustomer. */
+  directToCustomerName?: string;
 }
 
 export interface Supplier {

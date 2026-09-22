@@ -341,6 +341,8 @@ function Dashboard({
                       activities={sortedActivities}
                       salesInvoices={salesInvoices}
                       customers={customers}
+                      expenses={expenses}
+                      pos={pos}
                       totalSales={totalSales}
                       totalOrdersCount={totalOrdersCount}
                       onTabChange={setCurrentTab}
@@ -474,6 +476,7 @@ function Dashboard({
                       currentUser={currentUser}
                       skuLocations={skuLocations}
                       suppliers={suppliers}
+                      onUpdateSuppliers={setSuppliers}
                       pos={pos}
                       onUpdatePOs={setPOs}
                       salesInvoices={salesInvoices}
