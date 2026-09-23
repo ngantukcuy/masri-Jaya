@@ -88,18 +88,24 @@ export default function DashboardView({
   const [showIntelligenceReport, setShowIntelligenceReport] = useState(false);
   const [showDebtPreview, setShowDebtPreview] = useState(false);
 
-  // Estimasi profit per invoice: pakai Harga Modal (costPrice) produk kalau ada,
-  // fallback ke asumsi margin 35% untuk item yang belum diisi harga modalnya.
+  // Untung per invoice = (harga jual yang benar-benar dipakai di kasir − Harga
+  // Modal) × qty untuk tiap item, lalu dikurangi diskon level invoice. Harga
+  // jual bisa harga standar atau harga custom yang diketik kasir (item.price
+  // sudah menyimpan harga akhir itu). Item bonus berharga 0, jadi otomatis
+  // jadi minus sebesar modalnya. Fallback ke asumsi margin 35% hanya untuk
+  // item yang Harga Modalnya belum diisi.
   const productCostBySku = new Map(products.map((p) => [p.sku, p.costPrice]));
   const fallbackMarginRate = 0.35;
-  const estimateInvoiceProfit = (inv: SalesInvoice) =>
-    inv.items.reduce((sum, item) => {
+  const estimateInvoiceProfit = (inv: SalesInvoice) => {
+    const itemsProfit = inv.items.reduce((sum, item) => {
       const cost = productCostBySku.get(item.sku);
       const itemProfit = cost && cost > 0
         ? (item.price - cost) * item.quantity
         : item.price * item.quantity * fallbackMarginRate;
       return sum + itemProfit;
     }, 0);
+    return itemsProfit - (inv.discountAmount || 0);
+  };
 
   const sameDay = (isoA: string, dateB: Date) => new Date(isoA).toDateString() === dateB.toDateString();
   const today = new Date();
@@ -186,9 +192,12 @@ export default function DashboardView({
   const rangeExpenseTotal = expenses.reduce((sum, e) => (inDateRange(e.date) ? sum + e.amount : sum), 0);
   const rangeTotalPengeluaran = rangePaidPOTotal + rangeExpenseTotal;
 
-  // Kotak 3 "Estimasi Untung Bersih" = total pendapatan keseluruhan dikurangi
-  // total pengeluaran keseluruhan pada rentang yang sama.
-  const rangeNetProfit = rangeTotalRevenue - rangeTotalPengeluaran;
+  // Kotak 3 "Estimasi Untung Bersih" = jumlah untung tiap penjualan pada rentang
+  // yang sama: (harga jual − harga modal) × qty, dikurangi diskon. Memakai
+  // bucket yang sama dengan pendapatan & grafik Keuntungan supaya konsisten.
+  // Bukan lagi pendapatan − pengeluaran, karena belanja stok ke supplier
+  // bukan kerugian (modalnya sudah dihitung per barang yang terjual).
+  const rangeNetProfit = monthlyData.reduce((s, d) => s + d.profit, 0);
   const rangeMarginPct = rangeTotalRevenue > 0 ? (rangeNetProfit / rangeTotalRevenue) * 100 : 0;
 
   // Kotak 4 "Tagihan Hutang & Piutang" = gabungan piutang dari customer
