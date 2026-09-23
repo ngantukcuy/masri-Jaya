@@ -147,6 +147,11 @@ button {
     margin: 0;
   }
 
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
   body * {
     visibility: hidden !important;
   }
@@ -156,12 +161,24 @@ button {
     visibility: visible !important;
   }
 
+  div:has(.receipt-print) {
+    position: static !important;
+    inset: auto !important;
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+    transform: none !important;
+  }
+
   .receipt-print {
     position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
     inset: 0 auto auto 0 !important;
     transform: none !important;
     width: 80mm !important;
     max-width: 80mm !important;
+    height: auto !important;
     max-height: none !important;
     overflow: visible !important;
     border: 0 !important;
@@ -170,7 +187,8 @@ button {
   }
 
   .receipt-print > button,
-  .receipt-print [data-radix-dialog-close] {
+  .receipt-print [data-radix-dialog-close],
+  [data-receipt-actions="true"] {
     display: none !important;
   }
 }

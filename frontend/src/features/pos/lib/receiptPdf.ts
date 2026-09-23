@@ -189,13 +189,97 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   const pageWidth = 80;
   const marginX = 5;
   const contentWidth = pageWidth - marginX * 2;
-
   const lineHeight = 4.2;
-  const itemLines = invoice.items.length * 2;
-  const baseLines = 24;
-  const estimatedHeight = Math.max(120, (baseLines + itemLines) * lineHeight);
+
+  // Measure exact content height to prevent jsPDF auto-pagebreak truncation when invoices have many items or wrapped text
+  const measurer = new jsPDF({ unit: 'mm', format: [pageWidth, 2000] });
+  (measurer as any).setAutoPageBreak(false);
+  registerReceiptFont(measurer);
+  measurer.setFontSize(7.5);
+  measurer.setFont('JetBrainsMono', 'normal');
+
+  let calcY = 8;
+  const addHeight = (lines = 1) => { calcY += lines * lineHeight; };
+
+  measurer.setFontSize(13);
+  calcY += measurer.splitTextToSize(storeName, contentWidth).length * lineHeight;
+  measurer.setFontSize(7);
+  if (storeProfile?.address) calcY += measurer.splitTextToSize(storeProfile.address, contentWidth).length * lineHeight;
+  if (storeProfile?.phone) addHeight(1);
+  calcY += 0.5;
+  addHeight(1); // STRUK PEMBELIAN
+  calcY += 0.5;
+  addHeight(1); // dashedLine
+
+  addHeight(3); // Invoice, Tanggal, Kasir
+  addHeight(1); // y += lineHeight
+  addHeight(1); // dashedLine
+
+  addHeight(1); // Pelanggan
+  if (invoice.driverName) addHeight(1);
+  addHeight(1); // Metode
+  if (invoice.paymentMethod === 'Transfer' && invoice.paymentAccountName) {
+    addHeight(2); // Rekening, Nomor
+    if (invoice.paymentAccountHolder) addHeight(1);
+  }
+  if (invoice.fulfillmentMethod) {
+    addHeight(1); // Pengambilan
+    if (invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress) {
+      measurer.setFontSize(7.5);
+      const wrappedAddr = measurer.splitTextToSize(invoice.deliveryAddress, contentWidth - 20);
+      calcY += wrappedAddr.length * lineHeight;
+    }
+  }
+  addHeight(1); // dashedLine
+
+  invoice.items.forEach((item) => {
+    measurer.setFontSize(7.5);
+    measurer.setFont('JetBrainsMono', 'bold');
+    const nameLines = measurer.splitTextToSize(item.name, contentWidth);
+    calcY += nameLines.length * lineHeight;
+    addHeight(1); // qty x price row
+  });
+  addHeight(1); // dashedLine
+
+  addHeight(1); // Subtotal
+  if (invoice.discountAmount) addHeight(1);
+  const calcFees = invoice.additionalFees?.length
+    ? invoice.additionalFees
+    : [{ name: invoice.additionalFeeName || 'Biaya Tambahan', amount: invoice.additionalFee ?? 0 }];
+  const calcNamedFees = calcFees.filter((fee) => fee.amount > 0);
+  if (calcNamedFees.length > 0) {
+    addHeight(calcNamedFees.length);
+  } else {
+    addHeight(1);
+  }
+  calcY += 0.5;
+  addHeight(1); // line + y += lineHeight
+  addHeight(1); // Total Akhir
+
+  if (invoice.paymentMethod === 'Cash' && typeof invoice.cashReceived === 'number') {
+    addHeight(2); // Cash received & change
+  }
+  if (invoice.paymentMethod === 'Split' && typeof invoice.splitPaidAmount === 'number') {
+    addHeight(1);
+  }
+  if (invoice.paymentMethod === 'Split' || invoice.paymentMethod === 'Piutang') {
+    addHeight(2); // Sisa & Jatuh tempo
+  }
+  calcY += 3; // y += 2 + 1
+  addHeight(1); // dashedLine
+
+  measurer.setFontSize(7);
+  measurer.setFont('JetBrainsMono', 'normal');
+  const calcNoteLines = measurer.splitTextToSize(storeProfile?.receiptNote || `Terima kasih telah berbelanja di ${storeName}!`, contentWidth);
+  calcY += calcNoteLines.length * lineHeight;
+  if (isReprint) addHeight(1);
+
+  calcY += 10; // Safety bottom padding margin
+
+  const estimatedHeight = Math.max(120, Math.ceil(calcY));
 
   const doc = new jsPDF({ unit: 'mm', format: [pageWidth, estimatedHeight] });
+  (doc as any).setAutoPageBreak(false);
   registerReceiptFont(doc);
   let y = 8;
 
