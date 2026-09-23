@@ -27,12 +27,12 @@ import { supabase } from '../supabase';
  * di salah satu tempat, INGAT ganti juga di tempat satunya.
  */
 const firebaseConfig: FirebaseOptions = {
-  apiKey: 'GANTI_DENGAN_APIKEY_FIREBASE_WEB',
+  apiKey: "AIzaSyCrRMtY3yYsrGLcO7zCgJDh9wACbQb9azY",
   authDomain: 'panglong-af0b8.firebaseapp.com',
   projectId: 'panglong-af0b8',
-  storageBucket: 'panglong-af0b8.appspot.com',
-  messagingSenderId: 'GANTI_DENGAN_SENDER_ID',
-  appId: 'GANTI_DENGAN_APP_ID_WEB',
+  storageBucket: 'panglong-af0b8.firebasestorage.app',
+  messagingSenderId: "594503157018",
+  appId: "1:594503157018:web:1a4a1234f94cdedd1898a3",
 };
 
 /**
@@ -42,7 +42,7 @@ const firebaseConfig: FirebaseOptions = {
  *   "Generate key pair" -> copy "Key pair" yang muncul ke sini.
  * Sama seperti firebaseConfig di atas, ini juga bukan rahasia (public key).
  */
-const VAPID_KEY = 'GANTI_DENGAN_VAPID_KEY';
+const VAPID_KEY = 'BPIB1q4r68SRq1ZXZAIrhbAFqH2_q_ESpcb6rYKQOsCSzWgwHTIayx2UJB-nNE-UOwQqrIazi8Kfh7hdSZTdeSU';
 
 /** True kalau nilai di atas sudah diisi beneran (bukan placeholder). */
 function isConfigured(): boolean {
@@ -101,7 +101,7 @@ export async function initWebPush(deviceLabel?: string, role?: string): Promise<
   if (!isConfigured()) {
     console.warn(
       '[push:web] Firebase Web config belum diisi (masih placeholder "GANTI_...") di ' +
-        'src/lib/push/webPush.ts — web push dilewati. Lihat komentar di file itu untuk cara isinya.'
+      'src/lib/push/webPush.ts — web push dilewati. Lihat komentar di file itu untuk cara isinya.'
     );
     return;
   }

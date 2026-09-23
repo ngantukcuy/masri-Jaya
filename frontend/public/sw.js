@@ -9,7 +9,7 @@ const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).catch(() => {})
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)).catch(() => { })
   );
   self.skipWaiting();
 });
@@ -37,7 +37,7 @@ self.addEventListener('fetch', (event) => {
     fetch(request)
       .then((response) => {
         const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => { });
         return response;
       })
       .catch(() => {
@@ -102,12 +102,12 @@ importScripts('https://www.gstatic.com/firebasejs/12.17.0/firebase-app-compat.js
 importScripts('https://www.gstatic.com/firebasejs/12.17.0/firebase-messaging-compat.js');
 
 firebase.initializeApp({
-  apiKey: 'GANTI_DENGAN_APIKEY_FIREBASE_WEB',
+  apiKey: '[GCP_API_KEY]',
   authDomain: 'panglong-af0b8.firebaseapp.com',
   projectId: 'panglong-af0b8',
-  storageBucket: 'panglong-af0b8.appspot.com',
-  messagingSenderId: 'GANTI_DENGAN_SENDER_ID',
-  appId: 'GANTI_DENGAN_APP_ID_WEB',
+  storageBucket: 'panglong-af0b8.firebasestorage.app',
+  messagingSenderId: '594503157018',
+  appId: '1:594503157018:web:1a4a1234f94cdedd1898a3',
 });
 
 // Aman dipanggil walau config di atas masih placeholder "GANTI_..." — cuma
