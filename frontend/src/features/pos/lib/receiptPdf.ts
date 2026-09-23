@@ -193,7 +193,6 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
 
   // Measure exact content height to prevent jsPDF auto-pagebreak truncation when invoices have many items or wrapped text
   const measurer = new jsPDF({ unit: 'mm', format: [pageWidth, 2000] });
-  (measurer as any).setAutoPageBreak(false);
   registerReceiptFont(measurer);
   measurer.setFontSize(7.5);
   measurer.setFont('JetBrainsMono', 'normal');
@@ -279,7 +278,6 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   const estimatedHeight = Math.max(120, Math.ceil(calcY));
 
   const doc = new jsPDF({ unit: 'mm', format: [pageWidth, estimatedHeight] });
-  (doc as any).setAutoPageBreak(false);
   registerReceiptFont(doc);
   let y = 8;
 
