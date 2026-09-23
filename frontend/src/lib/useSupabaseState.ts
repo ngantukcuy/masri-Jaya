@@ -82,7 +82,12 @@ export function useSupabaseState<T>(
         // demo/dummy content.
         const { error: insertError } = await supabase
           .from(table)
-          .insert({ id: 1, value: initialValueRef.current as never });
+          .insert({
+            id: 1,
+            value: initialValueRef.current === null
+              ? JSON.parse('null')
+              : initialValueRef.current as never,
+          });
         // Ignore unique-violation races (another tab/device seeded it a
         // moment earlier — that row arrives here via the subscription
         // above instead).
