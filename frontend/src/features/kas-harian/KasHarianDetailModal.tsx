@@ -14,6 +14,19 @@ interface KasHarianDetailModalProps {
 
 const fmt = (n: number) => `Rp ${Math.round(n).toLocaleString('id-ID')}`;
 
+// Semua metode bayar yang ada di POS. `masukKas` = nominalnya masuk ke laci
+// (Kas Harian). Metode lain (QRIS, Transfer, Deposit, Piutang) tetap dicatat
+// dan tampil di ringkasan ini, tapi TIDAK menambah kas laci karena bayarnya
+// tidak lewat laci (tidak memakai payment gateway, dicek manual di rekening).
+const PAYMENT_METHODS = [
+  { key: 'Cash', label: 'Tunai', masukKas: true },
+  { key: 'QRIS', label: 'QRIS', masukKas: false },
+  { key: 'Transfer', label: 'Transfer', masukKas: false },
+  { key: 'Deposit', label: 'Deposit', masukKas: false },
+  { key: 'Piutang', label: 'Piutang', masukKas: false },
+  { key: 'Split', label: 'Bayar Sebagian', masukKas: true },
+] as const;
+
 export default function KasHarianDetailModal({ session, salesInvoices, returns, onClose }: KasHarianDetailModalProps) {
   const [openDetail, setOpenDetail] = useState<string | null>(null);
 
@@ -81,23 +94,34 @@ export default function KasHarianDetailModal({ session, salesInvoices, returns, 
     { key: 'pembelianStokPemasok', label: 'Pembelian Stok di Pemasok', value: sumCat(['Pembelian Stok Pemasok'], 'out'), cats: ['Pembelian Stok Pemasok'] },
   ];
 
-  // Mutasi Penjualan Hari Ini — dikelompokkan berdasarkan metode bayar yang
-  // benar-benar dipakai di POS aplikasi ini (Cash/QRIS/Deposit/Split),
-  // bukan Transfer/Giro/Kredit yang tidak ada di sistem pembayaran ini.
-  const totalTunai = matchedInvoices
-    .filter((i) => i.paymentMethod === 'Cash')
-    .reduce((a, i) => a + i.total, 0) + matchedInvoices
-    .filter((i) => i.paymentMethod === 'Split')
-    .reduce((a, i) => a + (i.splitPaidAmount || 0), 0);
-  const totalQris = matchedInvoices.filter((i) => i.paymentMethod === 'QRIS').reduce((a, i) => a + i.total, 0);
-  const totalDeposit = matchedInvoices.filter((i) => i.paymentMethod === 'Deposit').reduce((a, i) => a + i.total, 0);
-  const totalPiutang = matchedInvoices
-    .filter((i) => i.paymentMethod === 'Split')
-    .reduce((a, i) => a + (i.splitRemainingDebt || 0), 0);
+  // Mutasi Penjualan Hari Ini — dikelompokkan per metode bayar. Semua metode
+  // POS ditampilkan (Tunai/QRIS/Transfer/Deposit/Piutang/Bayar Sebagian),
+  // tapi hanya Tunai (+ bagian tunai dari Bayar Sebagian) yang masuk kas laci.
+  const invoicesBy = (method: string) => matchedInvoices.filter((i) => i.paymentMethod === method);
+  const countBy = (method: string) => invoicesBy(method).length;
+  const totalBy = (method: string) => invoicesBy(method).reduce((a, i) => a + i.total, 0);
+
+  const splitInvoices = invoicesBy('Split');
+  const splitPaid = splitInvoices.reduce((a, i) => a + (i.splitPaidAmount || 0), 0);
+  const splitDebt = splitInvoices.reduce(
+    (a, i) => a + (i.splitRemainingDebt ?? Math.max(0, i.total - (i.splitPaidAmount || 0))),
+    0
+  );
+
+  const totalTunai = totalBy('Cash') + splitPaid;
+  const totalQris = totalBy('QRIS');
+  const totalTransfer = totalBy('Transfer');
+  const totalDeposit = totalBy('Deposit');
+  const totalPiutang = totalBy('Piutang') + splitDebt;
   const totalMutasiPenjualan = matchedInvoices.reduce((a, i) => a + i.total, 0);
 
-  const countBy = (method: string) => matchedInvoices.filter((i) => i.paymentMethod === method).length;
-  const totalBy = (method: string) => matchedInvoices.filter((i) => i.paymentMethod === method).reduce((a, i) => a + i.total, 0);
+  const mutasiRows: { label: string; value: number; masukKas: boolean }[] = [
+    { label: 'Total Nominal Tunai', value: totalTunai, masukKas: true },
+    { label: 'Total Nominal QRIS', value: totalQris, masukKas: false },
+    { label: 'Total Nominal Transfer', value: totalTransfer, masukKas: false },
+    { label: 'Total Nominal Deposit', value: totalDeposit, masukKas: false },
+    { label: 'Total Nominal Piutang', value: totalPiutang, masukKas: false },
+  ];
   const returCountBy = (method: 'Tunai' | 'Transfer') => matchedReturns.filter((r) => r.refundMethod === method).length;
   const returTotalBy = (method: 'Tunai' | 'Transfer') =>
     matchedReturns.filter((r) => r.refundMethod === method).reduce((a, r) => a + r.totalRefund, 0);
@@ -195,47 +219,53 @@ export default function KasHarianDetailModal({ session, salesInvoices, returns, 
           <div>
             <h4 className="font-extrabold text-foreground text-xs uppercase tracking-wide border-b border-border pb-2 mb-3">Mutasi Penjualan Hari Ini</h4>
             <div className="space-y-2.5">
-              {[
-                ['Total Nominal Tunai', totalTunai],
-                ['Total Nominal QRIS', totalQris],
-                ['Total Nominal Deposit', totalDeposit],
-                ['Total Nominal Piutang', totalPiutang],
-                ['Total Nominal Mutasi', totalMutasiPenjualan],
-              ].map(([label, val]) => (
-                <div key={label as string}>
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase mb-1">{label}</p>
-                  <div className="bg-muted border border-border rounded-lg px-3 py-2.5 font-black text-foreground">{fmt(val as number)}</div>
+              {mutasiRows.map((row) => (
+                <div key={row.label}>
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase">{row.label}</p>
+                    <span className={`text-[9px] font-bold ${row.masukKas ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                      {row.masukKas ? 'Masuk kas laci' : 'Tidak masuk kas laci'}
+                    </span>
+                  </div>
+                  <div className="bg-muted border border-border rounded-lg px-3 py-2.5 font-black text-foreground">{fmt(row.value)}</div>
                 </div>
               ))}
+              <div>
+                <p className="text-[10px] text-muted-foreground font-bold uppercase mb-1">Total Nominal Mutasi</p>
+                <div className="bg-muted border border-border rounded-lg px-3 py-2.5 font-black text-foreground">{fmt(totalMutasiPenjualan)}</div>
+              </div>
             </div>
           </div>
 
           {/* Transaksi dan Retur Penjualan */}
           <div>
             <h4 className="font-extrabold text-foreground text-xs uppercase tracking-wide border-b border-border pb-2 mb-3">Transaksi dan Retur Penjualan</h4>
-            <div className="grid grid-cols-4 gap-x-3 gap-y-4 text-center">
-              <p className="col-span-4 text-left text-[9px] text-muted-foreground font-bold uppercase -mb-2">Jumlah Transaksi</p>
-              {['Cash', 'QRIS', 'Deposit', 'Split'].map((m) => (
-                <div key={m}>
-                  <p className="text-[9px] text-muted-foreground font-bold uppercase mb-1">{m === 'Split' ? 'Piutang' : m}</p>
-                  <div className="bg-muted border border-border rounded-lg px-2 py-2 font-black text-foreground">{countBy(m)}</div>
+            <div className="grid grid-cols-3 gap-x-3 gap-y-3 text-center">
+              <p className="col-span-3 text-left text-[9px] text-muted-foreground font-bold uppercase -mb-1">Transaksi per Metode Bayar</p>
+              {PAYMENT_METHODS.map((m) => (
+                <div key={m.key} className="bg-muted border border-border rounded-lg px-2 py-2.5">
+                  <p className="text-[9px] text-muted-foreground font-bold uppercase mb-1">{m.label}</p>
+                  <p className="font-black text-foreground text-sm">{countBy(m.key)}x</p>
+                  <p className="font-bold text-foreground/80 text-[10px] mt-0.5">{fmt(totalBy(m.key))}</p>
+                  {m.key === 'Split' && (
+                    <p className="text-[9px] text-muted-foreground mt-0.5">Tunai {fmt(splitPaid)}</p>
+                  )}
+                  <p className={`text-[8px] font-bold uppercase mt-1 ${m.masukKas ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                    {m.key === 'Split' ? 'Sebagian masuk kas' : m.masukKas ? 'Masuk kas laci' : 'Tidak masuk kas'}
+                  </p>
                 </div>
               ))}
-              <p className="col-span-4 text-left text-[9px] text-muted-foreground font-bold uppercase mt-2 -mb-2">Total Nominal</p>
-              {['Cash', 'QRIS', 'Deposit', 'Split'].map((m) => (
-                <div key={m}>
-                  <div className="bg-muted border border-border rounded-lg px-2 py-2 font-bold text-foreground/80 text-[10px]">{fmt(totalBy(m))}</div>
-                </div>
-              ))}
-              <p className="col-span-4 text-left text-[9px] text-muted-foreground font-bold uppercase mt-2 -mb-2">Retur Penjualan</p>
-              {(['Tunai', 'Transfer'] as const).map((m) => (
-                <div key={m} className="col-span-2">
-                  <p className="text-[9px] text-muted-foreground font-bold uppercase mb-1">Retur {m}</p>
-                  <div className="bg-muted border border-border rounded-lg px-2 py-2 font-bold text-foreground/80 text-[10px]">
-                    {returCountBy(m)}x &middot; {fmt(returTotalBy(m))}
+              <p className="col-span-3 text-left text-[9px] text-muted-foreground font-bold uppercase mt-2 -mb-1">Retur Penjualan</p>
+              <div className="col-span-3 grid grid-cols-2 gap-3">
+                {(['Tunai', 'Transfer'] as const).map((m) => (
+                  <div key={m}>
+                    <p className="text-[9px] text-muted-foreground font-bold uppercase mb-1">Retur {m}</p>
+                    <div className="bg-muted border border-border rounded-lg px-2 py-2 font-bold text-foreground/80 text-[10px]">
+                      {returCountBy(m)}x &middot; {fmt(returTotalBy(m))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
 

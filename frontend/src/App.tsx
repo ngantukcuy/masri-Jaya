@@ -430,6 +430,7 @@ function Dashboard({
                   return (
                     <PemasokView
                       suppliers={suppliers}
+                      pos={pos}
                       onUpdateSuppliers={setSuppliers}
                       onAddActivity={handleAddActivity}
                       currentUser={currentUser}

@@ -82,7 +82,10 @@ export function reverseSale(
   if (!session) return null;
 
   const isCash = paymentMethod === 'Cash' || paymentMethod === 'Split';
-  const refundAmount = isCash ? invoiceTotal : paymentMethod === 'Split' ? splitPaidAmount : 0;
+  // Cash: seluruh total keluar dari laci. Split: hanya porsi yang dibayar tunai
+  // (sisanya piutang, tidak pernah masuk laci). Metode lain tidak menyentuh laci.
+  const refundAmount =
+    paymentMethod === 'Cash' ? invoiceTotal : paymentMethod === 'Split' ? splitPaidAmount : 0;
   if (refundAmount > 0) {
     const mutation: CashMutation = {
       id: `MUT-${Math.floor(10000 + Math.random() * 90000)}`,
