@@ -619,6 +619,17 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
               )}
             </div>
           </div>
+          
+            <div className="flex justify-end">
+              <Button
+                  size="sm"
+                  onClick={() => setShowSubmitModal(true)}
+                  className="whitespace-nowrap text-[10px] bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 shadow-none"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Catat Pengeluaran</span>
+                </Button>
+            </div>
 
           {/* Riwayat Pengeluaran Operasional (Bensin/Gaji/Bon/Lainnya) — murni dari expenses, tanpa data penjualan atau bon supplier */}
           <div className="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden">
@@ -647,14 +658,6 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                     {cat === 'Semua' ? 'Semua' : (categoryTranslationMap[cat] || cat)}
                   </Button>
                 ))}
-                <Button
-                  size="sm"
-                  onClick={() => setShowSubmitModal(true)}
-                  className="whitespace-nowrap text-[10px] bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 shadow-none"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Catat Pengeluaran</span>
-                </Button>
               </div>
             </div>
 
