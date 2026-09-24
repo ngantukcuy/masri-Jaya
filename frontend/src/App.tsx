@@ -335,6 +335,8 @@ function Dashboard({
                     </div>
                   );
                 case 'dashboard':
+                  // Dashboard khusus Owner — jangan render untuk role lain walau state tab-nya terlanjur 'dashboard'.
+                  if (!canAccessTab(currentUser, 'dashboard')) return null;
                   return (
                     <DashboardView
                       products={products}

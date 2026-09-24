@@ -171,6 +171,11 @@ export function canSeeApproverNotifications(user: CurrentUser | null | undefined
  * instead of silently landing on the Dashboard.
  */
 export function firstAccessibleTab(user: CurrentUser | null | undefined): string {
+  // Owner selalu mendarat di Dashboard. Selain Owner, Dashboard tidak pernah
+  // muncul: halaman pertama adalah Kas Harian (kalau punya izin), kalau tidak
+  // baru tab pertama yang boleh dibuka.
+  if (user?.role === 'Owner') return 'dashboard';
+  if (hasPermission(user, 'tab_kas-harian')) return 'kas-harian';
   const found = TAB_DEFS.find((t) => hasPermission(user, t.key));
   return found ? found.key.replace(/^tab_/, '') : 'no-access';
 }

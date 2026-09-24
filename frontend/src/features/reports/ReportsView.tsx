@@ -193,7 +193,7 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
     }))
   ), []);
   const journalEntries = useMemo(() => [
-    ...expenses.map((expense) => ({ ...expense, direction: 'out' as const })),
+    ...expenses.filter((expense) => expense.status === 'Approved').map((expense) => ({ ...expense, direction: 'out' as const })),
     ...cashJournalEntries,
   ].filter((entry) => financeCategoryFilter === 'Semua' || entry.category === financeCategoryFilter),
   [expenses, cashJournalEntries, financeCategoryFilter]);

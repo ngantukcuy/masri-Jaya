@@ -182,14 +182,23 @@ export default function DashboardView({
   // dibatasi ke rentang tanggal terpilih.
   const isPOPaidForRange = (po: PO) => !!po.paidAt || po.paymentMethod === 'Cash' || po.paymentMethod === 'Transfer';
   const rangePaidPOTotal = pos.reduce((sum, po) => {
-    if (!isPOPaidForRange(po)) return sum;
+    // Bon yang pernah dibayar lewat Pembayaran > Supplier (Tempo, bisa dicicil):
+    // tiap pembayaran dihitung pada tanggal pembayarannya sendiri, jadi cicilan
+    // yang belum lunas pun langsung masuk ke pengeluaran.
+    const payments = po.paymentHistory && po.paymentHistory.length > 0
+      ? po.paymentHistory.map((p) => ({ date: p.date, amount: p.amount }))
+      : (po.paidHistory || []).map((p) => ({ date: p.date, amount: p.amount }));
+    if (payments.length > 0) {
+      return sum + payments.reduce((s, p) => (inDateRange(p.date) ? s + p.amount : s), 0);
+    }
+    // Bon Cash/Transfer (lunas saat diterima) atau data lama tanpa riwayat.
+    if (!isPOPaidForRange(po) && !(po.paidAmount && po.paidAmount > 0)) return sum;
     const effectiveDate = po.paidAt || po.receivedAt || po.createdDate;
     if (!inDateRange(effectiveDate)) return sum;
-    // Kalau bon ini pernah dicicil, hanya nominal yang sudah masuk yang
-    // dihitung sebagai pengeluaran nyata (bukan total bon).
     return sum + (po.paidAmount && po.paidAmount > 0 ? po.paidAmount : po.total);
   }, 0);
-  const rangeExpenseTotal = expenses.reduce((sum, e) => (inDateRange(e.date) ? sum + e.amount : sum), 0);
+  // Hanya pengeluaran yang sudah disetujui Owner yang dihitung.
+  const rangeExpenseTotal = expenses.reduce((sum, e) => (e.status === 'Approved' && inDateRange(e.date) ? sum + e.amount : sum), 0);
   const rangeTotalPengeluaran = rangePaidPOTotal + rangeExpenseTotal;
 
   // Kotak 3 "Estimasi Untung Bersih" = jumlah untung tiap penjualan pada rentang

@@ -17,6 +17,9 @@ export interface Expense {
   paymentMethod?: 'Tunai Kas' | 'Tunai Luar' | 'Transfer' | 'Giro';
   expenseDate?: string;
   receiptFile?: string;
+  /** Diisi Owner saat menyetujui/menolak pengeluaran yang berstatus Pending. */
+  approvedBy?: string;
+  approvedAt?: string;
 }
 
 export interface BankAccount {

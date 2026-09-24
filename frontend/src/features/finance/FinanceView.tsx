@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { 
   Wallet, 
   TrendingDown,
-  TrendingUp,
   Plus, 
   Check,
   X,
@@ -10,14 +9,13 @@ import {
   CheckCircle2,
   AlertTriangle,
   Coins,
-  FileText,
-  Receipt
+  FileText
 } from 'lucide-react';
 import { Expense, PO, POPayment, SalesInvoice } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
-import { CurrentUser, hasPermission } from '../../lib/permissions';
+import { CurrentUser } from '../../lib/permissions';
 import { uploadProductImage } from '../../lib/uploadProductImage';
 import NumberInput from '../../components/shared/NumberInput';
 import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
@@ -40,11 +38,12 @@ interface FinanceViewProps {
   /** Bon/PO dari supplier — sumber data tab "Pembayaran ke Supplier". */
   pos?: PO[];
   onUpdatePOs?: (updatedPOs: PO[]) => void;
-  /** Invoice penjualan — sumber data tab "Penjualan". */
+  /** Tidak dipakai lagi (tab Penjualan dihapus); dipertahankan agar App.tsx tidak perlu diubah. */
   salesInvoices?: SalesInvoice[];
 }
 
-type FinanceTab = 'supplier' | 'lainnya' | 'penjualan';
+type FinanceTab = 'supplier' | 'lainnya';
+type PayMethod = 'Tunai Kas' | 'Tunai Luar' | 'Transfer' | 'Giro';
 type SupplierFilter = 'semua' | 'belum' | 'lunas';
 
 const rupiah = (value: number) => `Rp ${Math.round(value).toLocaleString('id-ID')}`;
@@ -62,27 +61,17 @@ function fmtDate(value?: string) {
 const isPOPaid = (po: PO) => !!po.paidAt || po.paymentMethod === 'Cash' || po.paymentMethod === 'Transfer';
 const poRemaining = (po: PO) => Math.max(0, po.total - (po.paidAmount || 0));
 
-const PAYMENT_LABEL: Record<string, string> = { Cash: 'Tunai', Split: 'Split' };
-
 const initials = (name?: string) => {
   const parts = (name || '').trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';
   return (parts.length === 1 ? parts[0].slice(0, 2) : parts[0][0] + parts[1][0]).toUpperCase();
 };
 
-interface PendingApproval {
-  id: string;
-  item: string;
-  submittedBy: string;
-  amount: number;
-  category: 'Bensin' | 'Gaji' | 'Bon' | 'Lainnya';
-}
-
-export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity, currentUser, pos = [], onUpdatePOs, salesInvoices = [] }: FinanceViewProps) {
+export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity, currentUser, pos = [], onUpdatePOs }: FinanceViewProps) {
   const dialog = useDialog();
-  // Same gap as the retur bug: without this, anyone who can open the Finance
-  // tab could approve/reject reimbursement claims regardless of role.
-  const canApproveFinance = hasPermission(currentUser, 'manage_finance_approve');
+  // Pengeluaran di tab Pembayaran Lainnya hanya sah setelah disetujui Owner.
+  // Owner yang mencatat sendiri langsung berstatus Approved.
+  const isOwner = currentUser?.role === 'Owner';
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [expenseCategoryFilter, setExpenseCategoryFilter] = useState<string>('Semua');
   const [expensePage, setExpensePage] = useState(1);
@@ -93,12 +82,9 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   const [supplierPage, setSupplierPage] = useState(1);
   const [supplierSearch, setSupplierSearch] = useState('');
   const [expenseSearch, setExpenseSearch] = useState('');
-  const [salesSearch, setSalesSearch] = useState('');
-  const [salesFilter, setSalesFilter] = useState<string>('Semua');
-  const [salesPage, setSalesPage] = useState(1);
   const [previewPO, setPreviewPO] = useState<PO | null>(null);
   const [payingPO, setPayingPO] = useState<PO | null>(null);
-  const [payMethod, setPayMethod] = useState<'Tunai' | 'Transfer'>('Tunai');
+  const [payMethod, setPayMethod] = useState<PayMethod>('Tunai Kas');
   const [payAmountInput, setPayAmountInput] = useState(0);
   const [payProofFile, setPayProofFile] = useState<File | null>(null);
   const [isPaySubmitting, setIsPaySubmitting] = useState(false);
@@ -111,9 +97,6 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
     'Lainnya': 'Lainnya'
   };
 
-  // Pending claims in IDR equivalents (local queue — not yet wired to a shared backend table)
-  const [pendingClaims, setPendingClaims] = useState<PendingApproval[]>([]);
-
   // Form states for new expense
   const [newExpDesc, setNewExpDesc] = useState('');
   const [newExpAmount, setNewExpAmount] = useState(150000);
@@ -124,52 +107,47 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   const [newExpProofFile, setNewExpProofFile] = useState<File | null>(null);
   const [isExpenseSubmitting, setIsExpenseSubmitting] = useState(false);
 
-  const handleApproveClaim = (claim: PendingApproval) => {
-    if (!canApproveFinance) {
-      dialog.alert("Anda tidak memiliki izin untuk menyetujui klaim reimbursement. Hubungi Owner/Admin.");
+  const pendingExpenses = expenses.filter((e) => e.status === 'Pending');
+
+  const handleApproveExpense = (exp: Expense) => {
+    if (!isOwner) {
+      dialog.alert('Hanya Owner yang dapat menyetujui pengeluaran.');
       return;
     }
-    // 1. Move to Expense ledger
-    const nextExpense: Expense = {
-      id: `EXP-APR-${Math.floor(100 + Math.random() * 900)}`,
-      date: new Date().toLocaleDateString('id-ID'),
-      category: claim.category,
-      description: claim.item,
-      submittedBy: claim.submittedBy,
-      amount: claim.amount,
-      receiptName: "NOTA_REIMBURSEMENT.pdf",
-      status: 'Approved'
-    };
+    onUpdateExpenses(expenses.map((item) => item.id === exp.id
+      ? { ...item, status: 'Approved' as const, approvedBy: currentUser?.name, approvedAt: new Date().toISOString() }
+      : item));
 
-    onUpdateExpenses([nextExpense, ...expenses]);
-
-    // 2. Clear pending list
-    setPendingClaims(pendingClaims.filter(c => c.id !== claim.id));
-    addMutation('out', 'Pembayaran Lainnya', claim.amount, `Reimbursement: ${claim.item} (${claim.submittedBy})`);
-
+    // Hanya "Tunai Kas" yang keluar dari laci Kas Harian, dicatat saat disetujui.
+    let kasNote = '';
+    if (exp.paymentMethod === 'Tunai Kas') {
+      const session = addMutation('out', 'Pembayaran Lainnya', exp.amount, `${categoryTranslationMap[exp.category]}: ${exp.description}`);
+      if (!session) kasNote = ' Catatan: Kas Harian belum dibuka sehingga uang keluar tunai belum tercatat di kas.';
+    }
     onAddActivity(
-      `Klaim Disetujui: Rp ${claim.amount.toLocaleString('id-ID')}`,
-      `Klaim reimbursement ${claim.id} disetujui untuk ${claim.submittedBy}`,
-      claim.amount,
+      `Pengeluaran Disetujui: Rp ${exp.amount.toLocaleString('id-ID')}`,
+      `${exp.description} (diajukan ${exp.submittedBy}) disetujui ${currentUser?.name || 'Owner'}`,
+      exp.amount,
       'overdue'
     );
-
-    dialog.alert(`Klaim reimbursement ${claim.id} sebesar Rp ${claim.amount.toLocaleString('id-ID')} berhasil disetujui dan dicatat.`);
+    dialog.alert(`Pengeluaran ${exp.id} sebesar Rp ${exp.amount.toLocaleString('id-ID')} disetujui dan dicatat.${kasNote}`);
   };
 
-  const handleRejectClaim = (claim: PendingApproval) => {
-    if (!canApproveFinance) {
-      dialog.alert("Anda tidak memiliki izin untuk menolak klaim reimbursement. Hubungi Owner/Admin.");
+  const handleRejectExpense = (exp: Expense) => {
+    if (!isOwner) {
+      dialog.alert('Hanya Owner yang dapat menolak pengeluaran.');
       return;
     }
-    setPendingClaims(pendingClaims.filter(c => c.id !== claim.id));
+    onUpdateExpenses(expenses.map((item) => item.id === exp.id
+      ? { ...item, status: 'Rejected' as const, approvedBy: currentUser?.name, approvedAt: new Date().toISOString() }
+      : item));
     onAddActivity(
-      `Klaim Ditolak: ${claim.id}`,
-      `Klaim reimbursement ${claim.item} milik ${claim.submittedBy} ditolak`,
+      `Pengeluaran Ditolak: ${exp.id}`,
+      `${exp.description} milik ${exp.submittedBy} ditolak ${currentUser?.name || 'Owner'}`,
       0,
       'quote'
     );
-    dialog.alert(`Klaim reimbursement ${claim.id} yang diajukan oleh ${claim.submittedBy} telah ditolak.`);
+    dialog.alert(`Pengeluaran ${exp.id} yang diajukan oleh ${exp.submittedBy} telah ditolak.`);
   };
 
   const handleSubmitExpense = async (e: React.FormEvent) => {
@@ -202,24 +180,34 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
         receiptFile: newExpProofFile ? newExpProofFile.name : undefined,
         receiptUrl,
         paymentMethod: newExpMethod,
-        status: 'Approved'
+        status: isOwner ? 'Approved' : 'Pending',
+        ...(isOwner ? { approvedBy: currentUser?.name, approvedAt: new Date().toISOString() } : {}),
       };
 
       onUpdateExpenses([nextExpense, ...expenses]);
       setShowSubmitModal(false);
 
-      // Hanya "Tunai Kas" yang benar-benar keluar dari laci Kas Harian toko —
-      // "Tunai Luar" tetap tunai tapi bukan dari kas toko (mis. uang pribadi).
-      if (newExpMethod === 'Tunai Kas') {
-        addMutation('out', 'Pembayaran Lainnya', newExpAmount, `${categoryTranslationMap[newExpCat]}: ${newExpDesc}`);
+      if (isOwner) {
+        // Hanya "Tunai Kas" yang benar-benar keluar dari laci Kas Harian toko —
+        // "Tunai Luar" tetap tunai tapi bukan dari kas toko (mis. uang pribadi).
+        if (newExpMethod === 'Tunai Kas') {
+          addMutation('out', 'Pembayaran Lainnya', newExpAmount, `${categoryTranslationMap[newExpCat]}: ${newExpDesc}`);
+        }
+        onAddActivity(
+          `Pengeluaran Toko Dicatat`,
+          `${newExpDesc} oleh ${newExpUser}`,
+          newExpAmount,
+          'overdue'
+        );
+      } else {
+        onAddActivity(
+          `Pengeluaran Menunggu Persetujuan`,
+          `${newExpDesc} (Rp ${newExpAmount.toLocaleString('id-ID')}) diajukan ${newExpUser}`,
+          newExpAmount,
+          'overdue',
+          'approvers'
+        );
       }
-
-      onAddActivity(
-        `Pengeluaran Toko Dicatat`,
-        `${newExpDesc} oleh ${newExpUser}`,
-        newExpAmount,
-        'overdue'
-      );
 
       // Reset forms
       setNewExpDesc('');
@@ -228,7 +216,9 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
       setNewExpMethod('Tunai Kas');
       setNewExpDate(toDateInputValue(new Date()));
       setNewExpProofFile(null);
-      dialog.alert("Klaim pengeluaran kas toko berhasil disimpan ke dalam log buku kas!");
+      dialog.alert(isOwner
+        ? "Pengeluaran berhasil dicatat dan langsung disetujui."
+        : "Pengeluaran berhasil diajukan dan menunggu persetujuan Owner. Belum tercatat di kas sampai disetujui.");
     } catch (err) {
       dialog.alert(err instanceof Error ? err.message : 'Gagal menyimpan pengeluaran, silakan coba lagi.');
     } finally {
@@ -257,7 +247,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   const safeSupplierPage = Math.min(supplierPage, Math.max(1, supplierPageCount));
 
   const openPayDialog = (po: PO) => {
-    setPayMethod('Tunai');
+    setPayMethod('Tunai Kas');
     setPayAmountInput(poRemaining(po));
     setPayProofFile(null);
     setPayingPO(po);
@@ -313,7 +303,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
         }
         : item));
 
-      if (payMethod === 'Tunai') {
+      if (payMethod === 'Tunai Kas') {
         const session = addMutation('out', 'Pembayaran Hutang', amount, `${isFullyPaid ? 'Lunas' : 'Cicilan'} bon ${po.poNumber} - ${po.supplier}`);
         if (!session) {
           dialog.alert('Pembayaran dicatat, tapi Kas Harian belum dibuka sehingga uang keluar tunai belum tercatat di kas.');
@@ -339,23 +329,8 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
     }
   };
 
-  // ---- Tab: Penjualan ----
-  const invoiceTime = (inv: SalesInvoice) => {
-    const t = inv.createdAt ? new Date(inv.createdAt).getTime() : NaN;
-    return Number.isNaN(t) ? 0 : t;
-  };
-  const sortedInvoices = [...salesInvoices].sort((a, b) => invoiceTime(b) - invoiceTime(a));
-  const salesMethods = ['Semua', ...Array.from(new Set(salesInvoices.map((inv) => inv.paymentMethod).filter(Boolean)))];
-  const filteredInvoices = sortedInvoices.filter((inv) => {
-    const q = salesSearch.trim().toLowerCase();
-    if (q && !`${inv.invoiceNumber} ${inv.customerName || ''}`.toLowerCase().includes(q)) return false;
-    return salesFilter === 'Semua' || inv.paymentMethod === salesFilter;
-  });
-  const salesTotal = filteredInvoices.reduce((sum, inv) => sum + inv.total, 0);
-  const salesPageCount = Math.ceil(filteredInvoices.length / PAGE_SIZE);
-  const safeSalesPage = Math.min(salesPage, Math.max(1, salesPageCount));
-
-  const totalExpensesThisMonth = expenses.reduce((acc, e) => acc + e.amount, 0);
+  const approvedExpenses = expenses.filter((e) => e.status === 'Approved');
+  const totalExpensesThisMonth = approvedExpenses.reduce((acc, e) => acc + e.amount, 0);
 
   // Daftar pengeluaran operasional untuk tab ini — sumbernya cuma `expenses`
   // (kategori sudah dibatasi ke Bensin/Gaji/Bon/Lainnya), jadi tidak perlu
@@ -376,7 +351,6 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
         <TabsList className="w-full">
           <TabsTrigger value="supplier" className="text-sm">Pembayaran ke Supplier</TabsTrigger>
           <TabsTrigger value="lainnya" className="text-sm">Pembayaran Lainnya</TabsTrigger>
-          <TabsTrigger value="penjualan" className="text-sm">Penjualan</TabsTrigger>
         </TabsList>
 
         {/* ===== Tab 1: Pembayaran ke Supplier ===== */}
@@ -571,7 +545,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
               <div>
                 <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Biaya Operasional</span>
                 <span className="text-lg font-black text-slate-800">Rp {totalExpensesThisMonth.toLocaleString('id-ID')}</span>
-                <span className="text-[9px] text-gray-400 block mt-0.5">{expenses.length} Pengeluaran Tercatat</span>
+                <span className="text-[9px] text-gray-400 block mt-0.5">{approvedExpenses.length} Pengeluaran Disetujui</span>
               </div>
             </div>
 
@@ -580,59 +554,64 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                 <TrendingDown className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Reimbursement Tertunda</span>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Menunggu Persetujuan</span>
                 <span className="text-lg font-black text-red-600">
-                  Rp {pendingClaims.reduce((acc, c) => acc + c.amount, 0).toLocaleString('id-ID')}
+                  Rp {pendingExpenses.reduce((acc, c) => acc + c.amount, 0).toLocaleString('id-ID')}
                 </span>
-                <span className="text-[9px] text-red-500 font-extrabold block mt-0.5">{pendingClaims.length} Klaim Menunggu</span>
+                <span className="text-[9px] text-red-500 font-extrabold block mt-0.5">{pendingExpenses.length} Pengajuan Menunggu Owner</span>
               </div>
             </div>
           </div>
 
-          {/* Employee Claim Approvals list */}
+          {/* Pengeluaran yang menunggu persetujuan Owner */}
           <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs space-y-4">
             <div>
-              <h4 className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">Klaim Reimbursement Karyawan</h4>
-              <p className="text-[11px] text-gray-400 mt-0.5">Verifikasi pengajuan nota bensin, servis armada, atau pembelian alat kantor.</p>
+              <h4 className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">Menunggu Persetujuan Owner</h4>
+              <p className="text-[11px] text-gray-400 mt-0.5">Pengeluaran baru dari staf baru tercatat (dan mengurangi Kas Harian bila Tunai Kas) setelah disetujui Owner.</p>
             </div>
 
             <div className="space-y-3.5">
-              {pendingClaims.length === 0 ? (
+              {pendingExpenses.length === 0 ? (
                 <div className="py-8 text-center text-gray-400 font-bold border border-dashed border-gray-200 rounded-xl">
-                  Tidak ada pengajuan reimbursement baru.
+                  Tidak ada pengeluaran yang menunggu persetujuan.
                 </div>
               ) : (
-                pendingClaims.map((claim) => (
-                  <div key={claim.id} className="p-4 border border-gray-200 rounded-xl space-y-3 hover:border-gray-300 transition-all bg-gray-50/50">
-                    <div className="flex justify-between items-start">
+                pendingExpenses.map((exp) => (
+                  <div key={exp.id} className="p-4 border border-gray-200 rounded-xl space-y-3 hover:border-gray-300 transition-all bg-gray-50/50">
+                    <div className="flex justify-between items-start gap-3">
                       <div>
-                        <p className="font-extrabold text-xs text-gray-900 leading-snug">{claim.item}</p>
-                        <span className="text-[10px] text-gray-400 mt-0.5 block">Diajukan: {claim.submittedBy} • {categoryTranslationMap[claim.category]}</span>
+                        <p className="font-extrabold text-xs text-gray-900 leading-snug">{exp.description}</p>
+                        <span className="text-[10px] text-gray-400 mt-0.5 block">
+                          Diajukan: {exp.submittedBy} • {categoryTranslationMap[exp.category]} • {exp.paymentMethod || '-'} • {fmtDate(exp.date)}
+                        </span>
+                        {exp.receiptUrl && (
+                          <a href={exp.receiptUrl} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 font-bold underline underline-offset-2">Lihat bukti</a>
+                        )}
                       </div>
-                      <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded uppercase font-mono">{claim.id}</span>
+                      <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded uppercase font-mono shrink-0">{exp.id}</span>
                     </div>
 
                     <div className="flex justify-between items-center pt-2 border-t border-gray-150">
-                      <span className="font-black text-xs text-gray-950">Rp {claim.amount.toLocaleString('id-ID')}</span>
-                      {canApproveFinance ? (
+                      <span className="font-black text-xs text-gray-950">Rp {exp.amount.toLocaleString('id-ID')}</span>
+                      {isOwner ? (
                         <div className="flex gap-2">
                           <button
-                            onClick={() => handleRejectClaim(claim)}
+                            onClick={() => handleRejectExpense(exp)}
                             className="w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
-                            title="Tolak Klaim"
+                            title="Tolak"
                           >
                             <X className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleApproveClaim(claim)}
+                            onClick={() => handleApproveExpense(exp)}
                             className="w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
-                            title="Setujui Klaim"
+                            title="Setujui"
                           >
                             <Check className="w-4 h-4" />
                           </button>
                         </div>
                       ) : (
-                        <span className="text-[10px] text-gray-400 italic">Menunggu persetujuan Owner/Admin.</span>
+                        <span className="text-[10px] text-gray-400 italic">Menunggu persetujuan Owner.</span>
                       )}
                     </div>
                   </div>
@@ -736,7 +715,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                           ) : exp.status === 'Rejected' ? (
                             <Badge className="bg-red-50 text-red-700 border-red-100">Ditolak</Badge>
                           ) : (
-                            <Badge className="bg-amber-50 text-amber-700 border-amber-100">Draft</Badge>
+                            <Badge className="bg-amber-50 text-amber-700 border-amber-100">Menunggu</Badge>
                           )}
                         </TableCell>
                       </TableRow>
@@ -745,111 +724,6 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                 </TableBody>
               </Table>
               <Pagination page={safeExpensePage} pageCount={expensePageCount} onPageChange={setExpensePage} />
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* ===== Tab 3: Penjualan ===== */}
-        <TabsContent value="penjualan" className="mt-5 space-y-6">
-          {/* KPI Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <TrendingUp className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Total Penjualan{salesFilter !== 'Semua' ? ` (${PAYMENT_LABEL[salesFilter] || salesFilter})` : ''}</span>
-                <span className="text-lg font-black text-emerald-600">{rupiah(salesTotal)}</span>
-                <span className="text-[9px] text-gray-400 block mt-0.5">Sesuai Filter Aktif</span>
-              </div>
-            </div>
-
-            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                <Receipt className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Jumlah Transaksi</span>
-                <span className="text-lg font-black text-slate-800">{filteredInvoices.length}</span>
-                <span className="text-[9px] text-gray-400 block mt-0.5">Invoice Penjualan</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Main Table Panel */}
-          <div className="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden">
-            {/* Controls Bar */}
-            <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col md:flex-row gap-3 justify-between items-center">
-              <div className="relative w-full md:max-w-xs group">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors z-10" />
-                <Input
-                  type="text"
-                  placeholder="Cari no. invoice atau pelanggan..."
-                  value={salesSearch}
-                  onChange={(e) => { setSalesSearch(e.target.value); setSalesPage(1); }}
-                  className="pl-9 h-8 bg-white"
-                />
-              </div>
-
-              <div className="flex gap-1.5 overflow-x-auto w-full md:w-auto">
-                {salesMethods.map((method) => (
-                  <Button
-                    key={method}
-                    size="sm"
-                    variant={salesFilter === method ? 'default' : 'outline'}
-                    onClick={() => { setSalesFilter(method); setSalesPage(1); }}
-                    className="whitespace-nowrap"
-                  >
-                    {PAYMENT_LABEL[method] || method}
-                  </Button>
-                ))}
-              </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent bg-slate-100/50">
-                    <TableHead>Pelanggan &amp; No. Invoice</TableHead>
-                    <TableHead>Tanggal</TableHead>
-                    <TableHead>Metode Bayar</TableHead>
-                    <TableHead>Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredInvoices.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="p-8 text-center text-gray-400">
-                        <span className="text-2xl block mb-2">🛒</span>
-                        <span className="font-extrabold uppercase tracking-wider block text-xs">Tidak Ada Data Penjualan</span>
-                        <span className="text-[10px] text-gray-400 mt-1 block">Silakan ubah filter atau lakukan transaksi di POS.</span>
-                      </TableCell>
-                    </TableRow>
-                  ) : filteredInvoices.slice((safeSalesPage - 1) * PAGE_SIZE, safeSalesPage * PAGE_SIZE).map((inv) => (
-                    <TableRow key={inv.invoiceNumber}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-200 to-slate-100 text-slate-700 flex items-center justify-center font-black text-xs shrink-0">
-                            {initials(inv.customerName || 'Customer')}
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-gray-800">{inv.customerName || '-'}</h4>
-                            <p className="text-[9px] text-gray-400 mt-0.5 font-mono">{inv.invoiceNumber}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap font-semibold text-gray-600">{inv.date}</TableCell>
-                      <TableCell>
-                        <Badge className="bg-slate-50 text-slate-700 border-slate-200">{PAYMENT_LABEL[inv.paymentMethod] || inv.paymentMethod}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-black text-xs text-emerald-600">{rupiah(inv.total)}</span>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <Pagination page={safeSalesPage} pageCount={salesPageCount} onPageChange={setSalesPage} />
             </div>
           </div>
         </TabsContent>
@@ -900,11 +774,13 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
 
                 <div>
                   <Label>Metode Pembayaran</Label>
-                  <Select value={payMethod} onValueChange={(value) => setPayMethod(value as 'Tunai' | 'Transfer')}>
+                  <Select value={payMethod} onValueChange={(value) => setPayMethod(value as PayMethod)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Tunai">Tunai (mengurangi Kas Harian)</SelectItem>
+                      <SelectItem value="Tunai Kas">Tunai — dari Kas Toko (mempengaruhi Kas Harian)</SelectItem>
+                      <SelectItem value="Tunai Luar">Tunai — Bukan dari Kas Toko (tidak mempengaruhi Kas Harian)</SelectItem>
                       <SelectItem value="Transfer">Transfer</SelectItem>
+                      <SelectItem value="Giro">Giro</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1060,7 +936,9 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                 </div>
 
                 <p className="text-[10px] text-gray-400 leading-relaxed bg-blue-50/40 p-3 rounded-lg border border-blue-100">
-                  Data pengeluaran yang disimpan akan langsung mengurangi kas operasional toko di jurnal utama serta dicatat otomatis ke log aktivitas.
+                  {isOwner
+                    ? 'Sebagai Owner, pengeluaran ini langsung disetujui: mengurangi Kas Harian (bila Tunai Kas) dan dicatat ke log aktivitas.'
+                    : 'Pengeluaran ini harus disetujui Owner dulu. Sebelum disetujui, belum tercatat sebagai pengeluaran dan belum mengurangi Kas Harian.'}
                 </p>
 
                 <div className="pt-3 border-t border-gray-100 flex gap-2">
@@ -1076,7 +954,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                     disabled={isExpenseSubmitting}
                     className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-md shadow-blue-500/15 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    {isExpenseSubmitting ? 'Menyimpan...' : 'Simpan Pengeluaran'}
+                    {isExpenseSubmitting ? 'Menyimpan...' : isOwner ? 'Simpan Pengeluaran' : 'Ajukan ke Owner'}
                   </button>
                 </div>
               </form>

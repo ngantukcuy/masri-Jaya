@@ -2,7 +2,8 @@ export interface POPayment {
   id: string;
   /** Nominal yang dibayarkan pada cicilan/pembayaran ini (bukan sisa atau total). */
   amount: number;
-  method: 'Tunai' | 'Transfer';
+  /** 'Tunai' = data lama sebelum metode disamakan dengan Pembayaran Lainnya. */
+  method: 'Tunai Kas' | 'Tunai Luar' | 'Transfer' | 'Giro' | 'Tunai';
   date: string;
   /** URL bukti bayar (foto struk/transfer) yang diupload ke Supabase Storage. */
   proofUrl?: string;
@@ -41,7 +42,7 @@ export interface PO {
    * (dipakai untuk bon Tempo). Bon Cash/Transfer dianggap lunas saat diterima. */
   paidAt?: string;
   paidAmount?: number;
-  paidMethod?: 'Tunai' | 'Transfer';
+  paidMethod?: 'Tunai Kas' | 'Tunai Luar' | 'Transfer' | 'Giro' | 'Tunai';
   /** Riwayat cicilan pembayaran bon ini (tiap entri bisa punya bukti bayar sendiri). */
   paymentHistory?: POPayment[];
   paidHistory?: { date: string; amount: number; method: string; receiptName?: string }[];
