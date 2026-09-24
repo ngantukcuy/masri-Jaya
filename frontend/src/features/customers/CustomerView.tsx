@@ -10,7 +10,8 @@ import {
   Trash2,
   Wallet
 } from 'lucide-react';
-import { Customer } from '../../types';
+import { Customer, DepositTransaction } from '../../types';
+import SebagaiInput, { sebagaiLabel } from '../../components/shared/SebagaiInput';
 import { addMutation } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
@@ -43,7 +44,7 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
 
   // New Customer states
   const [newName, setNewName] = useState('');
-  const [newLoyalty, setNewLoyalty] = useState('Pelanggan Retail');
+  const [newLoyalty, setNewLoyalty] = useState('Pelanggan Umum');
   const [newPhone, setNewPhone] = useState('');
   const [newAddress, setNewAddress] = useState('');
   const [newPaymentTerms, setNewPaymentTerms] = useState<'Tunai' | 'Kredit' | 'Tempo'>('Tunai');
@@ -54,7 +55,7 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
   // Edit Customer states
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [editName, setEditName] = useState('');
-  const [editLoyalty, setEditLoyalty] = useState('Pelanggan Retail');
+  const [editLoyalty, setEditLoyalty] = useState('Pelanggan Umum');
   const [editPoints, setEditPoints] = useState(0);
 
   // Deposit Top Up / Withdraw modal states
@@ -71,19 +72,14 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
   const [editCreditLimit, setEditCreditLimit] = useState<number>(10000000);
   const [editDepositBalance, setEditDepositBalance] = useState<number>(0);
 
-  // Map loyalty tiers to Indonesian displays
-  const tierTranslationMap: Record<string, string> = {
-    'Platinum Member': 'Anggota Platinum (VIP)',
-    'Premium Builder': 'Kontraktor Utama (Premium)',
-    'Loyal General Contractor': 'Kontraktor Umum Loyal',
-    'Local Retail Builder': 'Pembangun Retail Lokal',
-    'Pelanggan Retail': 'Pelanggan Retail Eceran'
-  };
+  // "Sebagai" (dulu Level Loyalitas): nilai bebas, jadi daftar filter & pilihan
+  // dropdown diambil dari nilai yang benar-benar dipakai pelanggan.
+  const sebagaiValues = Array.from(new Set(customers.map((c) => c.loyaltyTier).filter(Boolean)));
 
   const filteredCustomers = customers.filter((c) => {
     const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           c.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesLoyalty = selectedLoyalty === 'Semua' || c.loyaltyTier.includes(selectedLoyalty);
+    const matchesLoyalty = selectedLoyalty === 'Semua' || c.loyaltyTier === selectedLoyalty;
     return matchesSearch && matchesLoyalty;
   });
 
@@ -109,7 +105,16 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
     }
 
     const nextBalance = depositAction === 'topup' ? currentBalance + depositAmount : currentBalance - depositAmount;
-    const updated = customers.map((c) => c.id === depositCustomer.id ? { ...c, depositBalance: nextBalance } : c);
+    const trx: DepositTransaction = {
+      id: `DEP-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      type: depositAction,
+      amount: depositAmount,
+      method: depositMethod,
+      date: new Date().toISOString(),
+    };
+    const updated = customers.map((c) => c.id === depositCustomer.id
+      ? { ...c, depositBalance: nextBalance, depositHistory: [trx, ...(c.depositHistory || [])] }
+      : c);
     onUpdateCustomers(updated);
 
     if (depositMethod === 'Tunai') {
@@ -321,9 +326,9 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
             <Sparkles className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[10px] text-gray-400 font-bold uppercase">PELANGGAN TIER LOYAL</p>
+            <p className="text-[10px] text-gray-400 font-bold uppercase">JENIS PELANGGAN (SEBAGAI)</p>
             <h4 className="text-lg font-black text-emerald-600 mt-0.5">
-              {customers.filter(c => c.loyaltyTier.includes("Platinum") || c.loyaltyTier.includes("Premium")).length} Kontraktor Utama
+              {sebagaiValues.length} Kategori
             </h4>
           </div>
         </div>
@@ -343,7 +348,7 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1 w-full sm:w-auto scrollbar-none">
-          {['Semua', 'Platinum', 'Premium', 'General', 'Retail'].map((tier) => (
+          {['Semua', ...sebagaiValues].map((tier) => (
             <Button
               key={tier}
               size="sm"
@@ -351,7 +356,7 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
               onClick={() => setSelectedLoyalty(tier)}
               className={selectedLoyalty === tier ? 'bg-blue-100 text-blue-800 hover:bg-blue-100 shadow-none whitespace-nowrap' : 'whitespace-nowrap'}
             >
-              {tier === 'Semua' ? 'Semua Tingkatan' : tier}
+              {tier === 'Semua' ? 'Semua' : sebagaiLabel(tier)}
             </Button>
           ))}
         </div>
@@ -381,7 +386,7 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
                   <span className="text-[9px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-black uppercase">
-                    {tierTranslationMap[cust.loyaltyTier] || cust.loyaltyTier}
+                    {sebagaiLabel(cust.loyaltyTier)}
                   </span>
                   <div className="flex gap-1.5">
                     {can('manage_customer_update') && (
@@ -518,17 +523,8 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
                   />
                 </div>
                 <div>
-                  <Label>Level Loyalitas</Label>
-                  <Select value={newLoyalty} onValueChange={setNewLoyalty}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Pelanggan Retail">Pelanggan Eceran Biasa (Retail)</SelectItem>
-                      <SelectItem value="Local Retail Builder">Pembangun Retail Lokal</SelectItem>
-                      <SelectItem value="Loyal General Contractor">Kontraktor Umum Loyal</SelectItem>
-                      <SelectItem value="Premium Builder">Kontraktor Utama (Premium)</SelectItem>
-                      <SelectItem value="Platinum Member">Anggota Platinum (VIP)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Sebagai</Label>
+                  <SebagaiInput value={newLoyalty} onChange={setNewLoyalty} extraOptions={sebagaiValues} />
                 </div>
               </div>
 
@@ -639,17 +635,8 @@ export default function CustomerView({ customers, onUpdateCustomers, onAddActivi
                   />
                 </div>
                 <div>
-                  <Label>Kategori Level Loyalitas</Label>
-                  <Select value={editLoyalty} onValueChange={setEditLoyalty}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Pelanggan Retail">Pelanggan Eceran Biasa (Retail)</SelectItem>
-                      <SelectItem value="Local Retail Builder">Pembangun Retail Lokal</SelectItem>
-                      <SelectItem value="Loyal General Contractor">Kontraktor Umum Loyal</SelectItem>
-                      <SelectItem value="Premium Builder">Kontraktor Utama (Premium)</SelectItem>
-                      <SelectItem value="Platinum Member">Anggota Platinum (VIP)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Sebagai</Label>
+                  <SebagaiInput value={editLoyalty} onChange={setEditLoyalty} extraOptions={sebagaiValues} />
                 </div>
               </div>
 

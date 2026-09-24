@@ -4,6 +4,15 @@ export interface CustomerTransaction {
   amount: number;
 }
 
+export interface DepositTransaction {
+  id: string;
+  type: 'topup' | 'withdraw';
+  amount: number;
+  method: 'Tunai' | 'Transfer';
+  /** ISO timestamp. */
+  date: string;
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -23,6 +32,8 @@ export interface Customer {
   tempoDays?: number;
   creditLimit?: number;
   depositBalance?: number;
+  /** Riwayat top up / penarikan deposit — sumber angka deposit di Dashboard (pemasukan). */
+  depositHistory?: DepositTransaction[];
   /** ISO date (yyyy-mm-dd) of the earliest outstanding piutang due date —
    * set automatically from a POS "Bayar Sebagian" split (today + tempoDays)
    * or manually from Utang & Piutang > Tambah Hutang. Cleared once

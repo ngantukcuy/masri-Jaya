@@ -227,7 +227,7 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
       }
     }
 
-    const updatedReturns = returns.map(r => r.id === id ? { ...r, status: 'Approved' as const } : r);
+    const updatedReturns = returns.map(r => r.id === id ? { ...r, status: 'Approved' as const, approvedAtISO: new Date().toISOString() } : r);
     onUpdateReturns(updatedReturns);
     onAddActivity(`Retur ${record.type} Disetujui`, record.refNumber, record.totalRefund, 'quote');
   };

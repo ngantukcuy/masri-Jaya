@@ -13,7 +13,7 @@ import {
   Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Product, Activity, SalesInvoice, Customer, Expense, PO } from '../../types';
+import { Product, Activity, SalesInvoice, Customer, Expense, PO, ReturnRecord } from '../../types';
 import { timeAgo } from '../../lib/timeAgo';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -58,6 +58,7 @@ interface DashboardViewProps {
   customers: Customer[];
   expenses?: Expense[];
   pos?: PO[];
+  returns?: ReturnRecord[];
   totalSales: number;
   totalOrdersCount: number;
   onTabChange: (tab: string) => void;
@@ -71,12 +72,14 @@ export default function DashboardView({
   customers,
   expenses = [],
   pos = [],
+  returns = [],
   totalSales, 
   totalOrdersCount, 
   onTabChange, 
   onQuickRestock 
 }: DashboardViewProps) {
-  const [activeChartTab, setActiveChartTab] = useState<'sales' | 'profit'>('sales');
+  const [activeChartTab, setActiveChartTab] = useState<'income' | 'expense' | 'profit'>('income');
+  const [previewKind, setPreviewKind] = useState<'income' | 'expense' | null>(null);
   const [chartDateFrom, setChartDateFrom] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 11);
@@ -120,26 +123,136 @@ export default function DashboardView({
     return current > 0 ? 100 : 0;
   };
 
-  // Data grafik tren pendapatan pada rentang tanggal terpilih, dihitung
-  // langsung dari salesInvoices (database). Granularitas menyesuaikan
-  // rentang (harian/mingguan/bulanan) lewat buildDateBuckets.
-  const monthlyData = useMemo(() => {
-    const buckets = buildDateBuckets(chartDateFrom, chartDateTo);
-    return buckets.map((b) => {
-      const bucketInvoices = salesInvoices.filter((inv) => {
-        if (!inv.createdAt) return false;
-        const d = new Date(inv.createdAt);
-        return d >= b.start && d < b.endExclusive;
-      });
-      return {
-        name: b.label,
-        start: b.start,
-        sales: bucketInvoices.reduce((s, inv) => s + inv.total, 0),
-        profit: bucketInvoices.reduce((s, inv) => s + estimateInvoiceProfit(inv), 0),
-      };
+  // ---- Buku besar keuangan Dashboard ----
+  // Satu sumber data untuk 3 kartu (Pendapatan, Pengeluaran, Untung) DAN grafik,
+  // supaya angka kartu selalu sama dengan jumlah titik di grafik.
+  //  Pendapatan  = penjualan (kecuali yang dibayar Deposit) + top up deposit
+  //                − penarikan deposit − retur dari pelanggan + retur ke supplier
+  //  Pengeluaran = pembayaran bon supplier (per cicilan) + pengeluaran lain yang
+  //                sudah disetujui − retur ke supplier
+  //  Untung      = untung penjualan − untung yang hilang karena retur pelanggan
+  // Penjualan berdeposit tidak menambah pendapatan lagi karena uangnya sudah
+  // dihitung saat top up deposit.
+  const isPOPaidForRange = (po: PO) => !!po.paidAt || po.paymentMethod === 'Cash' || po.paymentMethod === 'Transfer';
+
+  const parseReturnDate = (r: ReturnRecord): Date | null => {
+    if (r.approvedAtISO) {
+      const d = new Date(r.approvedAtISO);
+      if (!isNaN(d.getTime())) return d;
+    }
+    const iso = new Date(r.createdAt);
+    if (!isNaN(iso.getTime())) return iso;
+    const months: Record<string, number> = { januari: 0, februari: 1, maret: 2, april: 3, mei: 4, juni: 5, juli: 6, agustus: 7, september: 8, oktober: 9, november: 10, desember: 11 };
+    const m = r.createdAt.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})(?:,?\s+(\d{1,2})[.:](\d{2}))?/);
+    if (!m || months[m[2].toLowerCase()] === undefined) return null;
+    return new Date(Number(m[3]), months[m[2].toLowerCase()], Number(m[1]), Number(m[4] || 0), Number(m[5] || 0));
+  };
+
+  type LedgerKind = 'income' | 'expense' | 'profit';
+  interface LedgerEvent { kind: LedgerKind; source: string; label: string; date: Date; amount: number }
+
+  const ledger = useMemo(() => {
+    const events: LedgerEvent[] = [];
+    const add = (kind: LedgerKind, source: string, label: string, dateLike: string | Date | null | undefined, amount: number) => {
+      if (!dateLike || !amount) return;
+      const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
+      if (isNaN(date.getTime())) return;
+      events.push({ kind, source, label, date, amount });
+    };
+
+    // Penjualan
+    const invoiceByNumber = new Map(salesInvoices.map((inv) => [inv.invoiceNumber, inv]));
+    salesInvoices.forEach((inv) => {
+      if (!inv.createdAt) return;
+      const label = `${inv.invoiceNumber} · ${inv.customerName || '-'}`;
+      if (inv.paymentMethod !== 'Deposit') add('income', 'Penjualan', label, inv.createdAt, inv.total);
+      add('profit', 'Penjualan', label, inv.createdAt, estimateInvoiceProfit(inv));
     });
+
+    // Deposit pelanggan
+    customers.forEach((c) => {
+      (c.depositHistory || []).forEach((t) => {
+        add('income', t.type === 'topup' ? 'Top Up Deposit' : 'Penarikan Deposit', `${c.name} · ${t.method}`, t.date, t.type === 'topup' ? t.amount : -t.amount);
+      });
+    });
+
+    // Pembayaran bon supplier: tiap pembayaran/cicilan dihitung pada tanggalnya sendiri.
+    const paidByPO = new Map<string, number>();
+    pos.forEach((po) => {
+      const payments = po.paymentHistory && po.paymentHistory.length > 0
+        ? po.paymentHistory.map((p) => ({ date: p.date, amount: p.amount }))
+        : (po.paidHistory || []).map((p) => ({ date: p.date, amount: p.amount }));
+      const label = `${po.supplier} · ${po.poNumber}`;
+      if (payments.length > 0) {
+        payments.forEach((p) => add('expense', 'Bayar Bon Supplier', label, p.date, p.amount));
+        paidByPO.set(po.poNumber, payments.reduce((s, p) => s + p.amount, 0));
+      } else if (isPOPaidForRange(po) || (po.paidAmount && po.paidAmount > 0)) {
+        // Bon Cash/Transfer (lunas saat diterima) atau data lama tanpa riwayat.
+        const paid = po.paidAmount && po.paidAmount > 0 ? po.paidAmount : po.total;
+        add('expense', 'Bayar Bon Supplier', label, po.paidAt || po.receivedAt || po.createdDate, paid);
+        paidByPO.set(po.poNumber, paid);
+      }
+    });
+
+    // Pengeluaran lain (hanya yang sudah disetujui Owner)
+    expenses.forEach((e) => {
+      if (e.status === 'Approved') add('expense', 'Pengeluaran Lainnya', e.description, e.date, e.amount);
+    });
+
+    // Retur yang sudah disetujui, diproses urut tanggal
+    const approvedReturns = returns
+      .filter((r) => r.status === 'Approved')
+      .map((r) => ({ r, date: parseReturnDate(r) }))
+      .filter((x): x is { r: ReturnRecord; date: Date } => !!x.date)
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+    const refundedByPO = new Map<string, number>();
+    approvedReturns.forEach(({ r, date }) => {
+      const label = `${r.refNumber} · ${r.partyName}`;
+      if (r.type === 'Penjualan') {
+        // Retur dari pelanggan: pendapatan berkurang, pengeluaran TIDAK bertambah.
+        // Kalau invoice aslinya dibayar Deposit, pendapatannya memang tidak pernah dihitung.
+        if (invoiceByNumber.get(r.refNumber)?.paymentMethod !== 'Deposit') {
+          add('income', 'Retur dari Pelanggan', label, date, -r.totalRefund);
+        }
+        const itemsProfit = r.items.reduce((sum, item) => {
+          const cost = productCostBySku.get(item.sku);
+          const unitMargin = cost && cost > 0 ? item.price - cost : item.price * fallbackMarginRate;
+          // Barang baik kembali ke stok (hilang untungnya saja); barang rusak hilang total.
+          return sum - (item.condition === 'Rusak' ? item.price * item.quantity : unitMargin * item.quantity);
+        }, 0);
+        add('profit', 'Retur dari Pelanggan', label, date, itemsProfit + (r.discount || 0));
+      } else {
+        // Retur ke supplier: hanya sebesar yang sudah dibayar di bon tsb.
+        // Pendapatan bertambah, pengeluaran berkurang sebesar nilai itu.
+        const paid = paidByPO.get(r.refNumber) || 0;
+        const already = refundedByPO.get(r.refNumber) || 0;
+        const refundable = Math.max(0, Math.min(r.totalRefund, paid - already));
+        if (refundable > 0) {
+          refundedByPO.set(r.refNumber, already + refundable);
+          add('income', 'Retur ke Supplier', label, date, refundable);
+          add('expense', 'Retur ke Supplier', label, date, -refundable);
+        }
+      }
+    });
+
+    return events;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [salesInvoices, chartDateFrom, chartDateTo]);
+  }, [salesInvoices, customers, pos, expenses, returns, products]);
+
+  // Grafik memakai bucket rentang tanggal (harian/mingguan/bulanan). Kartu = jumlah bucket.
+  const buckets = useMemo(() => buildDateBuckets(chartDateFrom, chartDateTo), [chartDateFrom, chartDateTo]);
+  const monthlyData = useMemo(() => buckets.map((b) => {
+    const inBucket = ledger.filter((e) => e.date >= b.start && e.date < b.endExclusive);
+    const sumKind = (kind: LedgerKind) => inBucket.filter((e) => e.kind === kind).reduce((s, e) => s + e.amount, 0);
+    return { name: b.label, start: b.start, income: sumKind('income'), expense: sumKind('expense'), profit: sumKind('profit') };
+  }), [buckets, ledger]);
+
+  const coverStart = buckets[0]?.start;
+  const coverEnd = buckets[buckets.length - 1]?.endExclusive;
+  const rangeEvents = useMemo(
+    () => (coverStart && coverEnd ? ledger.filter((e) => e.date >= coverStart && e.date < coverEnd) : []),
+    [ledger, coverStart, coverEnd]
+  );
 
   // KPI "hari ini" dihitung dari transaksi POS sungguhan, dibandingkan kemarin.
   const liveTodaySales = todayInvoices.reduce((s, inv) => s + inv.total, 0);
@@ -156,58 +269,13 @@ export default function DashboardView({
   );
 
   // ---- KPI 4 kotak dashboard, mengikuti filter tanggal (chartDateFrom/chartDateTo) ----
-  // Kotak 1 "Pendapatan Keseluruhan" & grafik pakai bucket yang sama supaya
-  // selalu konsisten satu sama lain.
-  const rangeTotalRevenue = monthlyData.reduce((s, d) => s + d.sales, 0);
-  const rangeInvoiceCount = salesInvoices.filter((inv) => {
-    if (!inv.createdAt) return false;
-    const t = new Date(inv.createdAt).getTime();
-    if (Number.isNaN(t)) return false;
-    const from = new Date(chartDateFrom); from.setHours(0, 0, 0, 0);
-    const to = new Date(chartDateTo); to.setHours(23, 59, 59, 999);
-    return t >= from.getTime() && t <= to.getTime();
-  }).length;
-
-  const inDateRange = (isoOrDateLike?: string) => {
-    if (!isoOrDateLike) return false;
-    const t = new Date(isoOrDateLike).getTime();
-    if (Number.isNaN(t)) return false;
-    const from = new Date(chartDateFrom); from.setHours(0, 0, 0, 0);
-    const to = new Date(chartDateTo); to.setHours(23, 59, 59, 999);
-    return t >= from.getTime() && t <= to.getTime();
-  };
-
-  // Kotak 2 "Total Pengeluaran" = seluruh minus: bon supplier yang sudah
-  // dibayar (lunas ATAU cicilan yang sudah masuk) + pengeluaran lain-lain,
-  // dibatasi ke rentang tanggal terpilih.
-  const isPOPaidForRange = (po: PO) => !!po.paidAt || po.paymentMethod === 'Cash' || po.paymentMethod === 'Transfer';
-  const rangePaidPOTotal = pos.reduce((sum, po) => {
-    // Bon yang pernah dibayar lewat Pembayaran > Supplier (Tempo, bisa dicicil):
-    // tiap pembayaran dihitung pada tanggal pembayarannya sendiri, jadi cicilan
-    // yang belum lunas pun langsung masuk ke pengeluaran.
-    const payments = po.paymentHistory && po.paymentHistory.length > 0
-      ? po.paymentHistory.map((p) => ({ date: p.date, amount: p.amount }))
-      : (po.paidHistory || []).map((p) => ({ date: p.date, amount: p.amount }));
-    if (payments.length > 0) {
-      return sum + payments.reduce((s, p) => (inDateRange(p.date) ? s + p.amount : s), 0);
-    }
-    // Bon Cash/Transfer (lunas saat diterima) atau data lama tanpa riwayat.
-    if (!isPOPaidForRange(po) && !(po.paidAmount && po.paidAmount > 0)) return sum;
-    const effectiveDate = po.paidAt || po.receivedAt || po.createdDate;
-    if (!inDateRange(effectiveDate)) return sum;
-    return sum + (po.paidAmount && po.paidAmount > 0 ? po.paidAmount : po.total);
-  }, 0);
-  // Hanya pengeluaran yang sudah disetujui Owner yang dihitung.
-  const rangeExpenseTotal = expenses.reduce((sum, e) => (e.status === 'Approved' && inDateRange(e.date) ? sum + e.amount : sum), 0);
-  const rangeTotalPengeluaran = rangePaidPOTotal + rangeExpenseTotal;
-
-  // Kotak 3 "Estimasi Untung Bersih" = jumlah untung tiap penjualan pada rentang
-  // yang sama: (harga jual − harga modal) × qty, dikurangi diskon. Memakai
-  // bucket yang sama dengan pendapatan & grafik Keuntungan supaya konsisten.
-  // Bukan lagi pendapatan − pengeluaran, karena belanja stok ke supplier
-  // bukan kerugian (modalnya sudah dihitung per barang yang terjual).
-  const rangeNetProfit = monthlyData.reduce((s, d) => s + d.profit, 0);
+  const sumRange = (kind: LedgerKind) => rangeEvents.filter((e) => e.kind === kind).reduce((s, e) => s + e.amount, 0);
+  const rangeTotalRevenue = sumRange('income');
+  const rangeTotalPengeluaran = sumRange('expense');
+  const rangeNetProfit = sumRange('profit');
   const rangeMarginPct = rangeTotalRevenue > 0 ? (rangeNetProfit / rangeTotalRevenue) * 100 : 0;
+  const rangeSaleCount = rangeEvents.filter((e) => e.kind === 'income' && e.source === 'Penjualan').length;
+  const rangeTopUpCount = rangeEvents.filter((e) => e.kind === 'income' && e.source === 'Top Up Deposit').length;
 
   // Kotak 4 "Tagihan Hutang & Piutang" = gabungan piutang dari customer
   // (jatuh tempo/belum lunas) dan hutang ke supplier (bon belum lunas).
@@ -285,15 +353,22 @@ export default function DashboardView({
   };
 
   // SVG Line Chart coordinates calculation — skala mengikuti data asli (dengan padding 15%)
-  const maxSalesValue = Math.max(1, ...monthlyData.map((d) => d.sales));
-  const maxProfitValue = Math.max(1, ...monthlyData.map((d) => d.profit));
-  const maxVal = (activeChartTab === 'sales' ? maxSalesValue : maxProfitValue) * 1.15;
+  const chartMeta = {
+    income: { label: 'Pendapatan', stroke: '#2563EB', bar: '#60A5FA', grad: 'url(#incomeGrad)' },
+    expense: { label: 'Pengeluaran', stroke: '#EF4444', bar: '#F87171', grad: 'url(#expenseGrad)' },
+    profit: { label: 'Untung Bersih', stroke: '#10B981', bar: '#34D399', grad: 'url(#profitGrad)' },
+  }[activeChartTab];
+  const chartValues = monthlyData.map((d) => d[activeChartTab]);
+  const maxVal = Math.max(1, ...chartValues) * 1.15;
+  // Nilai bisa negatif (mis. retur lebih besar dari penjualan di satu periode), jadi garis nol dihitung.
+  const minVal = Math.min(0, ...chartValues) * 1.15;
+  const valueRange = Math.max(1, maxVal - minVal);
+  const yOf = (val: number) => 170 - ((val - minVal) / valueRange) * 130;
+  const y0 = yOf(0);
   const points = monthlyData.map((d, i) => {
-    const val = activeChartTab === 'sales' ? d.sales : d.profit;
     const stepX = 610 / Math.max(monthlyData.length - 1, 1);
     const x = 30 + (i * stepX);
-    const y = 170 - (val / maxVal) * 130;
-    return { x, y };
+    return { x, y: yOf(d[activeChartTab]) };
   });
 
   const pathD = `M ${points.map(p => `${p.x} ${p.y}`).join(' L ')}`;
@@ -345,20 +420,22 @@ export default function DashboardView({
         {renderKpiCard(
           "Pendapatan Keseluruhan",
           `Rp ${rangeTotalRevenue.toLocaleString('id-ID')}`,
-          `${rangeInvoiceCount} transaksi pada periode ini`,
+          `${rangeSaleCount} transaksi${rangeTopUpCount > 0 ? ` · ${rangeTopUpCount} top up deposit` : ''} — klik untuk rincian`,
           "neutral",
           <DollarSign className="w-4.5 h-4.5" />,
           "bg-emerald-500/10",
-          "text-emerald-600"
+          "text-emerald-600",
+          () => setPreviewKind('income')
         )}
         {renderKpiCard(
           "Total Pengeluaran",
           `Rp ${rangeTotalPengeluaran.toLocaleString('id-ID')}`,
-          "Bon supplier + pengeluaran lain",
+          "Bon supplier + pengeluaran lain — klik untuk rincian",
           "neutral",
           <TrendingDown className="w-4.5 h-4.5" />,
           "bg-red-500/10",
-          "text-red-600"
+          "text-red-600",
+          () => setPreviewKind('expense')
         )}
         {renderKpiCard(
           "Estimasi Untung Bersih",
@@ -389,24 +466,30 @@ export default function DashboardView({
           <div className="flex flex-col gap-3 pb-4 border-b border-slate-100/60">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
               <div>
-                <h4 className="text-sm font-black text-slate-800 tracking-tight">Tren Kinerja Penjualan</h4>
-                <p className="text-[10px] text-slate-400 mt-0.5">Statistik finansial pendapatan dan laba bersih pada rentang tanggal terpilih</p>
+                <h4 className="text-sm font-black text-slate-800 tracking-tight">Tren Keuangan</h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">Pendapatan, pengeluaran, dan untung bersih — angkanya sama dengan 3 kartu di atas</p>
               </div>
 
               {/* Chart toggle (shadcn Tabs, styled as a pill switcher) */}
-              <Tabs value={activeChartTab} onValueChange={(v) => setActiveChartTab(v as 'sales' | 'profit')} className="self-start sm:self-auto">
+              <Tabs value={activeChartTab} onValueChange={(v) => setActiveChartTab(v as 'income' | 'expense' | 'profit')} className="self-start sm:self-auto">
                 <TabsList className="bg-slate-100/70 p-1 rounded-xl border border-slate-200/40 gap-0">
                   <TabsTrigger
-                    value="sales"
+                    value="income"
                     className="px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/30 text-slate-500 hover:text-slate-800"
                   >
                     Pendapatan
                   </TabsTrigger>
                   <TabsTrigger
+                    value="expense"
+                    className="px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/30 text-slate-500 hover:text-slate-800"
+                  >
+                    Pengeluaran
+                  </TabsTrigger>
+                  <TabsTrigger
                     value="profit"
                     className="px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/30 text-slate-500 hover:text-slate-800"
                   >
-                    Keuntungan
+                    Untung
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -421,19 +504,24 @@ export default function DashboardView({
                 <line x1="30" y1="40" x2="640" y2="40" stroke="#E2E8F0" strokeOpacity="0.4" strokeWidth="1" strokeDasharray="3,3" />
                 <line x1="30" y1="105" x2="640" y2="105" stroke="#E2E8F0" strokeOpacity="0.4" strokeWidth="1" strokeDasharray="3,3" />
                 <line x1="30" y1="170" x2="640" y2="170" stroke="#E2E8F0" strokeOpacity="0.8" strokeWidth="1" />
+                {minVal < 0 && <line x1="30" y1={y0} x2="640" y2={y0} stroke="#94A3B8" strokeOpacity="0.7" strokeWidth="1" strokeDasharray="4,3" />}
 
                 {/* Smooth Gradient Fill path */}
                 <path 
-                  d={`${pathD} L ${points[points.length-1].x} 170 L 30 170 Z`}
-                  fill={activeChartTab === 'sales' ? 'url(#salesGrad)' : 'url(#profitGrad)'}
+                  d={`${pathD} L ${points[points.length-1]?.x ?? 30} ${y0} L 30 ${y0} Z`}
+                  fill={chartMeta.grad}
                   className="opacity-15"
                 />
 
                 {/* Define Gradients */}
                 <defs>
-                  <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#2563EB" />
                     <stop offset="100%" stopColor="#DBEAFE" stopOpacity="0" />
+                  </linearGradient>
+                  <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#EF4444" />
+                    <stop offset="100%" stopColor="#FEE2E2" stopOpacity="0" />
                   </linearGradient>
                   <linearGradient id="profitGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#10B981" />
@@ -448,7 +536,7 @@ export default function DashboardView({
                   transition={{ duration: 1, ease: 'easeOut' }}
                   d={pathD}
                   fill="none"
-                  stroke={activeChartTab === 'sales' ? '#2563EB' : '#10B981'}
+                  stroke={chartMeta.stroke}
                   strokeWidth="2.5"
                   strokeLinecap="round"
                 />
@@ -456,7 +544,7 @@ export default function DashboardView({
                 {/* Monthly Interactive Bars/Circles */}
                 {points.map((pt, i) => {
                   const isHovered = hoveredMonth === i;
-                  const barHeight = 170 - pt.y;
+                  const barHeight = Math.abs(y0 - pt.y);
                   return (
                     <g key={i}>
                       {/* Glowing point on line */}
@@ -464,7 +552,7 @@ export default function DashboardView({
                         cx={pt.x} 
                         cy={pt.y} 
                         r={isHovered ? 6 : 3.5} 
-                        fill={activeChartTab === 'sales' ? '#2563EB' : '#10B981'}
+                        fill={chartMeta.stroke}
                         stroke="white"
                         strokeWidth={isHovered ? 2.5 : 1}
                         className="transition-all"
@@ -472,11 +560,11 @@ export default function DashboardView({
                       {/* Interactive background bar */}
                       <rect 
                         x={pt.x - 4}
-                        y={pt.y}
+                        y={Math.min(pt.y, y0)}
                         width="8"
                         height={barHeight}
                         rx="1.5"
-                        fill={activeChartTab === 'sales' ? '#60A5FA' : '#34D399'}
+                        fill={chartMeta.bar}
                         className={`transition-all duration-300 ${
                           hoveredMonth === i 
                             ? 'opacity-100 filter brightness-110' 
@@ -514,8 +602,12 @@ export default function DashboardView({
                   >
                     <p className="font-extrabold mb-1 tracking-wider text-slate-400">{monthlyData[hoveredMonth].name}</p>
                     <div className="flex justify-between items-center gap-2 mt-1">
-                      <span className="text-slate-400">Pendapatan:</span>
-                      <span className="font-bold text-white">Rp {monthlyData[hoveredMonth].sales.toLocaleString('id-ID')}</span>
+                      <span className="text-blue-300">Pendapatan:</span>
+                      <span className="font-bold text-white">Rp {monthlyData[hoveredMonth].income.toLocaleString('id-ID')}</span>
+                    </div>
+                    <div className="flex justify-between items-center gap-2 mt-1 border-t border-slate-800 pt-1">
+                      <span className="text-red-300">Pengeluaran:</span>
+                      <span className="font-bold text-red-200">Rp {monthlyData[hoveredMonth].expense.toLocaleString('id-ID')}</span>
                     </div>
                     <div className="flex justify-between items-center gap-2 mt-1 border-t border-slate-800 pt-1">
                       <span className="text-emerald-400">Untung:</span>
@@ -726,6 +818,66 @@ export default function DashboardView({
       </div>
 
       {/* Preview gabungan Hutang (ke Supplier) & Piutang (dari Customer) — dibuka dari kotak KPI ke-4 */}
+      {/* Preview rincian Pendapatan / Pengeluaran — isinya persis sumber angka kartu & grafik */}
+      <Dialog open={previewKind !== null} onOpenChange={(open) => { if (!open) setPreviewKind(null); }}>
+        <DialogContent className="max-w-lg">
+          {previewKind && (() => {
+            const items = rangeEvents
+              .filter((e) => e.kind === previewKind)
+              .sort((a, b) => b.date.getTime() - a.date.getTime());
+            const total = items.reduce((s, e) => s + e.amount, 0);
+            const bySource = new Map<string, { count: number; sum: number }>();
+            items.forEach((e) => {
+              const cur = bySource.get(e.source) || { count: 0, sum: 0 };
+              bySource.set(e.source, { count: cur.count + 1, sum: cur.sum + e.amount });
+            });
+            const fmt = (n: number) => `${n < 0 ? '-' : ''}Rp ${Math.abs(n).toLocaleString('id-ID')}`;
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-sm normal-case tracking-normal">
+                    Rincian {previewKind === 'income' ? 'Pendapatan' : 'Pengeluaran'}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="flex items-center justify-between bg-slate-50 rounded-xl p-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total pada periode terpilih</span>
+                  <span className={`text-base font-black ${previewKind === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>{fmt(total)}</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  {Array.from(bySource.entries()).map(([source, v]) => (
+                    <div key={source} className="flex items-center justify-between text-xs">
+                      <span className="text-slate-600 font-semibold">{source} <span className="text-slate-400 font-normal">({v.count})</span></span>
+                      <span className={`font-black ${v.sum < 0 ? 'text-red-600' : 'text-slate-800'}`}>{fmt(v.sum)}</span>
+                    </div>
+                  ))}
+                  {items.length === 0 && <p className="text-center text-xs text-slate-400 py-4">Belum ada data pada periode ini.</p>}
+                </div>
+
+                {items.length > 0 && (
+                  <div className="border-t border-slate-100 pt-2 max-h-64 overflow-y-auto divide-y divide-slate-50">
+                    {items.slice(0, 200).map((e, i) => (
+                      <div key={`${e.source}-${e.label}-${i}`} className="flex items-start justify-between gap-3 py-2 text-[11px]">
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-700 truncate">{e.label}</p>
+                          <p className="text-[9px] text-slate-400">{e.source} · {e.date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                        </div>
+                        <span className={`font-black shrink-0 ${e.amount < 0 ? 'text-red-600' : 'text-slate-800'}`}>{fmt(e.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[9px] text-slate-400 leading-snug">
+                  {previewKind === 'income'
+                    ? 'Penjualan yang dibayar Deposit tidak dihitung lagi karena sudah masuk saat top up. Retur pelanggan mengurangi pendapatan; retur ke supplier menambah sebesar yang sudah dibayar di bonnya.'
+                    : 'Retur ke supplier mengurangi pengeluaran sebesar yang sudah dibayar di bonnya. Retur dari pelanggan tidak menambah pengeluaran.'}
+                </p>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showDebtPreview} onOpenChange={setShowDebtPreview}>
         <DialogContent className="max-w-xl">
           <DialogHeader>

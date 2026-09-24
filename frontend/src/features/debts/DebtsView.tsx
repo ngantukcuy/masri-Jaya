@@ -150,6 +150,30 @@ export default function DebtsView({
     setShowPrintInvoice(true);
   };
 
+  // Hapus riwayat mutasi di Kartu Piutang. Hanya menghapus catatan riwayat —
+  // sisa hutang (currentDebt) TIDAK berubah, dan kas/pembayaran yang sudah
+  // tercatat di tempat lain tidak ikut terhapus.
+  const handleDeleteHistory = async (customer: Customer, index: number | 'all') => {
+    const confirmed = await dialog.confirm(
+      index === 'all'
+        ? `Hapus SEMUA riwayat mutasi ${customer.name}? Sisa hutang tidak berubah, hanya catatan riwayatnya yang dihapus.`
+        : `Hapus catatan riwayat ini? Sisa hutang ${customer.name} tidak berubah.`
+    );
+    if (!confirmed) return;
+    let nextCustomer: Customer = customer;
+    const updatedCustomers = customers.map((item) => {
+      if (item.id !== customer.id) return item;
+      nextCustomer = {
+        ...item,
+        lastTransactions: index === 'all' ? [] : item.lastTransactions.filter((_, i) => i !== index),
+      };
+      return nextCustomer;
+    });
+    onUpdateCustomers(updatedCustomers);
+    setSelectedCustomerForAction(nextCustomer);
+    triggerToast(index === 'all' ? 'Seluruh riwayat berhasil dihapus.' : 'Catatan riwayat berhasil dihapus.');
+  };
+
   const handleResetDebt = async (customer: Customer) => {
     const confirmed = await dialog.confirm(
       `Hapus seluruh sisa hutang ${customer.name}? Saldo customer dan sisa bon terkait akan di-reset menjadi Rp 0. Tindakan ini tidak mencatat pembayaran ke kas.`
@@ -445,7 +469,7 @@ export default function DebtsView({
             <TableHeader>
               <TableRow className="hover:bg-transparent bg-slate-100/50">
                 <TableHead>ID &amp; Pelanggan</TableHead>
-                <TableHead>Tingkat Loyalitas</TableHead>
+                <TableHead>Sebagai</TableHead>
                 <TableHead>Status Kredit</TableHead>
                 <TableHead>Jatuh Tempo</TableHead>
                 <TableHead>Sisa Piutang Aktif</TableHead>
@@ -775,7 +799,7 @@ export default function DebtsView({
                     <span className="font-bold uppercase">{selectedCustomerForAction.name}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Loyalty Status:</span>
+                    <span>Sebagai:</span>
                     <span>{selectedCustomerForAction.loyaltyTier}</span>
                   </div>
                   <div className="flex justify-between border-t border-slate-100 pt-1.5">
@@ -785,7 +809,18 @@ export default function DebtsView({
                 </div>
 
                 <div className="space-y-2">
-                  <h5 className="font-black border-b border-slate-200 pb-1 text-slate-900 uppercase tracking-widest text-[10px]">Riwayat Mutasi / Kredit</h5>
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-1">
+                    <h5 className="font-black text-slate-900 uppercase tracking-widest text-[10px]">Riwayat Mutasi / Kredit</h5>
+                    {canResetDebt && selectedCustomerForAction.lastTransactions && selectedCustomerForAction.lastTransactions.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteHistory(selectedCustomerForAction, 'all')}
+                        className="print:hidden text-[9px] font-bold text-red-500 hover:text-red-700 cursor-pointer"
+                      >
+                        Hapus Semua
+                      </button>
+                    )}
+                  </div>
                   {selectedCustomerForAction.lastTransactions && selectedCustomerForAction.lastTransactions.length > 0 ? (
                     <div className="space-y-1.5 max-h-40 overflow-y-auto">
                       {selectedCustomerForAction.lastTransactions.map((trx, idx) => (
@@ -794,9 +829,21 @@ export default function DebtsView({
                             <p className="font-bold text-slate-700">{trx.orderName}</p>
                             <span className="text-[9px] text-slate-400">{trx.date}</span>
                           </div>
-                          <span className={`font-black ${trx.amount < 0 ? 'text-emerald-600' : 'text-slate-800'}`}>
-                            {trx.amount < 0 ? '-' : '+'}Rp {Math.abs(trx.amount).toLocaleString('id-ID')}
-                          </span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`font-black ${trx.amount < 0 ? 'text-emerald-600' : 'text-slate-800'}`}>
+                              {trx.amount < 0 ? '-' : '+'}Rp {Math.abs(trx.amount).toLocaleString('id-ID')}
+                            </span>
+                            {canResetDebt && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteHistory(selectedCustomerForAction, idx)}
+                                className="print:hidden text-slate-300 hover:text-red-500 cursor-pointer"
+                                title="Hapus catatan ini"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>

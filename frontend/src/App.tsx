@@ -345,6 +345,7 @@ function Dashboard({
                       customers={customers}
                       expenses={expenses}
                       pos={pos}
+                      returns={returns}
                       totalSales={totalSales}
                       totalOrdersCount={totalOrdersCount}
                       onTabChange={setCurrentTab}
@@ -619,7 +620,7 @@ function Dashboard({
       case 'purchase':
         return "Cari pesanan pembelian, penyuplai, atau SKU...";
       case 'customer':
-        return "Cari pembeli, level loyalitas, atau detail piutang...";
+        return "Cari pembeli, kategori (sebagai), atau detail piutang...";
       case 'pemasok':
         return "Cari nama pemasok atau sales...";
       case 'deposit':

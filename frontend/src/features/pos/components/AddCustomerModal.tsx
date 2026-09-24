@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../../components/ui/select';
+import SebagaiInput from '../../../components/shared/SebagaiInput';
 
 interface AddCustomerModalProps {
   onClose: () => void;
@@ -13,7 +13,7 @@ interface AddCustomerModalProps {
 
 export default function AddCustomerModal({ onClose, onSubmit }: AddCustomerModalProps) {
   const [name, setName] = useState('');
-  const [loyaltyTier, setLoyaltyTier] = useState('Pelanggan Retail');
+  const [loyaltyTier, setLoyaltyTier] = useState('Pelanggan Umum');
   const [phone, setPhone] = useState('');
 
   const handleSubmit = (e: FormEvent) => {
@@ -54,16 +54,8 @@ export default function AddCustomerModal({ onClose, onSubmit }: AddCustomerModal
           </div>
 
           <div>
-            <Label>Level Loyalitas</Label>
-            <Select value={loyaltyTier} onValueChange={setLoyaltyTier}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Pelanggan Retail">Pelanggan Retail Eceran</SelectItem>
-                <SelectItem value="Platinum Member">Anggota Platinum (VIP)</SelectItem>
-                <SelectItem value="Premium Builder">Kontraktor Utama (Premium)</SelectItem>
-                <SelectItem value="Local Retail Builder">Pembangun Retail Lokal</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label>Sebagai</Label>
+            <SebagaiInput value={loyaltyTier} onChange={setLoyaltyTier} />
           </div>
 
           <DialogFooter>

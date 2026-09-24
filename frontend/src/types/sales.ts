@@ -80,4 +80,6 @@ export interface ReturnRecord {
   refundMethod: 'Tunai' | 'Transfer';
   status: 'Pending' | 'Approved' | 'Rejected';
   createdAt: string;
+  /** ISO timestamp saat retur disetujui — tanggal retur ini berlaku di Dashboard. */
+  approvedAtISO?: string;
 }

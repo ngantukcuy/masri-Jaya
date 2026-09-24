@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Search, Plus, Minus, PiggyBank } from 'lucide-react';
-import { Customer } from '../../types';
+import { Customer, DepositTransaction } from '../../types';
 import { addMutation } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';
 import NumberInput from '../../components/shared/NumberInput';
@@ -49,7 +49,16 @@ export default function DepositView({ customers, onUpdateCustomers, onAddActivit
     }
 
     const nextBalance = action === 'topup' ? currentBalance + amount : currentBalance - amount;
-    onUpdateCustomers(customers.map(c => c.id === target.id ? { ...c, depositBalance: nextBalance } : c));
+    const trx: DepositTransaction = {
+      id: `DEP-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      type: action,
+      amount,
+      method,
+      date: new Date().toISOString(),
+    };
+    onUpdateCustomers(customers.map(c => c.id === target.id
+      ? { ...c, depositBalance: nextBalance, depositHistory: [trx, ...(c.depositHistory || [])] }
+      : c));
 
     if (method === 'Tunai') {
       addMutation(action === 'topup' ? 'in' : 'out', action === 'topup' ? 'Top Up Deposit' : 'Withdraw Deposit', amount, target.name);
