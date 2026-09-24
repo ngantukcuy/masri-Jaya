@@ -77,7 +77,7 @@ export default function Sidebar({
       label: 'PRODUCTS',
       icon: Tags,
       children: [
-        { id: 'master-data:sku-master', label: 'Sku Master', icon: PackageSearch },
+        { id: 'master-data:sku-master', label: 'Tambah Produk', icon: PackageSearch },
         { id: 'master-data:kategori', label: 'Kategori', icon: Tags },
         { id: 'master-data:brand', label: 'Brand', icon: Award },
         { id: 'master-data:unit', label: 'Unit', icon: Ruler },
@@ -93,7 +93,7 @@ export default function Sidebar({
       ]
     },
     { id: 'deposit', label: 'DEPOSIT', icon: Wallet },
-    { id: 'debts', label: 'UTANG & PIUTANG', icon: Receipt },
+    { id: 'debts', label: 'PIUTANG', icon: Receipt },
     { id: 'finance', label: 'PEMBAYARAN', icon: CreditCard },
   ];
 

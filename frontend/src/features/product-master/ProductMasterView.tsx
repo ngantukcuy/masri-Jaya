@@ -481,11 +481,6 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               </div>
 
               <div>
-                <Label><BarcodeIcon className="inline w-3 h-3 mr-1" />Kode SKU (otomatis)</Label>
-                <Input type="text" readOnly value={skuForm.sku} className="bg-muted text-muted-foreground cursor-not-allowed" />
-              </div>
-
-              <div>
                 <Label>Nama Produk</Label>
                 <Input type="text" required value={skuForm.name} onChange={(e) => setSkuForm({ ...skuForm, name: e.target.value })} placeholder="Contoh: Semen Portland 40kg" />
               </div>
@@ -738,11 +733,6 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               <div className="bg-primary/5 border border-primary/10 rounded-xl p-3 flex items-center gap-2 text-primary font-bold">
                 <Scale className="w-4 h-4 shrink-0" />
                 Jumlah produk pecahan / 1 produk = {eceranForm.conversionValue || 0} {eceranForm.unit}
-              </div>
-
-              <div>
-                <Label><BarcodeIcon className="inline w-3 h-3 mr-1" />Kode SKU (otomatis)</Label>
-                <Input type="text" readOnly value={eceranForm.sku} className="bg-muted text-muted-foreground cursor-not-allowed" />
               </div>
 
               <div className="grid grid-cols-2 gap-4 bg-muted rounded-xl p-3 border border-border">
