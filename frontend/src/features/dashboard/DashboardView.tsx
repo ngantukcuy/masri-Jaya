@@ -18,7 +18,6 @@ import { timeAgo } from '../../lib/timeAgo';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { buildDateBuckets, toDateInputValue } from '../../lib/dateBuckets';
 
@@ -78,7 +77,6 @@ export default function DashboardView({
   onTabChange, 
   onQuickRestock 
 }: DashboardViewProps) {
-  const [activeChartTab, setActiveChartTab] = useState<'income' | 'expense' | 'profit'>('income');
   const [previewKind, setPreviewKind] = useState<'income' | 'expense' | null>(null);
   const [chartDateFrom, setChartDateFrom] = useState(() => {
     const d = new Date();
@@ -352,26 +350,25 @@ export default function DashboardView({
     );
   };
 
-  // SVG Line Chart coordinates calculation — skala mengikuti data asli (dengan padding 15%)
-  const chartMeta = {
-    income: { label: 'Pendapatan', stroke: '#2563EB', bar: '#60A5FA', grad: 'url(#incomeGrad)' },
-    expense: { label: 'Pengeluaran', stroke: '#EF4444', bar: '#F87171', grad: 'url(#expenseGrad)' },
-    profit: { label: 'Untung Bersih', stroke: '#10B981', bar: '#34D399', grad: 'url(#profitGrad)' },
-  }[activeChartTab];
-  const chartValues = monthlyData.map((d) => d[activeChartTab]);
-  const maxVal = Math.max(1, ...chartValues) * 1.15;
+  // SVG Line Chart — ketiga garis (pendapatan, pengeluaran, untung) digambar sekaligus
+  // dengan satu skala bersama supaya bisa dibandingkan langsung.
+  const chartSeries = [
+    { key: 'income' as const, label: 'Pendapatan', stroke: '#2563EB' },
+    { key: 'expense' as const, label: 'Pengeluaran', stroke: '#EF4444' },
+    { key: 'profit' as const, label: 'Untung Bersih', stroke: '#10B981' },
+  ];
+  const allChartValues = monthlyData.flatMap((d) => [d.income, d.expense, d.profit]);
+  const maxVal = Math.max(1, ...allChartValues) * 1.15;
   // Nilai bisa negatif (mis. retur lebih besar dari penjualan di satu periode), jadi garis nol dihitung.
-  const minVal = Math.min(0, ...chartValues) * 1.15;
+  const minVal = Math.min(0, ...allChartValues) * 1.15;
   const valueRange = Math.max(1, maxVal - minVal);
   const yOf = (val: number) => 170 - ((val - minVal) / valueRange) * 130;
   const y0 = yOf(0);
-  const points = monthlyData.map((d, i) => {
-    const stepX = 610 / Math.max(monthlyData.length - 1, 1);
-    const x = 30 + (i * stepX);
-    return { x, y: yOf(d[activeChartTab]) };
-  });
-
-  const pathD = `M ${points.map(p => `${p.x} ${p.y}`).join(' L ')}`;
+  const xOf = (i: number) => 30 + i * (610 / Math.max(monthlyData.length - 1, 1));
+  const seriesPaths = chartSeries.map((sr) => ({
+    ...sr,
+    points: monthlyData.map((d, i) => ({ x: xOf(i), y: yOf(d[sr.key]) })),
+  }));
 
   return (
     <div className="space-y-6">
@@ -470,29 +467,15 @@ export default function DashboardView({
                 <p className="text-[10px] text-slate-400 mt-0.5">Pendapatan, pengeluaran, dan untung bersih — angkanya sama dengan 3 kartu di atas</p>
               </div>
 
-              {/* Chart toggle (shadcn Tabs, styled as a pill switcher) */}
-              <Tabs value={activeChartTab} onValueChange={(v) => setActiveChartTab(v as 'income' | 'expense' | 'profit')} className="self-start sm:self-auto">
-                <TabsList className="bg-slate-100/70 p-1 rounded-xl border border-slate-200/40 gap-0">
-                  <TabsTrigger
-                    value="income"
-                    className="px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/30 text-slate-500 hover:text-slate-800"
-                  >
-                    Pendapatan
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="expense"
-                    className="px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/30 text-slate-500 hover:text-slate-800"
-                  >
-                    Pengeluaran
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="profit"
-                    className="px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider border-0 data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200/30 text-slate-500 hover:text-slate-800"
-                  >
-                    Untung
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+              {/* Legenda 3 garis */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 self-start sm:self-auto">
+                {chartSeries.map((sr) => (
+                  <span key={sr.key} className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <span className="w-3 h-1 rounded-full" style={{ backgroundColor: sr.stroke }} />
+                    {sr.label}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -506,74 +489,46 @@ export default function DashboardView({
                 <line x1="30" y1="170" x2="640" y2="170" stroke="#E2E8F0" strokeOpacity="0.8" strokeWidth="1" />
                 {minVal < 0 && <line x1="30" y1={y0} x2="640" y2={y0} stroke="#94A3B8" strokeOpacity="0.7" strokeWidth="1" strokeDasharray="4,3" />}
 
-                {/* Smooth Gradient Fill path */}
-                <path 
-                  d={`${pathD} L ${points[points.length-1]?.x ?? 30} ${y0} L 30 ${y0} Z`}
-                  fill={chartMeta.grad}
-                  className="opacity-15"
-                />
+                {/* Kolom sorotan saat hover */}
+                {hoveredMonth !== null && monthlyData[hoveredMonth] && (
+                  <rect x={xOf(hoveredMonth) - 12} y="10" width="24" height="160" rx="4" fill="#94A3B8" opacity="0.12" />
+                )}
 
-                {/* Define Gradients */}
-                <defs>
-                  <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2563EB" />
-                    <stop offset="100%" stopColor="#DBEAFE" stopOpacity="0" />
-                  </linearGradient>
-                  <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#EF4444" />
-                    <stop offset="100%" stopColor="#FEE2E2" stopOpacity="0" />
-                  </linearGradient>
-                  <linearGradient id="profitGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10B981" />
-                    <stop offset="100%" stopColor="#D1FAE5" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
+                {/* Tiga garis sekaligus */}
+                {seriesPaths.map((sr) => (
+                  <motion.path
+                    key={sr.key}
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ duration: 1, ease: 'easeOut' }}
+                    d={`M ${sr.points.map((pt) => `${pt.x} ${pt.y}`).join(' L ')}`}
+                    fill="none"
+                    stroke={sr.stroke}
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ))}
 
-                {/* Core Line path */}
-                <motion.path 
-                  initial={{ pathLength: 0 }}
-                  animate={{ pathLength: 1 }}
-                  transition={{ duration: 1, ease: 'easeOut' }}
-                  d={pathD}
-                  fill="none"
-                  stroke={chartMeta.stroke}
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-
-                {/* Monthly Interactive Bars/Circles */}
-                {points.map((pt, i) => {
+                {/* Titik tiap periode + area hover */}
+                {monthlyData.map((_, i) => {
                   const isHovered = hoveredMonth === i;
-                  const barHeight = Math.abs(y0 - pt.y);
                   return (
                     <g key={i}>
-                      {/* Glowing point on line */}
-                      <circle 
-                        cx={pt.x} 
-                        cy={pt.y} 
-                        r={isHovered ? 6 : 3.5} 
-                        fill={chartMeta.stroke}
-                        stroke="white"
-                        strokeWidth={isHovered ? 2.5 : 1}
-                        className="transition-all"
-                      />
-                      {/* Interactive background bar */}
-                      <rect 
-                        x={pt.x - 4}
-                        y={Math.min(pt.y, y0)}
-                        width="8"
-                        height={barHeight}
-                        rx="1.5"
-                        fill={chartMeta.bar}
-                        className={`transition-all duration-300 ${
-                          hoveredMonth === i 
-                            ? 'opacity-100 filter brightness-110' 
-                            : 'opacity-15'
-                        }`}
-                      />
-                      {/* Tooltip trigger hotspot */}
+                      {seriesPaths.map((sr) => (
+                        <circle
+                          key={sr.key}
+                          cx={sr.points[i].x}
+                          cy={sr.points[i].y}
+                          r={isHovered ? 5 : 3}
+                          fill={sr.stroke}
+                          stroke="white"
+                          strokeWidth={isHovered ? 2 : 1}
+                          className="transition-all"
+                        />
+                      ))}
                       <rect
-                        x={pt.x - 25}
+                        x={xOf(i) - 25}
                         y="10"
                         width="50"
                         height="170"
