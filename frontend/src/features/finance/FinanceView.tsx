@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
 import { 
   Wallet, 
-  TrendingDown, 
+  TrendingDown,
+  TrendingUp,
   Plus, 
   Check,
-  X
+  X,
+  Search,
+  CheckCircle2,
+  AlertTriangle,
+  Coins,
+  FileText,
+  Receipt
 } from 'lucide-react';
 import { Expense, PO, POPayment, SalesInvoice } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -19,6 +26,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/ta
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
 import { Badge } from '../../components/ui/badge';
 import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../components/ui/dialog';
@@ -56,6 +64,12 @@ const poRemaining = (po: PO) => Math.max(0, po.total - (po.paidAmount || 0));
 
 const PAYMENT_LABEL: Record<string, string> = { Cash: 'Tunai', Split: 'Split' };
 
+const initials = (name?: string) => {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  return (parts.length === 1 ? parts[0].slice(0, 2) : parts[0][0] + parts[1][0]).toUpperCase();
+};
+
 interface PendingApproval {
   id: string;
   item: string;
@@ -77,6 +91,9 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   const [activeTab, setActiveTab] = useState<FinanceTab>('supplier');
   const [supplierFilter, setSupplierFilter] = useState<SupplierFilter>('semua');
   const [supplierPage, setSupplierPage] = useState(1);
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const [expenseSearch, setExpenseSearch] = useState('');
+  const [salesSearch, setSalesSearch] = useState('');
   const [salesFilter, setSalesFilter] = useState<string>('Semua');
   const [salesPage, setSalesPage] = useState(1);
   const [previewPO, setPreviewPO] = useState<PO | null>(null);
@@ -230,6 +247,8 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   const unpaidTotal = unpaidBons.reduce((sum, po) => sum + poRemaining(po), 0);
   const overdueBons = unpaidBons.filter((po) => po.paymentMethod === 'Tempo' && po.dueDate && po.dueDate < todayISO);
   const filteredBons = supplierBons.filter((po) => {
+    const q = supplierSearch.trim().toLowerCase();
+    if (q && !`${po.poNumber} ${po.supplier}`.toLowerCase().includes(q)) return false;
     if (supplierFilter === 'belum') return !isPOPaid(po);
     if (supplierFilter === 'lunas') return isPOPaid(po);
     return true;
@@ -327,7 +346,11 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   };
   const sortedInvoices = [...salesInvoices].sort((a, b) => invoiceTime(b) - invoiceTime(a));
   const salesMethods = ['Semua', ...Array.from(new Set(salesInvoices.map((inv) => inv.paymentMethod).filter(Boolean)))];
-  const filteredInvoices = sortedInvoices.filter((inv) => salesFilter === 'Semua' || inv.paymentMethod === salesFilter);
+  const filteredInvoices = sortedInvoices.filter((inv) => {
+    const q = salesSearch.trim().toLowerCase();
+    if (q && !`${inv.invoiceNumber} ${inv.customerName || ''}`.toLowerCase().includes(q)) return false;
+    return salesFilter === 'Semua' || inv.paymentMethod === salesFilter;
+  });
   const salesTotal = filteredInvoices.reduce((sum, inv) => sum + inv.total, 0);
   const salesPageCount = Math.ceil(filteredInvoices.length / PAGE_SIZE);
   const safeSalesPage = Math.min(salesPage, Math.max(1, salesPageCount));
@@ -338,7 +361,11 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   // (kategori sudah dibatasi ke Bensin/Gaji/Bon/Lainnya), jadi tidak perlu
   // sentuh mutasi Kas Harian sama sekali dan tidak ada celah data penjualan
   // atau bon supplier ikut nyasar ke sini.
-  const filteredExpenses = expenses.filter((e) => expenseCategoryFilter === 'Semua' || e.category === expenseCategoryFilter);
+  const filteredExpenses = expenses.filter((e) => {
+    const q = expenseSearch.trim().toLowerCase();
+    if (q && !`${e.id} ${e.description} ${e.submittedBy}`.toLowerCase().includes(q)) return false;
+    return expenseCategoryFilter === 'Semua' || e.category === expenseCategoryFilter;
+  });
   const expensePageCount = Math.ceil(filteredExpenses.length / PAGE_SIZE);
   const safeExpensePage = Math.min(expensePage, Math.max(1, expensePageCount));
 
@@ -353,327 +380,477 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
         </TabsList>
 
         {/* ===== Tab 1: Pembayaran ke Supplier ===== */}
-        <TabsContent value="supplier" className="mt-5 space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            <div className="bg-white p-4 rounded-xl border border-gray-200">
-              <p className="text-[10px] text-gray-400 font-bold uppercase">Total Bon Masuk</p>
-              <h4 className="text-lg font-black text-gray-800 mt-0.5">{supplierBons.length} bon</h4>
+        <TabsContent value="supplier" className="mt-5 space-y-6">
+          {/* KPI Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                <FileText className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Total Bon Masuk</span>
+                <span className="text-lg font-black text-slate-800">{supplierBons.length} Bon</span>
+                <span className="text-[9px] text-gray-400 block mt-0.5">Dari Stok Supplier</span>
+              </div>
             </div>
-            <div className="bg-white p-4 rounded-xl border border-gray-200">
-              <p className="text-[10px] text-gray-400 font-bold uppercase">Belum Dibayar</p>
-              <h4 className="text-lg font-black text-amber-600 mt-0.5">{rupiah(unpaidTotal)}</h4>
-              <p className="text-[10px] text-gray-400 mt-0.5">{unpaidBons.length} bon</p>
+
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                <Coins className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Belum Dibayar</span>
+                <span className="text-lg font-black text-amber-600">{rupiah(unpaidTotal)}</span>
+                <span className="text-[9px] text-gray-400 block mt-0.5">{unpaidBons.length} Bon Aktif</span>
+              </div>
             </div>
-            <div className="bg-white p-4 rounded-xl border border-gray-200">
-              <p className="text-[10px] text-gray-400 font-bold uppercase">Lewat Jatuh Tempo</p>
-              <h4 className={`text-lg font-black mt-0.5 ${overdueBons.length > 0 ? 'text-red-600' : 'text-gray-800'}`}>{overdueBons.length} bon</h4>
-              <p className="text-[10px] text-gray-400 mt-0.5">{rupiah(overdueBons.reduce((sum, po) => sum + poRemaining(po), 0))}</p>
+
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className={`w-6 h-6 ${overdueBons.length > 0 ? 'animate-pulse' : ''}`} />
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Lewat Jatuh Tempo</span>
+                <span className={`text-lg font-black ${overdueBons.length > 0 ? 'text-red-600' : 'text-slate-800'}`}>
+                  {rupiah(overdueBons.reduce((sum, po) => sum + poRemaining(po), 0))}
+                </span>
+                <span className={`text-[9px] block mt-0.5 ${overdueBons.length > 0 ? 'text-red-500 font-extrabold' : 'text-gray-400'}`}>{overdueBons.length} Bon Overdue</span>
+              </div>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Sudah Lunas</span>
+                <span className="text-lg font-black text-emerald-600">{supplierBons.length - unpaidBons.length} Bon</span>
+                <span className="text-[9px] text-emerald-600 font-bold block mt-0.5">Pembayaran Lancar</span>
+              </div>
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-xs">
-            <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div>
-                <h4 className="text-sm font-bold text-gray-800">Bon dari Supplier</h4>
-                <p className="text-[11px] text-gray-400 mt-0.5">Bon yang masuk lewat Stok &gt; Stok Supplier. Klik baris untuk melihat isi bon.</p>
+          {/* Main Table Panel */}
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden">
+            {/* Controls Bar */}
+            <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col md:flex-row gap-3 justify-between items-center">
+              <div className="relative w-full md:max-w-xs group">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors z-10" />
+                <Input
+                  type="text"
+                  placeholder="Cari nomor PO atau pemasok..."
+                  value={supplierSearch}
+                  onChange={(e) => { setSupplierSearch(e.target.value); setSupplierPage(1); }}
+                  className="pl-9 h-8 bg-white"
+                />
               </div>
-              <div className="flex gap-1.5">
-                {([['semua', 'Semua'], ['belum', 'Belum Lunas'], ['lunas', 'Lunas']] as [SupplierFilter, string][]).map(([key, label]) => (
-                  <button
+
+              <div className="flex gap-1.5 overflow-x-auto w-full md:w-auto">
+                {([['semua', 'Semua Bon'], ['belum', 'Belum Lunas'], ['lunas', 'Lunas']] as [SupplierFilter, string][]).map(([key, label]) => (
+                  <Button
                     key={key}
+                    size="sm"
+                    variant={supplierFilter === key ? 'default' : 'outline'}
                     onClick={() => { setSupplierFilter(key); setSupplierPage(1); }}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
-                      supplierFilter === key ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                    }`}
+                    className="whitespace-nowrap"
                   >
                     {label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
 
-            <Table className="min-w-[860px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tgl</TableHead>
-                  <TableHead>Nomor PO</TableHead>
-                  <TableHead>Pemasok</TableHead>
-                  <TableHead className="text-right">Total Bon</TableHead>
-                  <TableHead>Metode</TableHead>
-                  <TableHead>Jatuh Tempo</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredBons.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="p-8 text-center text-gray-400 font-bold">
-                      {supplierBons.length === 0 ? 'Belum ada bon masuk dari supplier.' : 'Tidak ada bon yang cocok dengan filter.'}
-                    </TableCell>
+            {/* List of Bons */}
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent bg-slate-100/50">
+                    <TableHead>Pemasok &amp; Nomor PO</TableHead>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Metode</TableHead>
+                    <TableHead>Jatuh Tempo</TableHead>
+                    <TableHead>Total Bon</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Opsi Operasional</TableHead>
                   </TableRow>
-                ) : filteredBons.slice((safeSupplierPage - 1) * PAGE_SIZE, safeSupplierPage * PAGE_SIZE).map((po) => {
-                  const paid = isPOPaid(po);
-                  const overdue = !paid && po.paymentMethod === 'Tempo' && !!po.dueDate && po.dueDate < todayISO;
-                  return (
-                    <TableRow key={po.poNumber} onClick={() => setPreviewPO(po)} className="cursor-pointer" title="Klik untuk melihat isi bon">
-                      <TableCell className="whitespace-nowrap">{fmtDate(po.createdDate)}</TableCell>
-                      <TableCell className="font-mono font-bold">{po.poNumber}</TableCell>
-                      <TableCell className="font-semibold">{po.supplier}</TableCell>
-                      <TableCell className="text-right font-bold">{rupiah(po.total)}</TableCell>
-                      <TableCell>{po.paymentMethod || '-'}</TableCell>
-                      <TableCell className="whitespace-nowrap">{po.paymentMethod === 'Tempo' ? fmtDate(po.dueDate) : '-'}</TableCell>
-                      <TableCell>
-                        {paid
-                          ? <Badge variant="success">Lunas</Badge>
-                          : <Badge variant={overdue ? 'destructive' : 'warning'}>{overdue ? 'Lewat Tempo' : 'Belum Lunas'}</Badge>}
-                        {!paid && (po.paidAmount || 0) > 0 && (
-                          <span className="block text-[9px] text-emerald-600 font-bold mt-0.5">Dicicil {rupiah(po.paidAmount || 0)}</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {!paid && onUpdatePOs && (
-                          <Button size="sm" onClick={(e) => { e.stopPropagation(); openPayDialog(po); }}>Bayar</Button>
-                        )}
-                        {paid && po.paidAt && <span className="text-[10px] text-gray-400">{fmtDate(po.paidAt)}</span>}
+                </TableHeader>
+                <TableBody>
+                  {filteredBons.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="p-8 text-center text-gray-400">
+                        <span className="text-2xl block mb-2">🧾</span>
+                        <span className="font-extrabold uppercase tracking-wider block text-xs">
+                          {supplierBons.length === 0 ? 'Belum Ada Bon Masuk' : 'Tidak Ada Bon yang Cocok'}
+                        </span>
+                        <span className="text-[10px] text-gray-400 mt-1 block">
+                          {supplierBons.length === 0 ? 'Bon akan muncul otomatis setelah barang diterima lewat Stok > Stok Supplier.' : 'Silakan ubah kata kunci atau filter.'}
+                        </span>
                       </TableCell>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-            <Pagination page={safeSupplierPage} pageCount={supplierPageCount} onPageChange={setSupplierPage} />
+                  ) : filteredBons.slice((safeSupplierPage - 1) * PAGE_SIZE, safeSupplierPage * PAGE_SIZE).map((po) => {
+                    const paid = isPOPaid(po);
+                    const overdue = !paid && po.paymentMethod === 'Tempo' && !!po.dueDate && po.dueDate < todayISO;
+                    return (
+                      <TableRow key={po.poNumber} onClick={() => setPreviewPO(po)} className="cursor-pointer" title="Klik untuk melihat isi bon">
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-200 to-slate-100 text-slate-700 flex items-center justify-center font-black text-xs shrink-0">
+                              {initials(po.supplier)}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-gray-800">{po.supplier}</h4>
+                              <p className="text-[9px] text-gray-400 mt-0.5 font-mono">{po.poNumber}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap font-semibold text-gray-600">{fmtDate(po.createdDate)}</TableCell>
+                        <TableCell className="font-semibold text-gray-600">{po.paymentMethod || '-'}</TableCell>
+                        <TableCell>
+                          {po.paymentMethod === 'Tempo' && po.dueDate ? (
+                            <div>
+                              <p className="font-bold text-gray-700 whitespace-nowrap">{fmtDate(po.dueDate)}</p>
+                              {overdue && (
+                                <p className="text-[9px] text-red-500 font-bold mt-0.5">
+                                  Terlambat {Math.max(1, Math.floor((new Date(todayISO).getTime() - new Date(po.dueDate).getTime()) / 86400000))} hari
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-300">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-black text-xs text-gray-800">{rupiah(po.total)}</span>
+                          {!paid && (po.paidAmount || 0) > 0 && (
+                            <span className="block text-[9px] text-emerald-600 font-bold mt-0.5">Dicicil {rupiah(po.paidAmount || 0)}</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {paid ? (
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100">Lunas</Badge>
+                          ) : overdue ? (
+                            <Badge className="bg-red-50 text-red-700 border-red-100 animate-pulse">Jatuh Tempo</Badge>
+                          ) : (
+                            <Badge className="bg-amber-50 text-amber-700 border-amber-100">Belum Lunas</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1.5">
+                            {!paid && onUpdatePOs && (
+                              <Button
+                                size="sm"
+                                onClick={(e) => { e.stopPropagation(); openPayDialog(po); }}
+                                className="text-[10px] bg-emerald-600 hover:bg-emerald-700"
+                                title="Bayar Bon"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>Cicil / Lunas</span>
+                              </Button>
+                            )}
+                            {paid && po.paidAt && <span className="text-[10px] text-gray-400">Lunas {fmtDate(po.paidAt)}</span>}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              <Pagination page={safeSupplierPage} pageCount={supplierPageCount} onPageChange={setSupplierPage} />
+            </div>
           </div>
         </TabsContent>
 
         {/* ===== Tab 2: Pembayaran Lainnya ===== */}
         <TabsContent value="lainnya" className="mt-5 space-y-6">
-          <div className="flex justify-end">
-            <button
-              onClick={() => setShowSubmitModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Catat Pengeluaran Kas</span>
-            </button>
-          </div>
-
-      {/* Finance Metrics KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <div className="bg-white p-4 rounded-xl border border-gray-200 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
-            <Wallet className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-400 font-bold uppercase">BIAYA OPERASIONAL BULAN INI</p>
-            <h4 className="text-lg font-black text-gray-800 mt-0.5">Rp {totalExpensesThisMonth.toLocaleString('id-ID')}</h4>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-gray-200 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-red-600">
-            <TrendingDown className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-400 font-bold uppercase">BIAYA REIMBURSEMENT TERTUNDA</p>
-            <h4 className="text-lg font-black text-red-600 mt-0.5">
-              Rp {pendingClaims.reduce((acc, c) => acc + c.amount, 0).toLocaleString('id-ID')}
-            </h4>
-          </div>
-        </div>
-      </div>
-
-      {/* Employee Claim Approvals list */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs space-y-4">
-        <div>
-          <h4 className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">Klaim Reimbursement Karyawan</h4>
-          <p className="text-[11px] text-gray-400 mt-0.5">Verifikasi pengajuan nota bensin, servis armada, atau pembelian alat kantor.</p>
-        </div>
-
-        <div className="space-y-3.5">
-          {pendingClaims.length === 0 ? (
-            <div className="py-8 text-center text-gray-400 font-bold border border-dashed border-gray-200 rounded-xl">
-              Tidak ada pengajuan reimbursement baru.
-            </div>
-          ) : (
-            pendingClaims.map((claim) => (
-              <div key={claim.id} className="p-4 border border-gray-200 rounded-xl space-y-3 hover:border-gray-300 transition-all bg-gray-50/50">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-extrabold text-xs text-gray-900 leading-snug">{claim.item}</p>
-                    <span className="text-[10px] text-gray-400 mt-0.5 block">Diajukan: {claim.submittedBy} • {categoryTranslationMap[claim.category]}</span>
-                  </div>
-                  <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded uppercase font-mono">{claim.id}</span>
-                </div>
-
-                <div className="flex justify-between items-center pt-2 border-t border-gray-150">
-                  <span className="font-black text-xs text-gray-950">Rp {claim.amount.toLocaleString('id-ID')}</span>
-                  {canApproveFinance ? (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleRejectClaim(claim)}
-                        className="w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
-                        title="Tolak Klaim"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleApproveClaim(claim)}
-                        className="w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
-                        title="Setujui Klaim"
-                      >
-                        <Check className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-[10px] text-gray-400 italic">Menunggu persetujuan Owner/Admin.</span>
-                  )}
-                </div>
+          {/* KPI Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                <Wallet className="w-6 h-6" />
               </div>
-            ))
-          )}
-        </div>
-      </div>
+              <div>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Biaya Operasional</span>
+                <span className="text-lg font-black text-slate-800">Rp {totalExpensesThisMonth.toLocaleString('id-ID')}</span>
+                <span className="text-[9px] text-gray-400 block mt-0.5">{expenses.length} Pengeluaran Tercatat</span>
+              </div>
+            </div>
 
-      {/* Riwayat Pengeluaran Operasional (Bensin/Gaji/Bon/Lainnya) — murni dari expenses, tanpa data penjualan atau bon supplier */}
-      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-xs">
-        <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <h4 className="text-sm font-bold text-gray-800">Riwayat Pengeluaran Operasional</h4>
-            <p className="text-[11px] text-gray-400 mt-0.5">Bensin, gaji, bon/tagihan, dan pengeluaran operasional lain yang dicatat di sini.</p>
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                <TrendingDown className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Reimbursement Tertunda</span>
+                <span className="text-lg font-black text-red-600">
+                  Rp {pendingClaims.reduce((acc, c) => acc + c.amount, 0).toLocaleString('id-ID')}
+                </span>
+                <span className="text-[9px] text-red-500 font-extrabold block mt-0.5">{pendingClaims.length} Klaim Menunggu</span>
+              </div>
+            </div>
           </div>
 
-          <div className="flex gap-1.5 overflow-x-auto pb-1 max-w-full scrollbar-none">
-            {['Semua', 'Bensin', 'Gaji', 'Bon', 'Lainnya'].map((cat) => (
-              <button
-                key={cat}
-                onClick={() => { setExpenseCategoryFilter(cat); setExpensePage(1); }}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  expenseCategoryFilter === cat ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                }`}
-              >
-                {cat === 'Semua' ? 'Semua' : (categoryTranslationMap[cat] || cat)}
-              </button>
-            ))}
-          </div>
-        </div>
+          {/* Employee Claim Approvals list */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs space-y-4">
+            <div>
+              <h4 className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">Klaim Reimbursement Karyawan</h4>
+              <p className="text-[11px] text-gray-400 mt-0.5">Verifikasi pengajuan nota bensin, servis armada, atau pembelian alat kantor.</p>
+            </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 text-[10px] text-gray-400 font-bold uppercase border-b border-gray-100">
-                <th className="py-3 px-4">Nomor Ref</th>
-                <th className="py-3 px-4">Tanggal</th>
-                <th className="py-3 px-4">Kategori</th>
-                <th className="py-3 px-4">Deskripsi</th>
-                <th className="py-3 px-4">Dicatat Oleh</th>
-                <th className="py-3 px-4">Metode</th>
-                <th className="py-3 px-4 text-right">Jumlah</th>
-                <th className="py-3 px-4 text-center">Bukti</th>
-                <th className="py-3 px-4 text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 text-xs text-gray-700">
-              {filteredExpenses.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-8 text-center text-gray-400 font-bold">Belum ada pengeluaran operasional yang cocok dengan filter.</td>
-                </tr>
+            <div className="space-y-3.5">
+              {pendingClaims.length === 0 ? (
+                <div className="py-8 text-center text-gray-400 font-bold border border-dashed border-gray-200 rounded-xl">
+                  Tidak ada pengajuan reimbursement baru.
+                </div>
               ) : (
-                filteredExpenses.slice((safeExpensePage - 1) * PAGE_SIZE, safeExpensePage * PAGE_SIZE).map((exp) => (
-                  <tr key={exp.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-gray-800">{exp.id}</td>
-                    <td className="py-3.5 px-4 text-gray-500 font-medium whitespace-nowrap">{fmtDate(exp.date)}</td>
-                    <td className="py-3.5 px-4 font-bold text-gray-600">{categoryTranslationMap[exp.category] || exp.category}</td>
-                    <td className="py-3.5 px-4 font-medium text-gray-900">{exp.description}</td>
-                    <td className="py-3.5 px-4 font-medium text-gray-600">{exp.submittedBy}</td>
-                    <td className="py-3.5 px-4 text-gray-500">{exp.paymentMethod || '-'}</td>
-                    <td className="py-3.5 px-4 text-right font-bold text-red-600">-Rp {exp.amount.toLocaleString('id-ID')}</td>
-                    <td className="py-3.5 px-4 text-center">
-                      {exp.receiptUrl ? (
-                        <a href={exp.receiptUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold underline underline-offset-2">Lihat</a>
+                pendingClaims.map((claim) => (
+                  <div key={claim.id} className="p-4 border border-gray-200 rounded-xl space-y-3 hover:border-gray-300 transition-all bg-gray-50/50">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-extrabold text-xs text-gray-900 leading-snug">{claim.item}</p>
+                        <span className="text-[10px] text-gray-400 mt-0.5 block">Diajukan: {claim.submittedBy} • {categoryTranslationMap[claim.category]}</span>
+                      </div>
+                      <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded uppercase font-mono">{claim.id}</span>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-150">
+                      <span className="font-black text-xs text-gray-950">Rp {claim.amount.toLocaleString('id-ID')}</span>
+                      {canApproveFinance ? (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleRejectClaim(claim)}
+                            className="w-7 h-7 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
+                            title="Tolak Klaim"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleApproveClaim(claim)}
+                            className="w-7 h-7 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
+                            title="Setujui Klaim"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                        </div>
                       ) : (
-                        <span className="text-gray-300">-</span>
+                        <span className="text-[10px] text-gray-400 italic">Menunggu persetujuan Owner/Admin.</span>
                       )}
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                        exp.status === 'Approved' ? 'bg-emerald-50 text-emerald-700' : exp.status === 'Rejected' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
-                      }`}>
-                        {exp.status === 'Approved' ? 'DISETUJUI' : exp.status === 'Rejected' ? 'DITOLAK' : 'DRAFT'}
-                      </span>
-                    </td>
-                  </tr>
+                    </div>
+                  </div>
                 ))
               )}
-            </tbody>
-          </table>
-          <Pagination page={safeExpensePage} pageCount={expensePageCount} onPageChange={setExpensePage} />
-        </div>
-      </div>
+            </div>
+          </div>
 
+          {/* Riwayat Pengeluaran Operasional (Bensin/Gaji/Bon/Lainnya) — murni dari expenses, tanpa data penjualan atau bon supplier */}
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden">
+            {/* Controls Bar */}
+            <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col md:flex-row gap-3 justify-between items-center">
+              <div className="relative w-full md:max-w-xs group">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors z-10" />
+                <Input
+                  type="text"
+                  placeholder="Cari deskripsi, ref, atau pencatat..."
+                  value={expenseSearch}
+                  onChange={(e) => { setExpenseSearch(e.target.value); setExpensePage(1); }}
+                  className="pl-9 h-8 bg-white"
+                />
+              </div>
+
+              <div className="flex gap-1.5 overflow-x-auto w-full md:w-auto items-center">
+                {['Semua', 'Bensin', 'Gaji', 'Bon', 'Lainnya'].map((cat) => (
+                  <Button
+                    key={cat}
+                    size="sm"
+                    variant={expenseCategoryFilter === cat ? 'default' : 'outline'}
+                    onClick={() => { setExpenseCategoryFilter(cat); setExpensePage(1); }}
+                    className="whitespace-nowrap"
+                  >
+                    {cat === 'Semua' ? 'Semua' : (categoryTranslationMap[cat] || cat)}
+                  </Button>
+                ))}
+                <Button
+                  size="sm"
+                  onClick={() => setShowSubmitModal(true)}
+                  className="whitespace-nowrap text-[10px] bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 shadow-none"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Catat Pengeluaran</span>
+                </Button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent bg-slate-100/50">
+                    <TableHead>Deskripsi &amp; Ref</TableHead>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Kategori</TableHead>
+                    <TableHead>Dicatat Oleh</TableHead>
+                    <TableHead>Metode</TableHead>
+                    <TableHead>Jumlah</TableHead>
+                    <TableHead>Bukti</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredExpenses.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="p-8 text-center text-gray-400">
+                        <span className="text-2xl block mb-2">💸</span>
+                        <span className="font-extrabold uppercase tracking-wider block text-xs">Tidak Ada Data Pengeluaran</span>
+                        <span className="text-[10px] text-gray-400 mt-1 block">Silakan ubah filter atau catat pengeluaran baru.</span>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredExpenses.slice((safeExpensePage - 1) * PAGE_SIZE, safeExpensePage * PAGE_SIZE).map((exp) => (
+                      <TableRow key={exp.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-200 to-slate-100 text-slate-700 flex items-center justify-center font-black text-xs shrink-0">
+                              {initials(categoryTranslationMap[exp.category] || exp.category)}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-gray-800">{exp.description}</h4>
+                              <p className="text-[9px] text-gray-400 mt-0.5 font-mono">{exp.id}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap font-semibold text-gray-600">{fmtDate(exp.date)}</TableCell>
+                        <TableCell className="font-semibold text-gray-600">{categoryTranslationMap[exp.category] || exp.category}</TableCell>
+                        <TableCell className="font-semibold text-gray-600">{exp.submittedBy}</TableCell>
+                        <TableCell className="font-semibold text-gray-600">{exp.paymentMethod || '-'}</TableCell>
+                        <TableCell>
+                          <span className="font-black text-xs text-red-600">-Rp {exp.amount.toLocaleString('id-ID')}</span>
+                        </TableCell>
+                        <TableCell>
+                          {exp.receiptUrl ? (
+                            <a href={exp.receiptUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold underline underline-offset-2">Lihat</a>
+                          ) : (
+                            <span className="text-gray-300">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {exp.status === 'Approved' ? (
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100">Disetujui</Badge>
+                          ) : exp.status === 'Rejected' ? (
+                            <Badge className="bg-red-50 text-red-700 border-red-100">Ditolak</Badge>
+                          ) : (
+                            <Badge className="bg-amber-50 text-amber-700 border-amber-100">Draft</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              <Pagination page={safeExpensePage} pageCount={expensePageCount} onPageChange={setExpensePage} />
+            </div>
+          </div>
         </TabsContent>
 
         {/* ===== Tab 3: Penjualan ===== */}
-        <TabsContent value="penjualan" className="mt-5 space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div className="bg-white p-4 rounded-xl border border-gray-200">
-              <p className="text-[10px] text-gray-400 font-bold uppercase">Total Penjualan{salesFilter !== 'Semua' ? ` (${PAYMENT_LABEL[salesFilter] || salesFilter})` : ''}</p>
-              <h4 className="text-lg font-black text-emerald-600 mt-0.5">{rupiah(salesTotal)}</h4>
+        <TabsContent value="penjualan" className="mt-5 space-y-6">
+          {/* KPI Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Total Penjualan{salesFilter !== 'Semua' ? ` (${PAYMENT_LABEL[salesFilter] || salesFilter})` : ''}</span>
+                <span className="text-lg font-black text-emerald-600">{rupiah(salesTotal)}</span>
+                <span className="text-[9px] text-gray-400 block mt-0.5">Sesuai Filter Aktif</span>
+              </div>
             </div>
-            <div className="bg-white p-4 rounded-xl border border-gray-200">
-              <p className="text-[10px] text-gray-400 font-bold uppercase">Jumlah Transaksi</p>
-              <h4 className="text-lg font-black text-gray-800 mt-0.5">{filteredInvoices.length}</h4>
+
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-xs flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                <Receipt className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Jumlah Transaksi</span>
+                <span className="text-lg font-black text-slate-800">{filteredInvoices.length}</span>
+                <span className="text-[9px] text-gray-400 block mt-0.5">Invoice Penjualan</span>
+              </div>
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-xs">
-            <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div>
-                <h4 className="text-sm font-bold text-gray-800">Pembayaran dari Penjualan</h4>
-                <p className="text-[11px] text-gray-400 mt-0.5">Seluruh invoice penjualan kasir beserta metode pembayarannya.</p>
+          {/* Main Table Panel */}
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden">
+            {/* Controls Bar */}
+            <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col md:flex-row gap-3 justify-between items-center">
+              <div className="relative w-full md:max-w-xs group">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors z-10" />
+                <Input
+                  type="text"
+                  placeholder="Cari no. invoice atau pelanggan..."
+                  value={salesSearch}
+                  onChange={(e) => { setSalesSearch(e.target.value); setSalesPage(1); }}
+                  className="pl-9 h-8 bg-white"
+                />
               </div>
-              <div className="flex gap-1.5 overflow-x-auto pb-1 max-w-full scrollbar-none">
+
+              <div className="flex gap-1.5 overflow-x-auto w-full md:w-auto">
                 {salesMethods.map((method) => (
-                  <button
+                  <Button
                     key={method}
+                    size="sm"
+                    variant={salesFilter === method ? 'default' : 'outline'}
                     onClick={() => { setSalesFilter(method); setSalesPage(1); }}
-                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
-                      salesFilter === method ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                    }`}
+                    className="whitespace-nowrap"
                   >
                     {PAYMENT_LABEL[method] || method}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
 
-            <Table className="min-w-[720px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tanggal</TableHead>
-                  <TableHead>No. Invoice</TableHead>
-                  <TableHead>Pelanggan</TableHead>
-                  <TableHead>Metode Bayar</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredInvoices.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="p-8 text-center text-gray-400 font-bold">Belum ada transaksi penjualan.</TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent bg-slate-100/50">
+                    <TableHead>Pelanggan &amp; No. Invoice</TableHead>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Metode Bayar</TableHead>
+                    <TableHead>Total</TableHead>
                   </TableRow>
-                ) : filteredInvoices.slice((safeSalesPage - 1) * PAGE_SIZE, safeSalesPage * PAGE_SIZE).map((inv) => (
-                  <TableRow key={inv.invoiceNumber}>
-                    <TableCell className="whitespace-nowrap">{inv.date}</TableCell>
-                    <TableCell className="font-mono font-bold">{inv.invoiceNumber}</TableCell>
-                    <TableCell className="font-semibold">{inv.customerName || '-'}</TableCell>
-                    <TableCell>{PAYMENT_LABEL[inv.paymentMethod] || inv.paymentMethod}</TableCell>
-                    <TableCell className="text-right font-bold text-emerald-600">{rupiah(inv.total)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <Pagination page={safeSalesPage} pageCount={salesPageCount} onPageChange={setSalesPage} />
+                </TableHeader>
+                <TableBody>
+                  {filteredInvoices.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="p-8 text-center text-gray-400">
+                        <span className="text-2xl block mb-2">🛒</span>
+                        <span className="font-extrabold uppercase tracking-wider block text-xs">Tidak Ada Data Penjualan</span>
+                        <span className="text-[10px] text-gray-400 mt-1 block">Silakan ubah filter atau lakukan transaksi di POS.</span>
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredInvoices.slice((safeSalesPage - 1) * PAGE_SIZE, safeSalesPage * PAGE_SIZE).map((inv) => (
+                    <TableRow key={inv.invoiceNumber}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-slate-200 to-slate-100 text-slate-700 flex items-center justify-center font-black text-xs shrink-0">
+                            {initials(inv.customerName || 'Customer')}
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-gray-800">{inv.customerName || '-'}</h4>
+                            <p className="text-[9px] text-gray-400 mt-0.5 font-mono">{inv.invoiceNumber}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap font-semibold text-gray-600">{inv.date}</TableCell>
+                      <TableCell>
+                        <Badge className="bg-slate-50 text-slate-700 border-slate-200">{PAYMENT_LABEL[inv.paymentMethod] || inv.paymentMethod}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-black text-xs text-emerald-600">{rupiah(inv.total)}</span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <Pagination page={safeSalesPage} pageCount={salesPageCount} onPageChange={setSalesPage} />
+            </div>
           </div>
         </TabsContent>
       </Tabs>
