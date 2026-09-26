@@ -970,9 +970,8 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     setFormSku(prod.sku);
     setFormCategory(prod.category);
     setFormUnit(prod.unit);
-    setFormRetailPrice(prod.retailPrice);
     setFormWholesalePrice(prod.wholesalePrice);
-    setFormProjectPrice(prod.projectPrice);
+    setFormRetailPrice(prod.retailPrice);
     setFormStock(prod.stock);
     setFormLocation(prod.warehouseLocation || (prod as any).location || 'Section A - Row 01');
     setFormImage(prod.image || 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=150');
@@ -2560,12 +2559,12 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                     <span className="font-extrabold text-foreground">Rp {selectedProduct.retailPrice.toLocaleString('id-ID')} / {selectedProduct.unit}</span>
                   </div>
                   <div className="flex justify-between p-2">
-                    <span className="text-muted-foreground font-medium flex items-center gap-1">Harga Standard <Info className="w-3.5 h-3.5 text-primary" /></span>
-                    <span className="font-extrabold text-foreground">Rp {selectedProduct.wholesalePrice.toLocaleString('id-ID')} / {selectedProduct.unit}</span>
-                  </div>
-                  <div className="flex justify-between p-2">
                     <span className="text-muted-foreground font-medium">Harga Minimum</span>
                     <span className="font-extrabold text-foreground">Rp {selectedProduct.projectPrice.toLocaleString('id-ID')} / {selectedProduct.unit}</span>
+                  </div>
+                  <div className="flex justify-between p-2">
+                    <span className="text-muted-foreground font-medium flex items-center gap-1">Harga Standard <Info className="w-3.5 h-3.5 text-primary" /></span>
+                    <span className="font-extrabold text-foreground">Rp {selectedProduct.wholesalePrice.toLocaleString('id-ID')} / {selectedProduct.unit}</span>
                   </div>
                 </div>
               </div>
@@ -2574,6 +2573,10 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
               <div className="space-y-2 text-xs">
                 <span className="font-bold text-[10px] text-muted-foreground uppercase tracking-widest block">Spesifikasi Detail Material</span>
                 <div className="p-3.5 border border-border rounded-xl space-y-2.5">
+                  <div className='flex justify-between'>
+                    <span className="text-muted-foreground">Supplier</span>
+                    <span className="font-bold text-foreground/80">{selectedProduct.supplier || 'Tidak tersedia'}</span>
+                  </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Gudang / Lokasi Rak</span>
                     <span className="font-bold text-foreground/80 uppercase">{selectedProduct.warehouseLocation || (selectedProduct as any).location}</span>
