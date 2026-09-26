@@ -64,6 +64,12 @@ interface ProductUnits {
   level: 1 | 2 | 3;
 }
 
+interface ProductLocation {
+  id: string;
+  name: string;
+  level: 1 | 2 | 3;
+}
+
 interface ProductsViewProps {
   products: Product[];
   onUpdateProducts: (updatedProducts: Product[]) => void;
@@ -213,6 +219,12 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   .slice()
   .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
   .map((unit) => unit.name);
+
+  const [productLocation] = useSupabaseTable<ProductLocation>('sku_locations', [], (location) => location.id);
+  const locationNames = productLocation
+  .slice()
+  .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
+  .map((location) => location.name);
 
   const saveSubmissions = (subs: any[]) => {
     setOpnameSubmissions(subs);
@@ -967,7 +979,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
 
   const handleOpenEditModal = (prod: Product) => {
     setFormName(prod.name);
-    setFormSku(prod.sku);
     setFormCategory(prod.category);
     setFormUnit(prod.unit);
     setFormWholesalePrice(prod.wholesalePrice);
@@ -2777,22 +2788,22 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 />
               </div>
               <div>
-                <Label>Harga Standard</Label>
-                <NumberInput
-                  required
-                  value={formWholesalePrice}
-                  onChange={setFormWholesalePrice}
-                  placeholder="0"
-                  className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
-                />
-              </div>
-              <div>
                 <Label>Harga Minimum</Label>
                 <NumberInput
                   required
                   max={formWholesalePrice || undefined}
                   value={formProjectPrice}
                   onChange={setFormProjectPrice}
+                  placeholder="0"
+                  className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
+                />
+              </div>
+              <div>
+                <Label>Harga Standard</Label>
+                <NumberInput
+                  required
+                  value={formWholesalePrice}
+                  onChange={setFormWholesalePrice}
                   placeholder="0"
                   className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
                 />
@@ -2812,12 +2823,12 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
               </div>
               <div>
                 <Label>Lokasi Gudang / Rak</Label>
-                <Input
-                  type="text"
-                  required
-                  placeholder="Contoh: Section A - Row 02"
+                <SearchableSelect
                   value={formLocation}
-                  onChange={(e) => setFormLocation(e.target.value)}
+                  onChange={setFormLocation}
+                  options={locationNames.map((skuLocation) => ({ value: skuLocation, label: skuLocation }))}
+                  placeholder="Pilih lokasi..."
+                  searchPlaceholder="Cari lokasi..."
                 />
               </div>
             </div>
@@ -2882,10 +2893,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                   onChange={(e) => setFormName(e.target.value)}
                 />
               </div>
-              <div>
-                <Label>Kode SKU (Tidak Dapat Diubah)</Label>
-                <Input type="text" disabled value={formSku} className="font-mono bg-muted text-muted-foreground cursor-not-allowed" />
-              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -2901,18 +2908,14 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
               </div>
               <div>
                 <Label>Satuan Unit</Label>
-                <Select value={formUnit} onValueChange={setFormUnit}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Sack">Sack / Zak</SelectItem>
-                    <SelectItem value="Piece">Piece / Batang</SelectItem>
-                    <SelectItem value="Gallon">Gallon / Pail</SelectItem>
-                    <SelectItem value="Sheet">Sheet / Lembar</SelectItem>
-                    <SelectItem value="Ton">Ton</SelectItem>
-                    <SelectItem value="Meter">Meter</SelectItem>
-                    <SelectItem value="Box">Box / Dus</SelectItem>
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={formUnit}
+                  onChange={setFormUnit}
+                  options={unitNames.map((unit) => ({ value: unit, label: unit }))}
+                  placeholder="Pilih Satuan..."
+                  searchPlaceholder="Cari Satuan..."
+                  className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
+                />
               </div>
             </div>
 
@@ -2928,22 +2931,22 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 />
               </div>
               <div>
-                <Label>Harga Standard</Label>
-                <NumberInput
-                  required
-                  value={formWholesalePrice}
-                  onChange={setFormWholesalePrice}
-                  placeholder="0"
-                  className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
-                />
-              </div>
-              <div>
                 <Label>Harga Minimum</Label>
                 <NumberInput
                   required
                   max={formWholesalePrice || undefined}
                   value={formProjectPrice}
                   onChange={setFormProjectPrice}
+                  placeholder="0"
+                  className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
+                />
+              </div>
+              <div>
+                <Label>Harga Standard</Label>
+                <NumberInput
+                  required
+                  value={formWholesalePrice}
+                  onChange={setFormWholesalePrice}
                   placeholder="0"
                   className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
                 />
@@ -2963,13 +2966,14 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
               </div>
               <div>
                 <Label>Lokasi Gudang / Rak</Label>
-                <Input
-                  type="text"
-                  required
-                  placeholder="Contoh: Section A - Row 02"
+                <SearchableSelect
                   value={formLocation}
-                  onChange={(e) => setFormLocation(e.target.value)}
-                />
+                  onChange={setFormLocation}
+                  options={locationNames.map((loc) => ({ value: loc, label: loc }))}
+                  placeholder="Pilih lokasi..."
+                  searchPlaceholder="Cari Lokasi..."
+                  className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
+                  />
               </div>
             </div>
 

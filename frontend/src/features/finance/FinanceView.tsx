@@ -565,7 +565,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
 
           <div className="flex justify-end">
             <Button
-                  size="sm"
+                  size="lg"
                   onClick={() => setShowSubmitModal(true)}
                   className="text-[10px] bg-blue-500 hover:bg-blue-600 hover:text-white text-white shadow-none"
                 >
