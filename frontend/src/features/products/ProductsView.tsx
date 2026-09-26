@@ -3034,19 +3034,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
               </div>
             </div>
 
-            <div>
-              <Label>Barcode</Label>
-              <div className="flex gap-2">
-                <Input type="text" value={formBarcode} onChange={(e) => setFormBarcode(e.target.value)} placeholder="Scan atau generate barcode..." />
-                <Button type="button" onClick={() => setShowEditBarcodeScanner(true)} className="whitespace-nowrap">
-                  <ScanLine className="w-3.5 h-3.5" /> Scan
-                </Button>
-                <Button type="button" variant="secondary" onClick={() => setFormBarcode(generateBarcode())} className="bg-gray-900 hover:bg-black text-white whitespace-nowrap">
-                  Generate
-                </Button>
-              </div>
-            </div>
-
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <Label>Harga Modal</Label>
@@ -3059,22 +3046,22 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 />
               </div>
               <div>
-                <Label>Harga Standard</Label>
-                <NumberInput
-                  required
-                  value={formWholesalePrice}
-                  onChange={setFormWholesalePrice}
-                  placeholder="0"
-                  className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
-                />
-              </div>
-              <div>
                 <Label>Harga Minimum</Label>
                 <NumberInput
                   required
                   max={formWholesalePrice || undefined}
                   value={formProjectPrice}
                   onChange={setFormProjectPrice}
+                  placeholder="0"
+                  className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
+                />
+              </div>
+              <div>
+                <Label>Harga Standard</Label>
+                <NumberInput
+                  required
+                  value={formWholesalePrice}
+                  onChange={setFormWholesalePrice}
                   placeholder="0"
                   className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
                 />

@@ -878,39 +878,6 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
             </form>
           )}
 
-          {/* List of Sku Master products */}
-          <div className="max-w-2xl">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">Daftar Produk Sku Master</p>
-            <div className="divide-y divide-border border border-border rounded-xl overflow-hidden bg-card">
-              {products.filter(p => p.productType).length === 0 ? (
-                <p className="p-4 text-center text-xs text-muted-foreground">Belum ada produk Sku Master ditambahkan.</p>
-              ) : (
-                products.filter(p => p.productType).map((p) => (
-                  <div key={p.sku} className="flex justify-between items-center p-3 text-xs">
-                    <div>
-                      <p className="font-bold text-foreground/80">{p.name}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {p.productType === 'Induk' ? 'Produk Induk' : `Produk Eceran • 1 : ${p.conversionValue} ${p.unit}`} • {p.sku} • Stok {p.stock} {p.unit}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                    {p.productType === 'Eceran' && p.parentSku && can('manage_product_add') && (
-                      <Button variant="outline" size="sm" onClick={() => handleOpenPecah(p)} className="text-[10px] h-7">
-                        <PackageOpen className="w-3.5 h-3.5" /> Pecah Stok
-                      </Button>
-                    )}
-                    {can('manage_product_delete') && (
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteSkuProduct(p.sku)} className="text-red-400 hover:text-red-600 h-7 w-7">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
           {/* Dialog Pecah Stok */}
           <Dialog open={!!pecahTarget} onOpenChange={(open) => { if (!open) setPecahTarget(null); }}>
             <DialogContent className="max-w-sm">
