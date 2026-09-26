@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
  * Replaces the browser-native window.alert / window.confirm / window.prompt
@@ -108,10 +109,14 @@ export function DialogProvider({ children }: { children: ReactNode }) {
     setPromptReq(null);
   };
 
-  return (
-    <DialogContext.Provider value={{ alert: alertFn, confirm: confirmFn, prompt: promptFn }}>
-      {children}
-
+  // Radix (dan library modal lain) menandai konten di luar dialognya sebagai
+  // aria-hidden/inert selagi dialog itu terbuka, supaya orang tidak bisa
+  // berinteraksi dengan halaman di belakang. DialogProvider dipasang di
+  // dalam #root, jadi tanpa portal ke document.body, alert/konfirmasi/prompt
+  // di sini ikut "dibekukan" (terlihat tapi tidak bisa diklik) setiap kali
+  // ada dialog Radix lain yang masih terbuka di belakangnya.
+  const overlays = (
+    <>
       {/* Alert toasts — stack in the top-right corner, no backdrop */}
       {alerts.length > 0 && (
         <div className="fixed top-4 right-4 z-[200] flex flex-col gap-2 w-[min(92vw,380px)]">
@@ -206,6 +211,13 @@ export function DialogProvider({ children }: { children: ReactNode }) {
           </form>
         </div>
       )}
+    </>
+  );
+
+  return (
+    <DialogContext.Provider value={{ alert: alertFn, confirm: confirmFn, prompt: promptFn }}>
+      {children}
+      {typeof document !== 'undefined' ? createPortal(overlays, document.body) : overlays}
     </DialogContext.Provider>
   );
 }

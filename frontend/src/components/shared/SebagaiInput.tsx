@@ -46,6 +46,9 @@ export default function SebagaiInput({ value, onChange, extraOptions = [] }: Seb
         onValueChange={(v) => {
           if (v === CUSTOM) {
             setCustomMode(true);
+            // Pindah dari salah satu pilihan dropdown ke isian bebas — kosongkan
+            // dulu supaya yang tampil placeholder-nya, bukan pilihan sebelumnya.
+            if (options.includes(value)) onChange('');
             return;
           }
           setCustomMode(false);
