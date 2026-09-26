@@ -567,7 +567,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
             <Button
                   size="sm"
                   onClick={() => setShowSubmitModal(true)}
-                  className="text-[10px] bg-blue-500 hover:bg-blue-600 hover:text-white text-blue-700 shadow-none"
+                  className="text-[10px] bg-blue-500 hover:bg-blue-600 hover:text-white text-white shadow-none"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Catat Pengeluaran</span>
