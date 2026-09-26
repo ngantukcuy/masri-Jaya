@@ -132,15 +132,12 @@ export default function DepositView({ customers, onUpdateCustomers, onAddActivit
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-w-sm">
           {target && (
-            <>
+            <div className="space-y-4">
               <DialogHeader>
-                <DialogTitle className="text-sm normal-case tracking-normal">Deposit: {target.name}</DialogTitle>
+                <DialogTitle className="text-sm normal-case tracking-normal">
+                  {action === 'topup' ? 'Top Up Deposit' : 'Tarik Deposit'}: {target.name}
+                </DialogTitle>
               </DialogHeader>
-
-              <div className="bg-gray-50 rounded-xl p-3 text-xs flex justify-between">
-                <span className="text-gray-500">Saldo Saat Ini</span>
-                <span className="font-bold text-emerald-600">Rp {(target.depositBalance || 0).toLocaleString('id-ID')}</span>
-              </div>
 
               <Tabs value={action} onValueChange={(v) => setAction(v as 'topup' | 'withdraw')}>
                 <TabsList className="bg-gray-100 p-1 rounded-xl w-full gap-0">
@@ -159,17 +156,34 @@ export default function DepositView({ customers, onUpdateCustomers, onAddActivit
                 </TabsList>
               </Tabs>
 
-              <div>
+              <div className="bg-gray-50 rounded-xl p-3 text-xs space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Saldo Saat Ini</span>
+                  <span className="font-bold text-gray-700">Rp {(target.depositBalance || 0).toLocaleString('id-ID')}</span>
+                </div>
+                <div className="flex justify-between border-t border-gray-200 pt-1.5">
+                  <span className="text-gray-500">Saldo Setelah {action === 'topup' ? 'Top Up' : 'Ditarik'}</span>
+                  <span className={`font-black ${action === 'topup' ? 'text-emerald-600' : 'text-red-600'}`}>
+                    Rp {Math.max(0, (target.depositBalance || 0) + (action === 'topup' ? amount : -amount)).toLocaleString('id-ID')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
                 <Label>Nominal (IDR)</Label>
                 <NumberInput
                   value={amount}
                   onChange={setAmount}
-                  className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm font-bold outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20"
+                  autoFocus
+                  className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm font-bold outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20"
                   placeholder="0"
                 />
+                {action === 'withdraw' && amount > (target.depositBalance || 0) && (
+                  <p className="text-[10px] font-bold text-red-500">Melebihi saldo deposit yang tersedia.</p>
+                )}
               </div>
 
-              <div>
+              <div className="space-y-1.5">
                 <Label>Metode</Label>
                 <Select value={method} onValueChange={(v) => setMethod(v as 'Tunai' | 'Transfer')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -182,11 +196,12 @@ export default function DepositView({ customers, onUpdateCustomers, onAddActivit
 
               <Button
                 onClick={handleSubmit}
+                disabled={amount <= 0 || (action === 'withdraw' && amount > (target.depositBalance || 0))}
                 className={`w-full ${action === 'topup' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
               >
                 {action === 'topup' ? 'Simpan Top Up' : 'Simpan Penarikan'}
               </Button>
-            </>
+            </div>
           )}
         </DialogContent>
       </Dialog>

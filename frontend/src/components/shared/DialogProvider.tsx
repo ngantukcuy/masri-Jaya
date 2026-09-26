@@ -114,7 +114,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
 
       {/* Alert toasts — stack in the top-right corner, no backdrop */}
       {alerts.length > 0 && (
-        <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 w-[min(92vw,380px)]">
+        <div className="fixed top-4 right-4 z-[200] flex flex-col gap-2 w-[min(92vw,380px)]">
           {alerts.map((a) => (
             <div
               key={a.id}
@@ -141,7 +141,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
 
       {/* Confirm modal */}
       {confirmReq && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm px-4">
           <div className="glass-card w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-white/60">
             {confirmReq.title && (
               <p className="text-base font-semibold text-gray-900 mb-1.5">{confirmReq.title}</p>
@@ -169,7 +169,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
 
       {/* Prompt modal */}
       {promptReq && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm px-4">
           <form
             className="glass-card w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-white/60"
             onSubmit={(e) => {

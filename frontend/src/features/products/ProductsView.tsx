@@ -169,7 +169,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const [formWholesalePrice, setFormWholesalePrice] = useState(0);
   const [formProjectPrice, setFormProjectPrice] = useState(0);
   const [formStock, setFormStock] = useState(0);
-  const [formLocation, setFormLocation] = useState('Section A - Row 01');
+  const [formLocation, setFormLocation] = useState('');
   const [formImage, setFormImage] = useState('');
   const [imageUploading, setImageUploading] = useState(false);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
