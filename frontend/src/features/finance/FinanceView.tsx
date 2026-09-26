@@ -563,18 +563,6 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
             </div>
           </div>
 
-          <div className="flex justify-end">
-            <Button
-                  size="lg"
-                  onClick={() => setShowSubmitModal(true)}
-                  className="text-[10px] bg-blue-500 hover:bg-blue-600 hover:text-white text-white shadow-none"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Catat Pengeluaran</span>
-                </Button>
-          </div>
-
-
           {/* Pengeluaran yang menunggu persetujuan Owner */}
           <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs space-y-4">
             <div>
@@ -659,7 +647,14 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                     {cat === 'Semua' ? 'Semua' : (categoryTranslationMap[cat] || cat)}
                   </Button>
                 ))}
-                
+                <Button
+                  size="sm"
+                  onClick={() => setShowSubmitModal(true)}
+                  className="whitespace-nowrap text-[10px] bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 shadow-none"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Catat Pengeluaran</span>
+                </Button>
               </div>
             </div>
 

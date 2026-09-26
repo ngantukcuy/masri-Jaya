@@ -64,12 +64,6 @@ interface ProductUnits {
   level: 1 | 2 | 3;
 }
 
-interface ProductLocation {
-  id: string;
-  name: string;
-  level: 1 | 2 | 3;
-}
-
 interface ProductsViewProps {
   products: Product[];
   onUpdateProducts: (updatedProducts: Product[]) => void;
@@ -177,6 +171,19 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const [formStock, setFormStock] = useState(0);
   const [formLocation, setFormLocation] = useState('');
   const [formImage, setFormImage] = useState('');
+  // Field tambahan supaya form Edit Produk di halaman Stok sama persis
+  // dengan form Tambah Barang (Produk Induk) di halaman SKU Master.
+  const [formAlias, setFormAlias] = useState('');
+  const [formBrand, setFormBrand] = useState('');
+  const [formBarcode, setFormBarcode] = useState('');
+  const [formCategory2, setFormCategory2] = useState('');
+  const [formCategory3, setFormCategory3] = useState('');
+  const [formShowLowStockAlert, setFormShowLowStockAlert] = useState(false);
+  const [formMinStockQty, setFormMinStockQty] = useState(0);
+  const [formShowInDeadstock, setFormShowInDeadstock] = useState(false);
+  const [formDeadstockPeriodMonths, setFormDeadstockPeriodMonths] = useState(3);
+  const [showEditBarcodeScanner, setShowEditBarcodeScanner] = useState(false);
+  const generateBarcode = () => `SKU-${String(Math.floor(100000 + Math.random() * 900000))}`;
   const [imageUploading, setImageUploading] = useState(false);
   const [imageUploadError, setImageUploadError] = useState<string | null>(null);
   const imageFileInputRef = useRef<HTMLInputElement>(null);
@@ -212,6 +219,12 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     .slice()
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
     .map((category) => category.name);
+  const kategori1List = productCategories.filter((c) => c.level === 1);
+  const kategori2List = productCategories.filter((c) => c.level === 2);
+  const kategori3List = productCategories.filter((c) => c.level === 3);
+
+  // Sama seperti brand di SKU Master (tabel 'product_brands' yang sama).
+  const [productBrands] = useSupabaseTable<{ id: string; name: string }>('product_brands', [], (b) => b.id);
 
   // Unit names for the product unit dropdown
   const [productUnits] = useSupabaseTable<ProductUnits>('product_units', [], (unit) => unit.id);
@@ -219,12 +232,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   .slice()
   .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
   .map((unit) => unit.name);
-
-  const [productLocation] = useSupabaseTable<ProductLocation>('sku_locations', [], (location) => location.id);
-  const locationNames = productLocation
-  .slice()
-  .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
-  .map((location) => location.name);
 
   const saveSubmissions = (subs: any[]) => {
     setOpnameSubmissions(subs);
@@ -979,13 +986,28 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
 
   const handleOpenEditModal = (prod: Product) => {
     setFormName(prod.name);
-    setFormCategory(prod.category);
+    setFormSku(prod.sku);
+    setFormCategory(prod.category1 || prod.category);
+    setFormCategory2(prod.category2 || '');
+    setFormCategory3(prod.category3 || '');
     setFormUnit(prod.unit);
-    setFormWholesalePrice(prod.wholesalePrice);
     setFormRetailPrice(prod.retailPrice);
+    setFormWholesalePrice(prod.wholesalePrice);
+    setFormProjectPrice(prod.projectPrice);
     setFormStock(prod.stock);
-    setFormLocation(prod.warehouseLocation || (prod as any).location || 'Section A - Row 01');
-    setFormImage(prod.image || 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=150');
+    setFormLocation(prod.warehouseLocation || (prod as any).location || '');
+    setFormImage(prod.image || '');
+    // Field yang sebelumnya tidak ikut dimuat saat Edit Produk — jadi kalau
+    // produk ini punya data ini (mis. dibuat dari SKU Master), tidak hilang
+    // begitu form dibuka, dan sekarang juga bisa diubah dari sini.
+    setFormAlias(prod.alias || '');
+    setFormSupplier(prod.supplier || '');
+    setFormBrand(prod.brand || '');
+    setFormBarcode(prod.barcode || '');
+    setFormShowLowStockAlert(!!prod.showLowStockAlert);
+    setFormMinStockQty(prod.minStockQty || 0);
+    setFormShowInDeadstock(!!prod.showInDeadstock);
+    setFormDeadstockPeriodMonths(prod.deadstockPeriodMonths || 3);
     setShowEditModal(true);
   };
 
@@ -1079,14 +1101,32 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
           ...p,
           name: formName.trim(),
           category: formCategory,
+          category1: formCategory,
+          category2: formCategory2,
+          category3: formCategory3,
           unit: formUnit,
+          // "Harga Modal/Standard/Minimum" di sini sama seperti "Harga Modal /
+          // Jual Standard / Jual Minimum" di SKU Master — ditulis ke kedua
+          // nama field (lama & baru) supaya perhitungan untung di tempat lain
+          // yang membaca costPrice/standardSellPrice/minSellPrice tetap akurat.
           retailPrice: Number(formRetailPrice),
           wholesalePrice: Number(formWholesalePrice),
           projectPrice: Number(formProjectPrice),
+          costPrice: Number(formRetailPrice),
+          standardSellPrice: Number(formWholesalePrice),
+          minSellPrice: Number(formProjectPrice),
           stock: Number(formStock),
           stockStatus: status,
           warehouseLocation: formLocation,
-          image: formImage
+          image: formImage,
+          alias: formAlias.trim(),
+          supplier: formSupplier.trim(),
+          brand: formBrand,
+          barcode: formBarcode,
+          showLowStockAlert: formShowLowStockAlert,
+          minStockQty: Number(formMinStockQty),
+          showInDeadstock: formShowInDeadstock,
+          deadstockPeriodMonths: Number(formDeadstockPeriodMonths),
         };
         // Also update selectedProduct
         setSelectedProduct(nextProd);
@@ -2570,12 +2610,12 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                     <span className="font-extrabold text-foreground">Rp {selectedProduct.retailPrice.toLocaleString('id-ID')} / {selectedProduct.unit}</span>
                   </div>
                   <div className="flex justify-between p-2">
-                    <span className="text-muted-foreground font-medium">Harga Minimum</span>
-                    <span className="font-extrabold text-foreground">Rp {selectedProduct.projectPrice.toLocaleString('id-ID')} / {selectedProduct.unit}</span>
-                  </div>
-                  <div className="flex justify-between p-2">
                     <span className="text-muted-foreground font-medium flex items-center gap-1">Harga Standard <Info className="w-3.5 h-3.5 text-primary" /></span>
                     <span className="font-extrabold text-foreground">Rp {selectedProduct.wholesalePrice.toLocaleString('id-ID')} / {selectedProduct.unit}</span>
+                  </div>
+                  <div className="flex justify-between p-2">
+                    <span className="text-muted-foreground font-medium">Harga Minimum</span>
+                    <span className="font-extrabold text-foreground">Rp {selectedProduct.projectPrice.toLocaleString('id-ID')} / {selectedProduct.unit}</span>
                   </div>
                 </div>
               </div>
@@ -2584,10 +2624,6 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
               <div className="space-y-2 text-xs">
                 <span className="font-bold text-[10px] text-muted-foreground uppercase tracking-widest block">Spesifikasi Detail Material</span>
                 <div className="p-3.5 border border-border rounded-xl space-y-2.5">
-                  <div className='flex justify-between'>
-                    <span className="text-muted-foreground">Supplier</span>
-                    <span className="font-bold text-foreground/80">{selectedProduct.supplier || 'Tidak tersedia'}</span>
-                  </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Gudang / Lokasi Rak</span>
                     <span className="font-bold text-foreground/80 uppercase">{selectedProduct.warehouseLocation || (selectedProduct as any).location}</span>
@@ -2788,22 +2824,22 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 />
               </div>
               <div>
+                <Label>Harga Standard</Label>
+                <NumberInput
+                  required
+                  value={formWholesalePrice}
+                  onChange={setFormWholesalePrice}
+                  placeholder="0"
+                  className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
+                />
+              </div>
+              <div>
                 <Label>Harga Minimum</Label>
                 <NumberInput
                   required
                   max={formWholesalePrice || undefined}
                   value={formProjectPrice}
                   onChange={setFormProjectPrice}
-                  placeholder="0"
-                  className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
-                />
-              </div>
-              <div>
-                <Label>Harga Standard</Label>
-                <NumberInput
-                  required
-                  value={formWholesalePrice}
-                  onChange={setFormWholesalePrice}
                   placeholder="0"
                   className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
                 />
@@ -2823,12 +2859,12 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
               </div>
               <div>
                 <Label>Lokasi Gudang / Rak</Label>
-                <SearchableSelect
+                <Input
+                  type="text"
+                  required
+                  placeholder="Contoh: Section A - Row 02"
                   value={formLocation}
-                  onChange={setFormLocation}
-                  options={locationNames.map((skuLocation) => ({ value: skuLocation, label: skuLocation }))}
-                  placeholder="Pilih lokasi..."
-                  searchPlaceholder="Cari lokasi..."
+                  onChange={(e) => setFormLocation(e.target.value)}
                 />
               </div>
             </div>
@@ -2881,41 +2917,133 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
             </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleEditSubmit} className="space-y-4 text-xs">
+          <form onSubmit={handleEditSubmit} className="space-y-4 text-xs max-h-[70vh] overflow-y-auto pr-1">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Nama Produk / Material</Label>
-                <Input
-                  type="text"
-                  required
-                  placeholder="Contoh: Semen Gresik 50kg..."
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                />
+                <Label>Nama Alias Produk</Label>
+                <Input type="text" placeholder="Nama singkat / alias..." value={formAlias} onChange={(e) => setFormAlias(e.target.value)} />
               </div>
+              <div>
+                <Label>Kode SKU (Tidak Dapat Diubah)</Label>
+                <Input type="text" disabled value={formSku} className="font-mono bg-muted text-muted-foreground cursor-not-allowed" />
+              </div>
+            </div>
+
+            <div>
+              <Label>Nama Produk / Material</Label>
+              <Input
+                type="text"
+                required
+                placeholder="Contoh: Semen Gresik 50kg..."
+                value={formName}
+                onChange={(e) => setFormName(e.target.value)}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Kategori</Label>
+                <Label>Supplier</Label>
+                <SearchableSelect
+                  value={formSupplier}
+                  onChange={setFormSupplier}
+                  options={suppliers.map((s) => ({ value: s.name, label: s.name }))}
+                  placeholder="Pilih Supplier..."
+                  searchPlaceholder="Cari supplier..."
+                />
+              </div>
+              <div>
+                <Label>Brand Produk</Label>
+                <SearchableSelect
+                  value={formBrand}
+                  onChange={setFormBrand}
+                  options={productBrands.map((b) => ({ value: b.name, label: b.name }))}
+                  placeholder="Pilih Brand..."
+                  searchPlaceholder="Cari brand..."
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>Satuan Unit</Label>
+              <SearchableSelect
+                value={formUnit}
+                onChange={setFormUnit}
+                options={unitNames.map((u) => ({ value: u, label: u }))}
+                placeholder="Pilih satuan..."
+                searchPlaceholder="Cari satuan..."
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 bg-muted rounded-xl p-3 border border-border">
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 font-bold text-foreground/80 cursor-pointer">
+                  <Checkbox checked={formShowLowStockAlert} onCheckedChange={(v) => setFormShowLowStockAlert(v === true)} />
+                  Tampilkan saat stok menipis
+                </label>
+                {formShowLowStockAlert && (
+                  <div>
+                    <Label>Qty Stok Minimum</Label>
+                    <NumberInput min={0} value={formMinStockQty} onChange={setFormMinStockQty} placeholder="0" className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-bold outline-none" />
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 font-bold text-foreground/80 cursor-pointer">
+                  <Checkbox checked={formShowInDeadstock} onCheckedChange={(v) => setFormShowInDeadstock(v === true)} />
+                  Tampilkan di laporan deadstock
+                </label>
+                {formShowInDeadstock && (
+                  <div>
+                    <Label>Periode (Bulan)</Label>
+                    <NumberInput min={1} value={formDeadstockPeriodMonths} onChange={setFormDeadstockPeriodMonths} placeholder="0" className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-2 text-xs font-bold outline-none" />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>Kategori 1</Label>
                 <SearchableSelect
                   value={formCategory}
                   onChange={setFormCategory}
-                  options={categoryNames.map((category) => ({ value: category, label: category }))}
-                  placeholder="Pilih kategori..."
+                  options={kategori1List.map((c) => ({ value: c.name, label: c.name }))}
+                  placeholder="Pilih..."
                   searchPlaceholder="Cari kategori..."
                 />
               </div>
               <div>
-                <Label>Satuan Unit</Label>
+                <Label>Sub Kategori 2</Label>
                 <SearchableSelect
-                  value={formUnit}
-                  onChange={setFormUnit}
-                  options={unitNames.map((unit) => ({ value: unit, label: unit }))}
-                  placeholder="Pilih Satuan..."
-                  searchPlaceholder="Cari Satuan..."
-                  className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
+                  value={formCategory2}
+                  onChange={setFormCategory2}
+                  options={kategori2List.map((c) => ({ value: c.name, label: c.name }))}
+                  placeholder="Pilih..."
+                  searchPlaceholder="Cari sub kategori..."
                 />
+              </div>
+              <div>
+                <Label>Sub Kategori 3</Label>
+                <SearchableSelect
+                  value={formCategory3}
+                  onChange={setFormCategory3}
+                  options={kategori3List.map((c) => ({ value: c.name, label: c.name }))}
+                  placeholder="Pilih..."
+                  searchPlaceholder="Cari sub kategori..."
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>Barcode</Label>
+              <div className="flex gap-2">
+                <Input type="text" value={formBarcode} onChange={(e) => setFormBarcode(e.target.value)} placeholder="Scan atau generate barcode..." />
+                <Button type="button" onClick={() => setShowEditBarcodeScanner(true)} className="whitespace-nowrap">
+                  <ScanLine className="w-3.5 h-3.5" /> Scan
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => setFormBarcode(generateBarcode())} className="bg-gray-900 hover:bg-black text-white whitespace-nowrap">
+                  Generate
+                </Button>
               </div>
             </div>
 
@@ -2931,22 +3059,22 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 />
               </div>
               <div>
+                <Label>Harga Standard</Label>
+                <NumberInput
+                  required
+                  value={formWholesalePrice}
+                  onChange={setFormWholesalePrice}
+                  placeholder="0"
+                  className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
+                />
+              </div>
+              <div>
                 <Label>Harga Minimum</Label>
                 <NumberInput
                   required
                   max={formWholesalePrice || undefined}
                   value={formProjectPrice}
                   onChange={setFormProjectPrice}
-                  placeholder="0"
-                  className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
-                />
-              </div>
-              <div>
-                <Label>Harga Standard</Label>
-                <NumberInput
-                  required
-                  value={formWholesalePrice}
-                  onChange={setFormWholesalePrice}
                   placeholder="0"
                   className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
                 />
@@ -2969,11 +3097,10 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 <SearchableSelect
                   value={formLocation}
                   onChange={setFormLocation}
-                  options={locationNames.map((loc) => ({ value: loc, label: loc }))}
+                  options={skuLocations.map((l) => ({ value: l.name, label: l.name }))}
                   placeholder="Pilih lokasi..."
-                  searchPlaceholder="Cari Lokasi..."
-                  className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
-                  />
+                  searchPlaceholder="Cari lokasi..."
+                />
               </div>
             </div>
 
@@ -3015,6 +3142,17 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
           </form>
         </DialogContent>
       </Dialog>
+
+      {showEditBarcodeScanner && (
+        <BarcodeScannerModal
+          title="Scan Barcode"
+          onClose={() => setShowEditBarcodeScanner(false)}
+          onDetected={(code) => {
+            setFormBarcode(code);
+            setShowEditBarcodeScanner(false);
+          }}
+        />
+      )}
 
       {showSkuScanner && (
         <BarcodeScannerModal

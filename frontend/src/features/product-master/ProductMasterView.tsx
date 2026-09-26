@@ -556,22 +556,24 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
               <div>
                 <Label>Brand Produk</Label>
-                <Select value={skuForm.brand} onValueChange={(v) => setSkuForm({ ...skuForm, brand: v })}>
-                  <SelectTrigger><SelectValue placeholder="Pilih Brand..." /></SelectTrigger>
-                  <SelectContent>
-                    {brands.map(b => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={skuForm.brand}
+                  onChange={(v) => setSkuForm({ ...skuForm, brand: v })}
+                  options={brands.map((b) => ({ value: b.name, label: b.name }))}
+                  placeholder="Pilih Brand..."
+                  searchPlaceholder="Cari brand..."
+                />
                 </div>
 
               <div>
                 <Label>Pilih Satuan</Label>
-                <Select value={skuForm.unit} onValueChange={(v) => setSkuForm({ ...skuForm, unit: v })}>
-                  <SelectTrigger><SelectValue placeholder="Pilih Satuan..." /></SelectTrigger>
-                  <SelectContent>
-                    {units.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={skuForm.unit}
+                  onChange={(v) => setSkuForm({ ...skuForm, unit: v })}
+                  options={units.map((u) => ({ value: u.name, label: u.name }))}
+                  placeholder="Pilih Satuan..."
+                  searchPlaceholder="Cari satuan..."
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4 bg-muted rounded-xl p-3 border border-border">
@@ -666,12 +668,13 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
               <div>
                 <Label>Pilih Lokasi SKU</Label>
-                <Select value={skuForm.skuLocationId} onValueChange={(v) => setSkuForm({ ...skuForm, skuLocationId: v })}>
-                  <SelectTrigger><SelectValue placeholder="Pilih lokasi..." /></SelectTrigger>
-                  <SelectContent>
-                    {skuLocations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={skuForm.skuLocationId}
+                  onChange={(v) => setSkuForm({ ...skuForm, skuLocationId: v })}
+                  options={skuLocations.map((l) => ({ value: l.id, label: l.name }))}
+                  placeholder="Pilih lokasi..."
+                  searchPlaceholder="Cari lokasi..."
+                />
               </div>
 
               <Button type="submit" size="lg" className="w-full">
@@ -738,12 +741,13 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                     </div>
                     <div>
                       <Label>Pilih Satuan <span className="text-red-500">*</span></Label>
-                      <Select value={eceranForm.unit} onValueChange={(v) => setEceranForm({ ...eceranForm, unit: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {units.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={eceranForm.unit}
+                        onChange={(v) => setEceranForm({ ...eceranForm, unit: v })}
+                        options={units.map((u) => ({ value: u.name, label: u.name }))}
+                        placeholder="Pilih satuan..."
+                        searchPlaceholder="Cari satuan..."
+                      />
                     </div>
                   </div>
 
@@ -859,12 +863,13 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
               <div>
                 <Label>Pilih Lokasi SKU</Label>
-                <Select value={eceranForm.skuLocationId} onValueChange={(v) => setEceranForm({ ...eceranForm, skuLocationId: v })}>
-                  <SelectTrigger><SelectValue placeholder="Pilih lokasi..." /></SelectTrigger>
-                  <SelectContent>
-                    {skuLocations.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={eceranForm.skuLocationId}
+                  onChange={(v) => setEceranForm({ ...eceranForm, skuLocationId: v })}
+                  options={skuLocations.map((l) => ({ value: l.id, label: l.name }))}
+                  placeholder="Pilih lokasi..."
+                  searchPlaceholder="Cari lokasi..."
+                />
               </div>
 
               <Button type="submit" size="lg" className="w-full">
@@ -872,6 +877,39 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               </Button>
             </form>
           )}
+
+          {/* List of Sku Master products */}
+          <div className="max-w-2xl">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">Daftar Produk Sku Master</p>
+            <div className="divide-y divide-border border border-border rounded-xl overflow-hidden bg-card">
+              {products.filter(p => p.productType).length === 0 ? (
+                <p className="p-4 text-center text-xs text-muted-foreground">Belum ada produk Sku Master ditambahkan.</p>
+              ) : (
+                products.filter(p => p.productType).map((p) => (
+                  <div key={p.sku} className="flex justify-between items-center p-3 text-xs">
+                    <div>
+                      <p className="font-bold text-foreground/80">{p.name}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {p.productType === 'Induk' ? 'Produk Induk' : `Produk Eceran • 1 : ${p.conversionValue} ${p.unit}`} • {p.sku} • Stok {p.stock} {p.unit}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                    {p.productType === 'Eceran' && p.parentSku && can('manage_product_add') && (
+                      <Button variant="outline" size="sm" onClick={() => handleOpenPecah(p)} className="text-[10px] h-7">
+                        <PackageOpen className="w-3.5 h-3.5" /> Pecah Stok
+                      </Button>
+                    )}
+                    {can('manage_product_delete') && (
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteSkuProduct(p.sku)} className="text-red-400 hover:text-red-600 h-7 w-7">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
 
           {/* Dialog Pecah Stok */}
           <Dialog open={!!pecahTarget} onOpenChange={(open) => { if (!open) setPecahTarget(null); }}>
