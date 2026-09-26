@@ -99,7 +99,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
 
   // Form states for new expense
   const [newExpDesc, setNewExpDesc] = useState('');
-  const [newExpAmount, setNewExpAmount] = useState(150000);
+  const [newExpAmount, setNewExpAmount] = useState(0);
   const [newExpCat, setNewExpCat] = useState<'Bensin' | 'Gaji' | 'Bon' | 'Lainnya'>('Bensin');
   const [newExpUser, setNewExpUser] = useState('');
   const [newExpMethod, setNewExpMethod] = useState<'Tunai Kas' | 'Tunai Luar' | 'Transfer' | 'Giro'>('Tunai Kas');
@@ -211,7 +211,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
 
       // Reset forms
       setNewExpDesc('');
-      setNewExpAmount(150000);
+      setNewExpAmount(0);
       setNewExpUser('');
       setNewExpMethod('Tunai Kas');
       setNewExpDate(toDateInputValue(new Date()));
@@ -563,6 +563,18 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
             </div>
           </div>
 
+          <div className="flex justify-end">
+            <Button
+                  size="sm"
+                  onClick={() => setShowSubmitModal(true)}
+                  className="blue-nowrap text-[10px] bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 shadow-none"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Catat Pengeluaran</span>
+                </Button>
+          </div>
+
+
           {/* Pengeluaran yang menunggu persetujuan Owner */}
           <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs space-y-4">
             <div>
@@ -620,18 +632,6 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
             </div>
           </div>
 
-              <div className="flex">
-                
-                <Button
-                  size="sm"
-                  onClick={() => setShowSubmitModal(true)}
-                  className="whitespace-nowrap text-[10px] bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 shadow-none"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Catat Pengeluaran</span>
-                </Button>
-              </div>
-
           {/* Riwayat Pengeluaran Operasional (Bensin/Gaji/Bon/Lainnya) — murni dari expenses, tanpa data penjualan atau bon supplier */}
           <div className="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden">
             {/* Controls Bar */}
@@ -659,6 +659,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                     {cat === 'Semua' ? 'Semua' : (categoryTranslationMap[cat] || cat)}
                   </Button>
                 ))}
+                
               </div>
             </div>
 
@@ -839,16 +840,18 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl max-w-md w-full p-6 border border-gray-200 shadow-2xl max-h-[85vh] overflow-y-auto space-y-4"
+              className="bg-white rounded-2xl max-w-md w-full max-h-[85vh] border border-gray-200 shadow-2xl overflow-hidden flex flex-col"
             >
-              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+              {/* Header tetap di tempat — hanya isi form di bawah yang discroll,
+                  supaya scrollbar tidak "kepotong" oleh sudut membulat kartu. */}
+              <div className="flex justify-between items-center border-b border-gray-100 px-6 pt-6 pb-3 shrink-0">
                 <span className="font-black text-xs uppercase tracking-widest text-blue-600 flex items-center gap-1.5">
                   <Plus className="w-4 h-4" /> FORMULIR PENCATATAN PENGELUARAN BARU
                 </span>
                 <button onClick={() => setShowSubmitModal(false)} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-400 cursor-pointer">✕</button>
               </div>
 
-              <form onSubmit={handleSubmitExpense} className="space-y-4 text-xs">
+              <form onSubmit={handleSubmitExpense} className="space-y-4 text-xs overflow-y-auto p-6">
                 <div>
                   <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1.5">Nama Operator / Karyawan</label>
                   <input 

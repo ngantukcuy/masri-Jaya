@@ -11,7 +11,9 @@ import {
   Wallet,
   Clock,
   CheckCircle2,
-  ChevronRight
+  ChevronRight,
+  Building2,
+  AlertTriangle
 } from 'lucide-react';
 import { PO, Supplier } from '../../types';
 import { useDialog } from '../../components/shared/DialogProvider';
@@ -87,6 +89,10 @@ export default function PemasokView({ suppliers, pos = [], onUpdateSuppliers, on
     s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (s.salesName || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Ringkasan kecil di atas — sama seperti kartu KPI di halaman Pelanggan.
+  const totalUtangSemua = suppliers.reduce((sum, s) => sum + getStats(s.name).totalUtang, 0);
+  const pemasokTempo = suppliers.filter((s) => !!s.topDays).length;
 
   const openCreate = () => {
     setEditingName(null);
@@ -186,15 +192,51 @@ export default function PemasokView({ suppliers, pos = [], onUpdateSuppliers, on
         )}
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
-        <Input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Cari nama pemasok atau sales..."
-          className="pl-9"
-        />
+      {/* Ringkasan Pemasok */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div className="bg-white p-4 rounded-xl border border-gray-200 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+            <Building2 className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-400 font-bold uppercase">TOTAL PEMASOK TERDAFTAR</p>
+            <h4 className="text-lg font-black text-gray-800 mt-0.5">{suppliers.length} Pemasok</h4>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-gray-200 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center text-red-600">
+            <AlertTriangle className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-400 font-bold uppercase">TOTAL OUTSTANDING UTANG</p>
+            <h4 className="text-lg font-black text-red-600 mt-0.5">{rupiah(totalUtangSemua)}</h4>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-gray-200 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-400 font-bold uppercase">PEMASOK PEMBAYARAN TEMPO</p>
+            <h4 className="text-lg font-black text-amber-600 mt-0.5">{pemasokTempo} Pemasok</h4>
+          </div>
+        </div>
+      </div>
+
+      {/* Search Filter Header */}
+      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white border border-gray-200 p-3 rounded-xl shadow-xs">
+        <div className="relative w-full sm:max-w-xs group">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors z-10" />
+          <Input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Cari nama pemasok atau sales..."
+            className="pl-9 bg-gray-50 border-none"
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
