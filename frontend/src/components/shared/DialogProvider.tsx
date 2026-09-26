@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 
 /**
  * Replaces the browser-native window.alert / window.confirm / window.prompt
@@ -109,12 +109,6 @@ export function DialogProvider({ children }: { children: ReactNode }) {
     setPromptReq(null);
   };
 
-  // Radix (dan library modal lain) menandai konten di luar dialognya sebagai
-  // aria-hidden/inert selagi dialog itu terbuka, supaya orang tidak bisa
-  // berinteraksi dengan halaman di belakang. DialogProvider dipasang di
-  // dalam #root, jadi tanpa portal ke document.body, alert/konfirmasi/prompt
-  // di sini ikut "dibekukan" (terlihat tapi tidak bisa diklik) setiap kali
-  // ada dialog Radix lain yang masih terbuka di belakangnya.
   const overlays = (
     <>
       {/* Alert toasts — stack in the top-right corner, no backdrop */}
@@ -144,72 +138,89 @@ export function DialogProvider({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      {/* Confirm modal */}
+      {/* Confirm modal — pakai primitive Radix yang sama dengan dialog lain di
+          app (bukan <div> polos) supaya Radix menganggapnya "dialog aktif"
+          juga. Kalau tidak, dialog Radix lain yang masih terbuka di
+          belakangnya akan menandai div polos ini sebagai aria-hidden/inert,
+          sehingga terlihat tapi tidak bisa diklik. */}
       {confirmReq && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm px-4">
-          <div className="glass-card w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-white/60">
-            {confirmReq.title && (
-              <p className="text-base font-semibold text-gray-900 mb-1.5">{confirmReq.title}</p>
-            )}
-            <p className="text-sm text-gray-700 whitespace-pre-line mb-5">{confirmReq.message}</p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => resolveConfirm(false)}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100"
-              >
-                {confirmReq.cancelLabel ?? 'Batal'}
-              </button>
-              <button
-                onClick={() => resolveConfirm(true)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium text-white ${
-                  confirmReq.danger ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
-                }`}
-              >
-                {confirmReq.confirmLabel ?? 'Ya'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <DialogPrimitive.Root open modal onOpenChange={(open) => { if (!open) resolveConfirm(false); }}>
+          <DialogPrimitive.Portal>
+            <DialogPrimitive.Overlay className="fixed inset-0 z-[200] bg-gray-900/40 backdrop-blur-sm" />
+            <DialogPrimitive.Content
+              className="fixed inset-0 z-[200] flex items-center justify-center px-4 outline-none"
+              onOpenAutoFocus={(e) => e.preventDefault()}
+            >
+              <div className="glass-card w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-white/60">
+                <DialogPrimitive.Title asChild>
+                  <p className="text-base font-semibold text-gray-900 mb-1.5">{confirmReq.title ?? 'Konfirmasi'}</p>
+                </DialogPrimitive.Title>
+                <p className="text-sm text-gray-700 whitespace-pre-line mb-5">{confirmReq.message}</p>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => resolveConfirm(false)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100"
+                  >
+                    {confirmReq.cancelLabel ?? 'Batal'}
+                  </button>
+                  <button
+                    onClick={() => resolveConfirm(true)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium text-white ${
+                      confirmReq.danger ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
+                    }`}
+                  >
+                    {confirmReq.confirmLabel ?? 'Ya'}
+                  </button>
+                </div>
+              </div>
+            </DialogPrimitive.Content>
+          </DialogPrimitive.Portal>
+        </DialogPrimitive.Root>
       )}
 
-      {/* Prompt modal */}
+      {/* Prompt modal — Radix primitive, alasan sama seperti Confirm modal di atas. */}
       {promptReq && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm px-4">
-          <form
-            className="glass-card w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-white/60"
-            onSubmit={(e) => {
-              e.preventDefault();
-              resolvePrompt(promptValue);
-            }}
-          >
-            {promptReq.title && (
-              <p className="text-base font-semibold text-gray-900 mb-1.5">{promptReq.title}</p>
-            )}
-            <p className="text-sm text-gray-700 whitespace-pre-line mb-3">{promptReq.message}</p>
-            <input
-              ref={promptInputRef}
-              autoFocus
-              value={promptValue}
-              onChange={(e) => setPromptValue(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white/80 px-3 py-2 text-sm text-gray-900 mb-5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => resolvePrompt(null)}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100"
+        <DialogPrimitive.Root open modal onOpenChange={(open) => { if (!open) resolvePrompt(null); }}>
+          <DialogPrimitive.Portal>
+            <DialogPrimitive.Overlay className="fixed inset-0 z-[200] bg-gray-900/40 backdrop-blur-sm" />
+            <DialogPrimitive.Content className="fixed inset-0 z-[200] flex items-center justify-center px-4 outline-none">
+              <form
+                className="glass-card w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-white/60"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  resolvePrompt(promptValue);
+                }}
               >
-                {promptReq.cancelLabel ?? 'Batal'}
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-              >
-                {promptReq.confirmLabel ?? 'OK'}
-              </button>
-            </div>
-          </form>
-        </div>
+                <DialogPrimitive.Title asChild>
+                  <p className="text-base font-semibold text-gray-900 mb-1.5">{promptReq.title ?? 'Masukkan Nilai'}</p>
+                </DialogPrimitive.Title>
+                <p className="text-sm text-gray-700 whitespace-pre-line mb-3">{promptReq.message}</p>
+                <input
+                  ref={promptInputRef}
+                  autoFocus
+                  value={promptValue}
+                  onChange={(e) => setPromptValue(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white/80 px-3 py-2 text-sm text-gray-900 mb-5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => resolvePrompt(null)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100"
+                  >
+                    {promptReq.cancelLabel ?? 'Batal'}
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    {promptReq.confirmLabel ?? 'OK'}
+                  </button>
+                </div>
+              </form>
+            </DialogPrimitive.Content>
+          </DialogPrimitive.Portal>
+        </DialogPrimitive.Root>
       )}
     </>
   );
@@ -217,7 +228,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   return (
     <DialogContext.Provider value={{ alert: alertFn, confirm: confirmFn, prompt: promptFn }}>
       {children}
-      {typeof document !== 'undefined' ? createPortal(overlays, document.body) : overlays}
+      {overlays}
     </DialogContext.Provider>
   );
 }

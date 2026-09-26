@@ -620,8 +620,8 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
             </div>
           </div>
 
-          <div className="flex">
-            
+              <div className="flex">
+                
                 <Button
                   size="sm"
                   onClick={() => setShowSubmitModal(true)}
@@ -630,7 +630,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                   <Plus className="w-3.5 h-3.5" />
                   <span>Catat Pengeluaran</span>
                 </Button>
-          </div>
+              </div>
 
           {/* Riwayat Pengeluaran Operasional (Bensin/Gaji/Bon/Lainnya) — murni dari expenses, tanpa data penjualan atau bon supplier */}
           <div className="bg-white border border-gray-200 rounded-2xl shadow-xs overflow-hidden">
