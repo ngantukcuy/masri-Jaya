@@ -8,6 +8,7 @@
 // intentionally small rather than a full ESC/POS library.
 
 import type { SalesInvoice } from '../../types';
+import { formatReceiptDateTime } from './receiptDate';
 
 const ESC = 0x1b;
 const GS = 0x1d;
@@ -159,7 +160,7 @@ export function buildInvoiceReceipt(
 
   b.line('STRUK PEMBELIAN').divider('-', RECEIPT_WIDTH).align('left');
   b.line(`Invoice : ${invoice.invoiceNumber}`);
-  b.line(`Tanggal : ${invoice.date}`);
+  b.line(`Tanggal : ${formatReceiptDateTime(invoice)}`);
   b.line(`Kasir   : ${cashierName || 'Staff Aktif'}`);
   b.divider('-', RECEIPT_WIDTH);
 
@@ -215,7 +216,7 @@ export function buildInvoiceReceipt(
 
   b.divider('-', RECEIPT_WIDTH).align('center');
   b.line(storeProfile?.receiptNote || `Terima kasih telah berbelanja di ${storeName}!`);
-  if (isReprint) b.line('(Cetak ulang dari ');
+  if (isReprint) b.line('(Cetak ulang dari');
   b.line('Riwayat Transaksi)');
   b.feedAndCut(1);
 
@@ -284,7 +285,6 @@ export function buildDeliveryReceipt(
   b.newline(3); // room to actually sign, not a full blank receipt section per person
   b.line(threeCols('___________', '___________', '___________'));
   b.line(threeCols(invoice.driverName || '-', '-', '-'));
-
   b.feedAndCut(1);
 
   return b.build();

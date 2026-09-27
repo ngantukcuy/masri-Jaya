@@ -750,7 +750,8 @@ const commitQtyInput = (sku: string) => {
       splitRemainingDebt: (methodUsed === 'Split' || methodUsed === 'Piutang') ? splitRemainingDebt : undefined,
       splitDueDate: (methodUsed === 'Split' || methodUsed === 'Piutang') ? paymentDetails.dueDate : undefined,
       transferAccount: methodUsed === 'Transfer' ? paymentDetails.transferAccount : undefined,
-      date: new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      date: new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      createdAt: new Date().toISOString()
     };
 
     setLastOrderDetails(orderDetails);

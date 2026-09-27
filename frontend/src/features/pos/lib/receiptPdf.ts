@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas';
 import { SalesInvoice } from '../../../types';
 import { savePdfDoc, printPdfDoc } from '../../../lib/savePdf';
 import { registerReceiptFont } from '../../../lib/fonts/registerReceiptFont';
+import { formatReceiptDateTime } from '../../../lib/printing/receiptDate';
 
 interface StoreProfileLite {
   storeName: string;
@@ -27,6 +28,7 @@ export function orderDetailsToSalesInvoice(orderDetails: any): SalesInvoice {
     invoiceNumber: orderDetails.invoice,
     customerName: orderDetails.customerName,
     date: orderDetails.date,
+    createdAt: orderDetails.createdAt,
     items: orderDetails.items.map((item: any) => {
       const originalPrice = item.customPrice || (item.selectedPriceType === 'retail'
         ? item.product.retailPrice
@@ -371,7 +373,7 @@ async function buildInvoiceReceiptDoc(invoice: SalesInvoice, storeProfile: Store
   dashedLine();
 
   row('Invoice:', invoice.invoiceNumber, true, 7.5);
-  row('Tanggal:', invoice.date, false, 7.5);
+  row('Tanggal:', formatReceiptDateTime(invoice), false, 7.5);
   row('Kasir:', cashierName || 'Staff Aktif', false, 7.5);
   y += lineHeight;
   dashedLine();
