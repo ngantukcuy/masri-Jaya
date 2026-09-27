@@ -161,7 +161,8 @@ export function buildInvoiceReceipt(
   b.line(`Invoice : ${invoice.invoiceNumber}`);
   b.line(`Tanggal : ${invoice.date}`);
   b.line(`Kasir   : ${cashierName || 'Staff Aktif'}`);
-  
+  b.divider('-', RECEIPT_WIDTH);
+
   b.line(`Pelanggan: ${invoice.customerName}`);
   b.line(`Pembayaran  : ${invoice.paymentMethod === 'Cash' ? 'Tunai' : invoice.paymentMethod}`);
 
@@ -214,7 +215,8 @@ export function buildInvoiceReceipt(
 
   b.divider('-', RECEIPT_WIDTH).align('center');
   b.line(storeProfile?.receiptNote || `Terima kasih telah berbelanja di ${storeName}!`);
-  if (isReprint) b.line('(Cetak ulang dari Riwayat Transaksi)');
+  if (isReprint) b.line('(Cetak ulang dari ');
+  b.line('Riwayat Transaksi)');
   b.feedAndCut(1);
 
   return b.build();
@@ -243,7 +245,7 @@ export function buildDeliveryReceipt(
   if (storeProfile?.phone) b.line(`Telp: ${storeProfile.phone}`);
 
   b.line('STRUK SURAT JALAN').divider('-', RECEIPT_WIDTH).align('left');
-  b.line(`${invoice.invoiceNumber}`); (`${invoice.date}`);
+  b.line(`${invoice.invoiceNumber} - ${invoice.date}`);
   b.line(`Pelanggan: ${invoice.customerName}`);
   if (invoice.driverName) b.line(`Sopir   : ${invoice.driverName}`);
   const deliveryText = invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress
@@ -283,11 +285,6 @@ export function buildDeliveryReceipt(
   b.line(threeCols('___________', '___________', '___________'));
   b.line(threeCols(invoice.driverName || '-', '-', '-'));
 
-  b.align('center');
-  b.line(`No: SJ-${invoice.invoiceNumber}`);
-  // Fewer feed lines than before — most of the printer's own paper-cutter
-  // gap is a fixed physical distance the hardware adds on its own; feeding
-  // more lines here on top of that just wastes extra paper.
   b.feedAndCut(1);
 
   return b.build();
