@@ -17,7 +17,12 @@ import {
   Package,
   SlidersHorizontal,
   Gift,
-  Unlock
+  Unlock,
+  Printer as PrinterIcon,
+  Bluetooth,
+  Usb,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import { Product, Customer, SalesInvoice, Printer, BankAccount } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -37,7 +42,14 @@ import { CurrentUser } from '../../lib/permissions';
 import { getSupabaseTableCache } from '../../lib/supabaseCache';
 import { playBeep, playPrintSound } from './lib/posAudio';
 import { generateReceiptPDF, orderDetailsToSalesInvoice, printInvoiceReceipt } from './lib/receiptPdf';
-import { getPrinterConnections } from '../../lib/printing/printerConnection';
+import {
+  getPrinterConnections,
+  connectBluetoothPrinter,
+  connectUsbPrinter,
+  registerPrinterConnection,
+  removePrinterConnection,
+  subscribeToPrinterConnections,
+} from '../../lib/printing/printerConnection';
 import { buildInvoiceReceipt } from '../../lib/printing/escpos';
 import {
   CartItem,
@@ -202,6 +214,44 @@ export default function POSView({
   
   // Audio & scanner simulation states
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // Lets a Kasir account without access to the Pengaturan tab still (re)pair
+  // an already-registered printer on their own device — previously the only
+  // door to connectBluetoothPrinter/connectUsbPrinter was Pengaturan >
+  // Printer, gated behind `tab_settings`. This reuses the exact same
+  // pairing calls, just surfaced right here in Kasir; it never creates a
+  // new printer record, only connects one an Owner/Admin already added.
+  const [showPrinterPanel, setShowPrinterPanel] = useState(false);
+  const [connectingPrinterId, setConnectingPrinterId] = useState<string | null>(null);
+  const [livePrinterConnections, setLivePrinterConnections] = useState(() => getPrinterConnections());
+  useEffect(() => subscribeToPrinterConnections(setLivePrinterConnections), []);
+  const registeredPrinters = getSupabaseTableCache<Printer>('printers');
+  const anyPrinterConnected = livePrinterConnections.size > 0;
+
+  const handleConnectPrinterInline = async (printer: Printer) => {
+    if (livePrinterConnections.has(printer.id) || connectingPrinterId) return;
+    setConnectingPrinterId(printer.id);
+    try {
+      const onDisconnect = () => removePrinterConnection(printer.id);
+      const { handle, deviceName } =
+        printer.connectionType === 'bluetooth'
+          ? await connectBluetoothPrinter(onDisconnect)
+          : await connectUsbPrinter(onDisconnect);
+      registerPrinterConnection(printer.id, handle);
+      dialog.alert(`Berhasil tersambung ke ${deviceName}.`);
+    } catch (err: any) {
+      if (err?.name !== 'NotFoundError') {
+        dialog.alert(`Gagal menyambungkan: ${err?.message || 'Terjadi kesalahan tidak diketahui.'}`);
+      }
+    } finally {
+      setConnectingPrinterId(null);
+    }
+  };
+
+  const handleDisconnectPrinterInline = (printer: Printer) => {
+    livePrinterConnections.get(printer.id)?.disconnect();
+    removePrinterConnection(printer.id);
+  };
   const [showScannerModal, setShowScannerModal] = useState(false);
   const [scanningLineActive, setScanningLineActive] = useState(false);
   const [scanSuccessMessage, setScanSuccessMessage] = useState('');
@@ -1125,6 +1175,61 @@ const commitQtyInput = (sku: string) => {
             >
               {soundEnabled ? <Volume2 className="w-4 h-4 text-primary" /> : <VolumeX className="w-4 h-4 text-red-500" />}
             </Button>
+
+            {/* Sambungkan/putuskan printer thermal langsung dari Kasir — gak
+                perlu akses tab Pengaturan, cukup printer-nya sudah pernah
+                didaftarkan Owner/Admin sebelumnya. */}
+            <div className="relative shrink-0">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowPrinterPanel((v) => !v)}
+                className={anyPrinterConnected ? 'text-emerald-600 border-emerald-200' : 'text-gray-500'}
+                title="Sambungkan Printer"
+              >
+                <PrinterIcon className="w-4 h-4" />
+              </Button>
+              {showPrinterPanel && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowPrinterPanel(false)} />
+                  <Card className="absolute right-0 top-full mt-2 w-72 z-50 p-3 space-y-2 shadow-xl">
+                    <p className="text-xs font-extrabold text-gray-900">Printer Kasir</p>
+                    {registeredPrinters.length === 0 && (
+                      <p className="text-[11px] text-gray-500">
+                        Belum ada printer terdaftar. Minta Owner/Admin menambahkannya dulu di Pengaturan {'>'} Printer.
+                      </p>
+                    )}
+                    {registeredPrinters.map((printer) => {
+                      const connected = livePrinterConnections.has(printer.id);
+                      const connecting = connectingPrinterId === printer.id;
+                      return (
+                        <div key={printer.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-gray-50 border border-gray-100">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {printer.connectionType === 'bluetooth' ? <Bluetooth className="w-3.5 h-3.5 text-gray-400 shrink-0" /> : <Usb className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-gray-800 truncate">{printer.name}</p>
+                              <p className={`text-[10px] font-semibold flex items-center gap-1 ${connected ? 'text-emerald-600' : 'text-gray-400'}`}>
+                                {connected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                                {connected ? 'Tersambung' : 'Belum tersambung'}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant={connected ? 'outline' : 'default'}
+                            disabled={connecting}
+                            onClick={() => connected ? handleDisconnectPrinterInline(printer) : handleConnectPrinterInline(printer)}
+                            className="shrink-0 text-[11px] h-7 px-2.5"
+                          >
+                            {connecting ? '...' : connected ? 'Putuskan' : 'Sambungkan'}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </Card>
+                </>
+              )}
+            </div>
 
             <Badge variant="secondary" className="bg-primary/10 text-primary border border-primary/20 normal-case gap-1.5 py-1.5 px-3.5">
               <User className="w-4 h-4 shrink-0" />
