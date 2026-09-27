@@ -69,7 +69,7 @@ export class EscPosBuilder {
   }
 
   /** Feeds a few lines then does a partial cut. Most (not all) thermal printers support GS V. */
-  feedAndCut(feedLines: number = 3) {
+  feedAndCut(feedLines: number = 1) {
     this.newline(feedLines);
     return this.push([GS, 0x56, 0x01]);
   }
@@ -105,7 +105,7 @@ export function buildTestPrint(printerName: string, storeName?: string): Uint8Ar
     .align('center')
     .line('Jika teks ini tercetak dengan')
     .line('rapi, koneksi printer sukses.')
-    .feedAndCut(4)
+    .feedAndCut(1)
     .build();
 }
 
@@ -162,14 +162,14 @@ export function buildInvoiceReceipt(
   b.line(`Tanggal : ${invoice.date}`);
   b.line(`Kasir   : ${cashierName || 'Staff Aktif'}`);
   b.line(`Pelanggan: ${invoice.customerName}`);
-  b.line(`Metode  : ${invoice.paymentMethod === 'Cash' ? 'TUNAI' : invoice.paymentMethod}`);
+  b.line(`Pembayaran  : ${invoice.paymentMethod === 'Cash' ? 'Tunai' : invoice.paymentMethod}`);
 
   if (invoice.paymentMethod === 'Transfer' && invoice.paymentAccountName) {
     b.line(`Rekening: ${invoice.paymentAccountName}`);
     b.line(`No.Rek  : ${invoice.paymentAccountNumber || '-'}`);
   }
   if (invoice.fulfillmentMethod) {
-    b.line(`Ambil   : ${invoice.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI'}`);
+    b.line(`Pengambilan   : ${invoice.fulfillmentMethod === 'Delivery' ? 'Diantar' : 'Ambil Sendiri'}`);
   }
   if (invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress) {
     b.line(`Alamat  : ${invoice.deliveryAddress}`);
@@ -214,7 +214,7 @@ export function buildInvoiceReceipt(
   b.divider('-', RECEIPT_WIDTH).align('center');
   b.line(storeProfile?.receiptNote || `Terima kasih telah berbelanja di ${storeName}!`);
   if (isReprint) b.line('(Cetak ulang dari Riwayat Transaksi)');
-  b.feedAndCut(4);
+  b.feedAndCut(1);
 
   return b.build();
 }
@@ -242,8 +242,7 @@ export function buildDeliveryReceipt(
   if (storeProfile?.phone) b.line(`Tel: ${storeProfile.phone}`);
 
   b.line('STRUK SURAT JALAN').divider('-', RECEIPT_WIDTH).align('left');
-  b.line(`Invoice : ${invoice.invoiceNumber}`);
-  b.line(`Tanggal : ${invoice.date}`);
+  b.line(`${invoice.invoiceNumber}`); (`${invoice.date}`);
   b.line(`Pelanggan: ${invoice.customerName}`);
   if (invoice.driverName) b.line(`Sopir   : ${invoice.driverName}`);
   const deliveryText = invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress
@@ -259,8 +258,9 @@ export function buildDeliveryReceipt(
   b.divider('-', RECEIPT_WIDTH);
 
   b.align('left');
-  b.line('Barang di atas telah diperiksa dan');
-  b.line('diterima dalam kondisi baik serta');
+  b.line('Barang di atas telah ');
+  b.line('diperiksa danditerima dalam')
+  b.line('kondisi baik serta');
   b.line('sesuai jumlah.');
   b.newline(1);
 
@@ -278,17 +278,17 @@ export function buildDeliveryReceipt(
   const threeCols = (a: string, bText: string, c: string) =>
     [a, bText, c].map((s) => centerIn(s, colWidth)).join('');
 
-  b.line(threeCols('Sopir,', 'Pemeriksa,', 'Penerima,'));
+  b.line(threeCols('Sopir,', 'Pemeriksa,', ' Penerima'));
   b.newline(3); // room to actually sign, not a full blank receipt section per person
   b.line(threeCols('___________', '___________', '___________'));
-  b.line(threeCols(invoice.driverName || '(Nama)', '(Nama)', '(Nama)'));
+  b.line(threeCols(invoice.driverName || '-', '-', '-'));
 
   b.align('center');
   b.line(`No: SJ-${invoice.invoiceNumber}`);
   // Fewer feed lines than before — most of the printer's own paper-cutter
   // gap is a fixed physical distance the hardware adds on its own; feeding
   // more lines here on top of that just wastes extra paper.
-  b.feedAndCut(2);
+  b.feedAndCut(1);
 
   return b.build();
 }
