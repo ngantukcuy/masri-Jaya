@@ -85,12 +85,25 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
     });
   };
 
+  // The quantity input defaults to 0 even for a selected qty-1 item (nothing
+  // to type in), so a qty-1 item counts as "1 dikirim" the moment it's
+  // checked — without this, checking it and printing straight away would
+  // send a surat jalan for 0 units. This must be the ONE place this
+  // "selected qty-1 defaults to 1" rule lives: deliveryItems (what's on the
+  // printed note) and markDeliveryComplete (what gets saved as delivered)
+  // both read from it below, so they can't drift out of sync with each
+  // other the way they used to — that mismatch was exactly why the Riwayat
+  // Transaksi truck icon stayed amber after printing a surat jalan for a
+  // qty-1 item: the note printed "1 terkirim" but 0 was ever recorded.
+  const effectiveDeliveryQty = (idx: number) =>
+    deliveryQuantities[idx] || (invoice.items[idx].quantity === 1 && selectedItemIdx.has(idx) ? 1 : 0);
+
   const deliveryItems =
     docType === 'delivery'
       ? invoice.items
         .map((item, idx) => ({
           ...item,
-          quantity: deliveryQuantities[idx] || (item.quantity === 1 && selectedItemIdx.has(idx) ? 1 : 0),
+          quantity: effectiveDeliveryQty(idx),
           sourceIndex: idx,
         }))
         .filter((item) => selectedItemIdx.has(item.sourceIndex) && item.quantity > 0)
@@ -184,7 +197,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
       driverName: driverName.trim() || undefined,
       items: invoice.items.map((item, idx) => ({
         ...item,
-        deliveredQuantity: Math.min(item.quantity, (item.deliveredQuantity || 0) + (deliveryQuantities[idx] || 0)),
+        deliveredQuantity: Math.min(item.quantity, (item.deliveredQuantity || 0) + effectiveDeliveryQty(idx)),
       })),
     };
     onDeliveryComplete?.(updatedInvoice);

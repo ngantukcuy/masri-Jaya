@@ -8,7 +8,7 @@
 // intentionally small rather than a full ESC/POS library.
 
 import type { SalesInvoice } from '../../types';
-import { formatReceiptDateTime } from './receiptDate';
+import { formatReceiptDateTime, formatReceiptDateOnly } from './receiptDate';
 
 const ESC = 0x1b;
 const GS = 0x1d;
@@ -246,9 +246,11 @@ export function buildDeliveryReceipt(
   if (storeProfile?.phone) b.line(`Telp: ${storeProfile.phone}`);
 
   b.line('STRUK SURAT JALAN').divider('-', RECEIPT_WIDTH).align('left');
-  b.line(`${invoice.invoiceNumber} - ${formatReceiptDateTime(invoice)}`);
+  // Tanpa jam di sini (beda dari struk pembelian) — surat jalan cuma perlu
+  // tanggalnya, jam pengiriman gak relevan buat dokumen ini.
+  b.line(`${invoice.invoiceNumber} - ${formatReceiptDateOnly(invoice)}`);
   b.line(`Pelanggan: ${invoice.customerName}`);
-  if (invoice.driverName) b.line(`Sopir   : ${invoice.driverName}`);
+  if (invoice.driverName) b.line(`Sopir    : ${invoice.driverName}`);
   const deliveryText = invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress
     ? invoice.deliveryAddress
     : 'Diambil langsung di toko';
