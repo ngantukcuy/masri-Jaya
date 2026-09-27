@@ -2,10 +2,10 @@ import { useRef, useState } from 'react';
 import { Printer, FileDown, Truck, Store, X, CheckCircle2, ArrowLeft, Square, CheckSquare } from 'lucide-react';
 import { motion } from 'motion/react';
 import { SalesInvoice } from '../../../types';
-import { generateInvoiceReceiptPDF, generateDeliveryNotePDF } from '../../pos/lib/receiptPdf';
+import { generateInvoiceReceiptPDF, generateDeliveryNotePDF, printInvoiceReceipt, printDeliveryNote } from '../../pos/lib/receiptPdf';
 import { getSupabaseTableCache } from '../../../lib/supabaseCache';
 import NumberInput from '../../../components/shared/NumberInput';
-import { getPrinterConnection, isPrinterConnected } from '../../../lib/printing/printerConnection';
+import { getPrinterConnections } from '../../../lib/printing/printerConnection';
 import { buildInvoiceReceipt } from '../../../lib/printing/escpos';
 import { useDialog } from '../../../components/shared/DialogProvider';
 
@@ -108,24 +108,29 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
   };
 
   const handlePrintThermal = () => {
+    // The source of truth for "is a printer actually connected right now"
+    // is the live Bluetooth/USB registry (printerConnection.ts), not the
+    // `printers` table cache below — that cache is populated lazily/async
+    // the first time anything on this page reads it, so on a fresh page
+    // load it can briefly report zero printers even though one is already
+    // connected. Checking the live registry directly avoids that race.
+    const connections = getPrinterConnections();
+    const connectedPrinterId = [...connections.keys()][0];
+    const handle = connectedPrinterId ? connections.get(connectedPrinterId) : undefined;
+
     const registeredPrinters = getSupabaseTableCache<PrinterLite>('printers');
-    // A printer paired via Bluetooth/USB in Pengaturan > Printer, and still
-    // connected on THIS device (connections are per-device, see
-    // printerConnection.ts). Only this one can actually receive a real
-    // ESC/POS receipt — a printer that's merely registered in the list
-    // can't, which is why re-printing a struk from Riwayat Transaksi
-    // previously only opened the (mostly useless, for a thermal-only
-    // printer) browser print dialog.
-    const connectedPrinter = registeredPrinters.find((p) => isPrinterConnected(p.id));
-    const connectedPrinterName = connectedPrinter?.name || registeredPrinters[0]?.name || 'Printer Kasir';
+    const connectedPrinterName =
+      registeredPrinters.find((p) => p.id === connectedPrinterId)?.name ||
+      registeredPrinters[0]?.name ||
+      'Printer Kasir';
+
     setIsPrintingAnim(true);
     setActivePrinterName(connectedPrinterName);
 
-    if (connectedPrinter && docType === 'invoice') {
-      const handle = getPrinterConnection(connectedPrinter.id);
+    if (handle && docType === 'invoice') {
       (async () => {
         try {
-          await handle?.send(buildInvoiceReceipt(printableInvoice, storeProfile, cashierName, true));
+          await handle.send(buildInvoiceReceipt(printableInvoice, storeProfile, cashierName, true));
           markDeliveryComplete();
         } catch (err: any) {
           dialog.alert(
@@ -138,13 +143,29 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
       return;
     }
 
-    // No live connection on this device, or this is a surat jalan (delivery
-    // note — a signed paper form, not a thermal roll receipt): fall back to
-    // the browser's native print dialog.
+    // No live Bluetooth/USB connection on this device (true for every iPad —
+    // Safari doesn't support Web Bluetooth/WebUSB at all), or this is a
+    // surat jalan (a signed paper form, not a thermal roll receipt): fall
+    // back to a properly-sized PDF sent through the OS print pipeline
+    // (AirPrint on iOS) instead of window.print() on the live DOM. A PDF's
+    // page size is embedded in the file, so — unlike @page CSS — it's what
+    // actually keeps the printout at 58mm instead of landscape A4 with big
+    // margins and a wasted blank tail.
     setTimeout(() => {
-      setIsPrintingAnim(false);
-      window.print();
-      markDeliveryComplete();
+      (async () => {
+        try {
+          if (docType === 'invoice') {
+            await printInvoiceReceipt(printableInvoice, storeProfile, cashierName, true);
+          } else {
+            await printDeliveryNote(printableInvoice, storeProfile, deliveryItems);
+          }
+          markDeliveryComplete();
+        } catch (err: any) {
+          dialog.alert(`Gagal menyiapkan cetakan: ${err?.message || 'Terjadi kesalahan tidak diketahui.'}`);
+        } finally {
+          setIsPrintingAnim(false);
+        }
+      })();
     }, 1400);
   };
 
@@ -287,52 +308,52 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
 
           <div className="space-y-1.5 text-[10px] py-3">
             <div className="flex justify-between">
-              <span>INVOICE:</span>
+              <span>Invoice:</span>
               <span className="font-bold text-gray-900">{printableInvoice.invoiceNumber}</span>
             </div>
             <div className="flex justify-between">
-              <span>TANGGAL:</span>
+              <span>Tanggal:</span>
               <span>{printableInvoice.date}</span>
             </div>
             <div className="flex justify-between">
-              <span>KASIR:</span>
+              <span>Kasir:</span>
               <span className="font-bold">{cashierName || 'Staff Aktif'}</span>
             </div>
             <div className="flex justify-between">
-              <span>PELANGGAN:</span>
+              <span>Pelanggan:</span>
               <span className="font-bold">{printableInvoice.customerName}</span>
             </div>
             {docType === 'invoice' && (
               <div className="flex justify-between">
-                <span>METODE:</span>
+                <span>Pembayaran:</span>
                 <span className="font-bold uppercase text-blue-600">{printableInvoice.paymentMethod === 'Cash' ? 'TUNAI' : printableInvoice.paymentMethod}</span>
               </div>
             )}
             {docType === 'invoice' && printableInvoice.paymentMethod === 'Transfer' && printableInvoice.paymentAccountName && (
               <div className="space-y-0.5 border-l-2 border-blue-600 pl-2">
-                <div className="flex justify-between"><span>REKENING:</span><span className="font-bold">{printableInvoice.paymentAccountName}</span></div>
-                <div className="flex justify-between"><span>NOMOR:</span><span className="font-bold">{printableInvoice.paymentAccountNumber || '-'}</span></div>
-                {printableInvoice.paymentAccountHolder && <div className="flex justify-between"><span>PEMILIK:</span><span>{printableInvoice.paymentAccountHolder}</span></div>}
+                <div className="flex justify-between"><span>Rekening:</span><span className="font-bold">{printableInvoice.paymentAccountName}</span></div>
+                <div className="flex justify-between"><span>Nomor:</span><span className="font-bold">{printableInvoice.paymentAccountNumber || '-'}</span></div>
+                {printableInvoice.paymentAccountHolder && <div className="flex justify-between"><span>Atas Nama:</span><span>{printableInvoice.paymentAccountHolder}</span></div>}
               </div>
             )}
             {printableInvoice.fulfillmentMethod && (
               <div className="flex justify-between">
-                <span>PENGAMBILAN:</span>
+                <span>Pengambilan:</span>
                 <span className="font-bold uppercase flex items-center gap-1">
                   {printableInvoice.fulfillmentMethod === 'Delivery' ? <Truck className="w-3 h-3" /> : <Store className="w-3 h-3" />}
-                  {printableInvoice.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI'}
+                  {printableInvoice.fulfillmentMethod === 'Delivery' ? 'Di Antar' : 'Ambil Sendiri'}
                 </span>
               </div>
             )}
             {printableInvoice.fulfillmentMethod === 'Delivery' && printableInvoice.deliveryAddress && (
               <div className="flex justify-between gap-2">
-                <span className="shrink-0">ALAMAT:</span>
+                <span className="shrink-0">Alamat:</span>
                 <span className="text-right">{printableInvoice.deliveryAddress}</span>
               </div>
             )}
             {printableInvoice.driverName && (
               <div className="flex justify-between">
-                <span>SOPIR:</span>
+                <span>Sopir:</span>
                 <span className="font-bold">{printableInvoice.driverName}</span>
               </div>
             )}
@@ -359,7 +380,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
           {docType === 'invoice' ? (
             <div className="space-y-1 text-right text-[11px] py-3">
               <div className="flex justify-between">
-                <span>SUBTOTAL  </span> 
+                <span>Subtotal </span> 
                 <span>Rp {subtotal.toLocaleString('id-ID')}</span>
               </div>
               <div className="flex justify-between">
@@ -368,7 +389,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
               </div>
               {!!printableInvoice.discountAmount && (
                 <div className="flex justify-between text-red-600 font-bold">
-                  <span>DISKON {printableInvoice.discountType === 'fixed' ? '(Rp)' : `(${printableInvoice.discountValue || 0}%)`}:</span>
+                  <span>Diskon {printableInvoice.discountType === 'fixed' ? '(Rp)' : `(${printableInvoice.discountValue || 0}%)`}:</span>
                   <span>-Rp {printableInvoice.discountAmount.toLocaleString('id-ID')}</span>
                 </div>
               )}
@@ -379,29 +400,29 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
               {printableInvoice.paymentMethod === 'Cash' && typeof printableInvoice.cashReceived === 'number' && (
                 <>
                   <div className="flex justify-between pt-1">
-                    <span>TUNAI DITERIMA:</span>
+                    <span>Tunai Diterima:</span>
                     <span>Rp {printableInvoice.cashReceived.toLocaleString('id-ID')}</span>
                   </div>
                   <div className="flex justify-between font-bold text-emerald-600">
-                    <span>KEMBALIAN:</span>
+                    <span>Kembalian:</span>
                     <span>Rp {(printableInvoice.changeAmount || 0).toLocaleString('id-ID')}</span>
                   </div>
                 </>
               )}
               {printableInvoice.paymentMethod === 'Split' && typeof printableInvoice.splitPaidAmount === 'number' && (
                 <div className="flex justify-between pt-1">
-                  <span>DIBAYAR SEKARANG:</span>
+                  <span>Dibayar Sekarang:</span>
                   <span>Rp {printableInvoice.splitPaidAmount.toLocaleString('id-ID')}</span>
                 </div>
               )}
               {(printableInvoice.paymentMethod === 'Split' || printableInvoice.paymentMethod === 'Piutang') && (
                 <>
                   <div className="flex justify-between font-bold text-amber-600">
-                    <span>SISA (PIUTANG):</span>
+                    <span>Sisa (Piutang):</span>
                     <span>Rp {(printableInvoice.splitRemainingDebt || 0).toLocaleString('id-ID')}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>JATUH TEMPO:</span>
+                    <span>Jatuh Tempo:</span>
                     <span>{printableInvoice.splitDueDate ? new Date(`${printableInvoice.splitDueDate}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</span>
                   </div>
                 </>

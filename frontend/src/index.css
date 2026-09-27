@@ -150,6 +150,12 @@ button {
   html, body {
     height: auto !important;
     overflow: visible !important;
+    /* Browsers apply a default 8px body margin that @page's margin:0 does
+       not always clear (notably iOS Safari/AirPrint) — that leftover offset
+       is what shows up as a lopsided left gutter on a 58mm receipt. */
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 58mm !important;
   }
 
   body * {
@@ -175,6 +181,7 @@ button {
     top: 0 !important;
     left: 0 !important;
     inset: 0 auto auto 0 !important;
+    margin: 0 !important;
     transform: none !important;
     width: 58mm !important;
     max-width: 58mm !important;

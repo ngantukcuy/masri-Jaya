@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { SalesInvoice } from '../../../types';
-import { savePdfDoc } from '../../../lib/savePdf';
+import { savePdfDoc, printPdfDoc } from '../../../lib/savePdf';
 import { registerReceiptFont } from '../../../lib/fonts/registerReceiptFont';
 
 interface StoreProfileLite {
@@ -193,8 +193,8 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
 // above isn't touched.
 // ---------------------------------------------------------------------------
 
-/** Struk Pembelian (purchase receipt) rendered from a saved SalesInvoice — used both right after checkout and when re-printing from Riwayat Transaksi (isReprint controls the "Cetak ulang" footer note). */
-export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProfile: StoreProfileFull | undefined, cashierName: string | undefined, isReprint = false) {
+/** Struk Pembelian (purchase receipt) rendered from a saved SalesInvoice — used both right after checkout and when re-printing from Riwayat Transaksi (isReprint controls the "Cetak ulang" footer note). Returns the built doc plus a suggested filename; callers decide whether to save it or send it to a printer. */
+async function buildInvoiceReceiptDoc(invoice: SalesInvoice, storeProfile: StoreProfileFull | undefined, cashierName: string | undefined, isReprint = false): Promise<{ doc: jsPDF; filename: string }> {
   const storeName = storeProfile?.storeName || 'Toko Saya';
   const pageWidth = 58;
   const marginX = 4;
@@ -451,125 +451,197 @@ export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProf
   center(storeProfile?.receiptNote || `Terima kasih telah berbelanja di ${storeName}!`, 7);
   if (isReprint) center('(Cetak ulang dari Riwayat Transaksi)', 6.5);
 
-  await savePdfDoc(doc, `Struk_${invoice.invoiceNumber}.pdf`);
+  return { doc, filename: `Struk_${invoice.invoiceNumber}.pdf` };
 }
 
-/** Struk Surat Jalan (delivery note) — no prices, includes signature boxes. */
+export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProfile: StoreProfileFull | undefined, cashierName: string | undefined, isReprint = false) {
+  const { doc, filename } = await buildInvoiceReceiptDoc(invoice, storeProfile, cashierName, isReprint);
+  await savePdfDoc(doc, filename);
+}
+
+/** Same struk pembelian, sent straight to a printer (AirPrint on iOS/iPad, native print dialog elsewhere) instead of being saved/shared. See printPdfDoc for why this is used instead of window.print() on the live receipt DOM. */
+export async function printInvoiceReceipt(invoice: SalesInvoice, storeProfile: StoreProfileFull | undefined, cashierName: string | undefined, isReprint = false) {
+  const { doc, filename } = await buildInvoiceReceiptDoc(invoice, storeProfile, cashierName, isReprint);
+  await printPdfDoc(doc, filename);
+}
+
+/**
+ * Struk Surat Jalan (delivery note) — no prices, includes signature boxes.
+ *
+ * Renders at the same 58mm thermal width as the on-screen modal
+ * (InvoicePrintModal, docType 'delivery') instead of a separate A5-landscape
+ * table layout, so what prints matches what the kasir already checked on
+ * screen and actually fits a 58mm thermal roll.
+ */
+async function buildDeliveryNoteDoc(
+  invoice: SalesInvoice,
+  storeProfile: StoreProfileFull | undefined,
+  itemsOverride?: SalesInvoice['items'],
+): Promise<{ doc: jsPDF; filename: string }> {
+  const deliveryItems = itemsOverride && itemsOverride.length > 0 ? itemsOverride : invoice.items;
+  const storeName = storeProfile?.storeName || 'Toko Saya';
+  const pageWidth = 58;
+  const marginX = 4;
+  const contentWidth = pageWidth - marginX * 2;
+  const lineHeight = 4.2;
+
+  // Same two-pass approach as the struk pembelian: measure the exact
+  // content height first so the PDF page ends right after the content
+  // (no leftover blank tail wasting thermal paper), then render for real.
+  const measurer = new jsPDF({ unit: 'mm', format: [pageWidth, 2000] });
+  registerReceiptFont(measurer);
+
+  let calcY = 8;
+  measurer.setFontSize(13);
+  calcY += measurer.splitTextToSize(storeName, contentWidth).length * lineHeight;
+  measurer.setFontSize(7);
+  if (storeProfile?.address) calcY += measurer.splitTextToSize(storeProfile.address, contentWidth).length * lineHeight;
+  if (storeProfile?.phone) calcY += lineHeight;
+  calcY += 0.5 + lineHeight + 0.5 + lineHeight; // title + dashedLine
+
+  calcY += lineHeight * 2; // Tanggal, No. Invoice
+  measurer.setFontSize(7.5);
+  const wrappedCustomer = measurer.splitTextToSize(invoice.customerName, contentWidth - 20);
+  calcY += wrappedCustomer.length * lineHeight;
+  if (invoice.driverName) calcY += lineHeight;
+  const deliveryText = invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress
+    ? invoice.deliveryAddress
+    : 'Diambil langsung di toko';
+  const wrappedAddr = measurer.splitTextToSize(deliveryText, contentWidth - 20);
+  calcY += wrappedAddr.length * lineHeight;
+  calcY += lineHeight; // dashedLine
+
+  deliveryItems.forEach((item) => {
+    measurer.setFontSize(7.5);
+    const nameLines = measurer.splitTextToSize(item.name, contentWidth);
+    calcY += nameLines.length * lineHeight + lineHeight; // name + qty/unit row
+  });
+  calcY += lineHeight; // dashedLine
+
+  calcY += lineHeight * 4; // notice text (up to 4 wrapped lines, generous)
+  calcY += 20; // signature label row -> line
+  calcY += 8; // name row under signature line
+  calcY += lineHeight * 2; // "No: SJ-..." + "(Cetak ulang...)" footer
+  calcY += 10; // safety bottom padding
+
+  const estimatedHeight = Math.max(90, Math.ceil(calcY));
+
+  const doc = new jsPDF({ unit: 'mm', format: [pageWidth, estimatedHeight] });
+  registerReceiptFont(doc);
+  let y = 8;
+
+  const COLOR_PRIMARY: [number, number, number] = [37, 99, 235];
+  const COLOR_BLACK: [number, number, number] = [17, 24, 39];
+
+  const center = (text: string, size: number, bold = false, color: [number, number, number] = COLOR_BLACK) => {
+    doc.setFontSize(size);
+    doc.setFont('JetBrainsMono', bold ? 'bold' : 'normal');
+    doc.setTextColor(...color);
+    doc.text(text, pageWidth / 2, y, { align: 'center' });
+    y += lineHeight;
+  };
+
+  const row = (left: string, right: string, bold = false, size = 7.5, color: [number, number, number] = COLOR_BLACK) => {
+    doc.setFontSize(size);
+    doc.setFont('JetBrainsMono', bold ? 'bold' : 'normal');
+    doc.setTextColor(...color);
+    doc.text(left, marginX, y);
+    const wrapped = doc.splitTextToSize(right, contentWidth - doc.getTextWidth(left) - 2);
+    doc.text(wrapped, pageWidth - marginX, y, { align: 'right' });
+    y += wrapped.length * lineHeight;
+  };
+
+  const dashedLine = () => {
+    doc.setDrawColor(150, 150, 150);
+    doc.setLineDashPattern([1, 1], 0);
+    doc.line(marginX, y, pageWidth - marginX, y);
+    doc.setLineDashPattern([], 0);
+    doc.setDrawColor(0, 0, 0);
+    y += lineHeight;
+  };
+
+  center(storeName, 13, true);
+  if (storeProfile?.address) center(storeProfile.address, 7, false, COLOR_PRIMARY);
+  if (storeProfile?.phone) center(`Tel: ${storeProfile.phone}`, 7, false, COLOR_PRIMARY);
+  y += 0.5;
+  center('STRUK SURAT JALAN', 8, true, COLOR_PRIMARY);
+  y += 0.5;
+  dashedLine();
+
+  row('Invoice:', invoice.invoiceNumber, true);
+  row('Tanggal:', invoice.date);
+  row('Pelanggan:', invoice.customerName, true);
+  if (invoice.driverName) row('Sopir:', invoice.driverName, true);
+  row('Alamat:', deliveryText);
+  dashedLine();
+
+  deliveryItems.forEach((item) => {
+    doc.setFontSize(7.5);
+    doc.setFont('JetBrainsMono', 'bold');
+    doc.setTextColor(...COLOR_BLACK);
+    const nameLines = doc.splitTextToSize(item.name, contentWidth);
+    doc.text(nameLines, marginX, y);
+    y += nameLines.length * lineHeight;
+    doc.setFont('JetBrainsMono', 'normal');
+    doc.setFontSize(7);
+    doc.text(`  ${item.quantity} ${item.unit || ''}`, marginX, y);
+    y += lineHeight;
+  });
+  dashedLine();
+
+  doc.setFontSize(7);
+  doc.setFont('JetBrainsMono', 'normal');
+  doc.setTextColor(...COLOR_BLACK);
+  const noticeLines = doc.splitTextToSize(
+    'Barang di atas telah diperiksa dan diterima dalam kondisi baik serta sesuai jumlah.',
+    contentWidth,
+  );
+  doc.text(noticeLines, marginX, y);
+  y += noticeLines.length * lineHeight + 6;
+
+  // Signature row — three narrow columns (Sopir / Pemeriksa / Penerima),
+  // mirroring the on-screen 3-column grid in the modal.
+  const colWidth = contentWidth / 3;
+  const colX = [marginX, marginX + colWidth, marginX + colWidth * 2];
+  const labels = ['Sopir', 'Pemeriksa', 'Penerima'];
+  doc.setFontSize(7);
+  doc.setFont('JetBrainsMono', 'bold');
+  labels.forEach((label, idx) => doc.text(label, colX[idx] + colWidth / 2, y, { align: 'center' }));
+  y += 14;
+  doc.setLineWidth(0.2);
+  colX.forEach((x) => doc.line(x + 1, y, x + colWidth - 1, y));
+  y += 3.5;
+  doc.setFontSize(6);
+  doc.setFont('JetBrainsMono', 'normal');
+  doc.setTextColor(150, 150, 150);
+  colX.forEach((x, idx) => {
+    const text = idx === 0 && invoice.driverName ? invoice.driverName : '( Nama & Tanggal )';
+    doc.text(doc.splitTextToSize(text, colWidth - 2), x + colWidth / 2, y, { align: 'center' });
+  });
+  y += lineHeight;
+
+  dashedLine();
+  center(`No: SJ-${invoice.invoiceNumber}`, 7);
+  center('(Cetak ulang dari Riwayat Transaksi)', 6.5, false, [150, 150, 150]);
+
+  return { doc, filename: `SuratJalan_${invoice.invoiceNumber}.pdf` };
+}
+
 export async function generateDeliveryNotePDF(
   invoice: SalesInvoice,
   storeProfile: StoreProfileFull | undefined,
   itemsOverride?: SalesInvoice['items'],
 ) {
-  const deliveryItems = itemsOverride && itemsOverride.length > 0 ? itemsOverride : invoice.items;
-  const storeName = storeProfile?.storeName || 'Toko Saya';
-  const doc = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'landscape' });
-  registerReceiptFont(doc);
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const marginX = 12;
-  const contentWidth = pageWidth - marginX * 2;
-  const lineHeight = 5.2;
-  let y = 14;
+  const { doc, filename } = await buildDeliveryNoteDoc(invoice, storeProfile, itemsOverride);
+  await savePdfDoc(doc, filename);
+}
 
-  const setFont = (size: number, bold = false) => {
-    doc.setFontSize(size);
-    doc.setFont('JetBrainsMono', bold ? 'bold' : 'normal');
-  };
-
-  // Header / letterhead
-  setFont(13, true);
-  doc.text(storeName, marginX, y);
-  y += 5.5;
-  setFont(8);
-  const contactLine = [storeProfile?.address, storeProfile?.phone ? `Telp: ${storeProfile.phone}` : null].filter(Boolean).join(' • ');
-  if (contactLine) {
-    const wrapped = doc.splitTextToSize(contactLine, contentWidth);
-    doc.text(wrapped, marginX, y);
-    y += wrapped.length * 4;
-  }
-  y += 1;
-  doc.setLineWidth(0.4);
-  doc.line(marginX, y, pageWidth - marginX, y);
-  y += 7;
-
-  // Title
-  setFont(13, true);
-  doc.text('SURAT JALAN', pageWidth / 2, y, { align: 'center' });
-  y += 5.5;
-  setFont(8.5);
-  doc.text(`No: SJ-${invoice.invoiceNumber}`, pageWidth / 2, y, { align: 'center' });
-  y += 8;
-
-  // Meta info
-  setFont(9);
-  doc.text('Tanggal', marginX, y);
-  doc.text(`: ${invoice.date}`, marginX + 24, y);
-  y += lineHeight;
-  doc.text('No. Invoice', marginX, y);
-  doc.text(`: ${invoice.invoiceNumber}`, marginX + 24, y);
-  y += lineHeight;
-  doc.text('Kepada', marginX, y);
-  doc.text(`: ${invoice.customerName}`, marginX + 24, y);
-  y += lineHeight;
-  const deliveryText = invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress
-    ? invoice.deliveryAddress
-    : 'Diambil langsung di toko';
-  doc.text('Alamat Kirim', marginX, y);
-  const wrappedAddr = doc.splitTextToSize(`: ${deliveryText}`, contentWidth - 24);
-  doc.text(wrappedAddr, marginX + 24, y);
-  y += wrappedAddr.length * lineHeight;
-  y += 3;
-
-  // Items table
-  const col = { no: marginX, name: marginX + 10, qty: pageWidth - marginX - 28, unit: pageWidth - marginX - 12 };
-  setFont(8.5, true);
-  doc.setLineWidth(0.3);
-  doc.line(marginX, y, pageWidth - marginX, y);
-  y += 4.5;
-  doc.text('No', col.no, y);
-  doc.text('Nama Barang', col.name, y);
-  doc.text('Jumlah', col.qty, y, { align: 'right' });
-  doc.text('Satuan', col.unit, y);
-  y += 2;
-  doc.line(marginX, y, pageWidth - marginX, y);
-  y += 5;
-
-  setFont(8.5);
-  deliveryItems.forEach((item, idx) => {
-    const nameLines = doc.splitTextToSize(item.name, col.qty - col.name - 20);
-    doc.text(String(idx + 1), col.no, y);
-    doc.text(nameLines, col.name, y);
-    doc.text(String(item.quantity), col.qty, y, { align: 'right' });
-    doc.text(item.unit || '-', col.unit, y);
-    y += Math.max(nameLines.length, 1) * lineHeight;
-  });
-  y += 1;
-  doc.line(marginX, y, pageWidth - marginX, y);
-  y += 8;
-
-  setFont(7.5);
-  doc.text('Barang di atas telah diperiksa dan diterima dalam kondisi baik serta sesuai jumlah.', marginX, y);
-  y += 14;
-
-  // Signature boxes
-  const boxWidth = contentWidth / 3 - 5;
-  setFont(9, true);
-  const secondBoxX = marginX + boxWidth + 7.5;
-  const thirdBoxX = secondBoxX + boxWidth + 7.5;
-  doc.text('Sopir,', marginX, y);
-  doc.text('Pemeriksa,', secondBoxX, y);
-  doc.text('Penerima,', thirdBoxX, y);
-  y += 20;
-  setFont(8);
-  doc.line(marginX, y, marginX + boxWidth, y);
-  doc.line(secondBoxX, y, secondBoxX + boxWidth, y);
-  doc.line(thirdBoxX, y, thirdBoxX + boxWidth, y);
-  y += 8;
-
-  if (invoice.driverName) {
-    doc.text(`${invoice.driverName}`, marginX, y, { align: 'left' });
-  }
-  doc.text('( Nama )', secondBoxX, y);
-  doc.text('( Nama )', thirdBoxX, y);
-
-  await savePdfDoc(doc, `SuratJalan_${invoice.invoiceNumber}.pdf`);
+/** Same surat jalan, sent straight to a printer instead of saved/shared — see printInvoiceReceipt/printPdfDoc for why. */
+export async function printDeliveryNote(
+  invoice: SalesInvoice,
+  storeProfile: StoreProfileFull | undefined,
+  itemsOverride?: SalesInvoice['items'],
+) {
+  const { doc, filename } = await buildDeliveryNoteDoc(invoice, storeProfile, itemsOverride);
+  await printPdfDoc(doc, filename);
 }
