@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Plus, Minus, PiggyBank } from 'lucide-react';
+import { Search, Plus, Minus } from 'lucide-react';
 import { Customer, DepositTransaction } from '../../types';
 import { addMutation } from '../../lib/cashSession';
 import { useDialog } from '../../components/shared/DialogProvider';

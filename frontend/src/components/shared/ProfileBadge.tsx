@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Shield, Clock, Coins, Wallet, LogOut } from 'lucide-react';
 import { getCurrentSession, getMutationTotals } from '../../lib/cashSession';
 import { CurrentUser } from '../../lib/permissions';

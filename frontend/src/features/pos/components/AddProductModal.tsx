@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../../components/ui/select';
 import SearchableSelect from '../../../components/shared/SearchableSelect';
 
 interface AddProductModalProps {
@@ -20,8 +19,6 @@ interface AddProductModalProps {
   onCategoryChange: (v: string) => void;
   unit: string;
   onUnitChange: (v: string) => void;
-  retailPrice: number;
-  onRetailPriceChange: (v: number) => void;
   wholesalePrice: number;
   onWholesalePriceChange: (v: number) => void;
   projectPrice: number;
@@ -41,7 +38,6 @@ export default function AddProductModal({
   sku, onSkuChange,
   category, onCategoryChange,
   unit, onUnitChange,
-  retailPrice, onRetailPriceChange,
   wholesalePrice, onWholesalePriceChange,
   projectPrice, onProjectPriceChange,
   stock, onStockChange

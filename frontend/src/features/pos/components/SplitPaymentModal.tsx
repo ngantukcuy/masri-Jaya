@@ -27,15 +27,6 @@ export default function SplitPaymentModal({ onClose, onConfirm, totalAmount, cus
   const nextDebt = currentDebt + remaining;
   const exceedsLimit = creditLimit > 0 && nextDebt > creditLimit;
   const isValid = paidNow > 0 && paidNow < totalAmount;
-
-  // Mirrors the due-date logic in POSView.executeFinalCheckout: today +
-  // this customer's tempo terms, unless they already have an earlier
-  // outstanding due date (which takes priority).
-  const computedDueDate = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + (customer.tempoDays || 30));
-    return d.toISOString().split('T')[0];
-  })();
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-sm">

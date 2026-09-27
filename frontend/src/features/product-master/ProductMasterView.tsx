@@ -32,6 +32,7 @@ import { Checkbox } from '../../components/ui/checkbox';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
 
 interface CategoryEntry {
   id: string;
@@ -144,6 +145,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
   const [eceranForm, setEceranForm] = useState({ ...emptyEceranForm });
 
   const indukProducts = products.filter(p => p.productType === 'Induk' || !p.productType);
+  const eceranProducts = products.filter(p => p.productType === 'Eceran' && p.parentSku);
   const selectedIndukForEceran = indukProducts.find(p => p.sku === eceranForm.parentSku) || null;
   const kategori1List = categories.filter(c => c.level === 1);
   const kategori2List = categories.filter(c => c.level === 2);
@@ -876,6 +878,56 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                 Simpan Produk Eceran
               </Button>
             </form>
+          )}
+
+          {skuMode === 'eceran' && (
+            <div className="bg-card rounded-2xl border border-border shadow-sm p-5 max-w-3xl">
+              <p className="font-black text-xs uppercase text-muted-foreground mb-3">Daftar Produk Eceran</p>
+              <div className="overflow-x-auto border border-border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/40">
+                      <TableHead>Produk Eceran</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Induk</TableHead>
+                      <TableHead>Konversi</TableHead>
+                      <TableHead className="text-right">Stok</TableHead>
+                      <TableHead className="text-right">Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {eceranProducts.length === 0 ? (
+                      <TableRow><TableCell colSpan={6} className="p-6 text-center text-xs text-muted-foreground">Belum ada produk eceran.</TableCell></TableRow>
+                    ) : eceranProducts.map((p) => {
+                      const parent = products.find((ind) => ind.sku === p.parentSku);
+                      return (
+                        <TableRow key={p.sku}>
+                          <TableCell className="font-bold text-xs">{p.name}</TableCell>
+                          <TableCell className="font-mono text-xs">{p.sku}</TableCell>
+                          <TableCell className="text-xs">{parent ? parent.name : '-'}</TableCell>
+                          <TableCell className="text-xs">1 : {p.conversionValue || 1} {p.unit}</TableCell>
+                          <TableCell className="text-right text-xs">{p.stock} {p.unit}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              {can('manage_product_update') && (
+                                <Button type="button" variant="outline" size="sm" onClick={() => handleOpenPecah(p)} title="Pecah Stok">
+                                  <Scale className="w-3.5 h-3.5" /> Pecah Stok
+                                </Button>
+                              )}
+                              {can('manage_product_delete') && (
+                                <Button type="button" variant="ghost" size="icon" className="text-red-600" onClick={() => handleDeleteSkuProduct(p.sku)} title="Hapus produk eceran">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
           )}
 
           {/* Dialog Pecah Stok */}

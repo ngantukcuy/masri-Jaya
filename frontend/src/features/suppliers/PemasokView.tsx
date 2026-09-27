@@ -1,9 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Truck,
   Search,
   Plus,
-  Phone,
   MapPin,
   User,
   Edit3,

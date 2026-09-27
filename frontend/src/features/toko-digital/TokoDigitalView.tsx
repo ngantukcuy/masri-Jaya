@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-  Store,
   Link2,
   Image as ImageIcon,
   Plus,

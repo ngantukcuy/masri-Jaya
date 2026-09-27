@@ -6,7 +6,6 @@ import {
   AlertTriangle, 
   TrendingUp,
   UserCheck,
-  Coins,
   Printer as PrinterIcon,
   Calendar,
   PlusCircle,

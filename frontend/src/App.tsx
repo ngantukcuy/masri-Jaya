@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
@@ -210,11 +210,8 @@ function Dashboard({
   const [defaultCustomerId, setDefaultCustomerId] = useSupabaseState<string | null>('default_customer_id', null);
 
   // Dynamic metrics added from POS checkout
-  const [totalSales, setTotalSales] = useSupabaseState<number>('total_sales', 0);
-  const [totalOrdersCount, setTotalOrdersCount] = useSupabaseState<number>('total_orders_count', 0);
 
   // Search filter
-  const [searchQuery, setSearchQuery] = useState('');
 
   // Add activities dynamically. `audience` defaults to 'all' — pass
   // 'approvers' only for "submitted, waiting for approval" events so they
@@ -252,11 +249,6 @@ function Dashboard({
     return tb - ta;
   });
 
-  const handleAddSaleToKPIs = (salesAmount: number) => {
-    setTotalSales((prev) => prev + salesAmount);
-    setTotalOrdersCount((prev) => prev + 1);
-  };
-
   const handleRecordSale = (invoice: SalesInvoice) => {
     setSalesInvoices((prev) => [invoice, ...prev]);
   };
@@ -289,11 +281,6 @@ function Dashboard({
     setCurrentTab('products');
     setIsMobileMenuOpen(false);
     dialog.alert("Diarahkan ke manajemen stok. Silakan klik Restock Cepat (+50 Unit) pada Semen Portland untuk memenuhi gudang.");
-  };
-
-  const handleNewTransaction = () => {
-    setCurrentTab('pos');
-    setIsMobileMenuOpen(false);
   };
 
   const handleForceSync = () => {
@@ -346,8 +333,6 @@ function Dashboard({
                       expenses={expenses}
                       pos={pos}
                       returns={returns}
-                      totalSales={totalSales}
-                      totalOrdersCount={totalOrdersCount}
                       onTabChange={setCurrentTab}
                       onQuickRestock={handleQuickRestock}
                     />
@@ -362,7 +347,6 @@ function Dashboard({
                       onUpdateProducts={setProducts}
                       onUpdateCustomers={setCustomers}
                       onAddActivity={handleAddActivity}
-                      onAddSaleToKPIs={handleAddSaleToKPIs}
                       onRecordSale={handleRecordSale}
                       cashierName={currentUser?.name}
                       currentUser={currentUser}
@@ -573,68 +557,6 @@ function Dashboard({
     );
   };
 
-  // Global quick-search: matches products, customers, and suppliers as the user types
-  type SearchResult = { id: string; label: string; sublabel: string; category: string; tab: string };
-  const searchResults: SearchResult[] = (() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return [];
-    const results: SearchResult[] = [];
-
-    products.forEach((p) => {
-      if (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)) {
-        results.push({ id: `product-${p.sku}`, label: p.name, sublabel: `SKU ${p.sku} · Stok ${p.stock} ${p.unit}`, category: 'Produk', tab: 'products' });
-      }
-    });
-
-    customers.forEach((c) => {
-      if (c.name.toLowerCase().includes(q)) {
-        results.push({ id: `customer-${c.id}`, label: c.name, sublabel: `Pelanggan · ${c.loyaltyTier}`, category: 'Pelanggan', tab: 'customer' });
-      }
-    });
-
-    suppliers.forEach((s) => {
-      if (s.name.toLowerCase().includes(q)) {
-        results.push({ id: `supplier-${s.name}`, label: s.name, sublabel: 'Pemasok', category: 'Pemasok', tab: 'pemasok' });
-      }
-    });
-
-    return results.slice(0, 8);
-  })();
-
-  const handleSearchResultSelect = (tab: string) => {
-    setCurrentTab(tab);
-    setSearchQuery('');
-    setIsMobileMenuOpen(false);
-  };
-
-  // Set Search Input placeholder dynamically
-  const getSearchPlaceholder = () => {
-    const baseTab = currentTab.split(':')[0];
-    switch (baseTab) {
-      case 'pos':
-        return "Cari produk atau scan barcode (F1)...";
-      case 'products':
-        return "Cari bahan bangunan, SKU, atau nomor barcode...";
-      case 'master-data':
-        return "Cari produk Sku Master, kategori, brand, atau unit...";
-      case 'purchase':
-        return "Cari pesanan pembelian, penyuplai, atau SKU...";
-      case 'customer':
-        return "Cari pembeli, kategori (sebagai), atau detail piutang...";
-      case 'pemasok':
-        return "Cari nama pemasok atau sales...";
-      case 'deposit':
-        return "Cari nama pelanggan untuk deposit...";
-      case 'riwayat-transaksi':
-        return "Cari nomor invoice atau nama pelanggan...";
-      case 'debts':
-        return "Cari debitur, ID pelanggan, atau status tagihan...";
-      case 'retur':
-        return "Cari nomor invoice, PO, atau nama pelanggan/pemasok...";
-      default:
-        return "Cari pesanan, stok barang, atau pemasok...";
-    }
-  };
 
   // The POS/cashier screen gets the full viewport to itself — no header,
   // sidebar, or bottom nav — so cashiers have as much room as possible to
@@ -657,7 +579,6 @@ function Dashboard({
         <Sidebar
           currentTab={currentTab}
           onTabChange={handleTabChange}
-          onNewTransaction={handleNewTransaction}
           onLogout={onLogout}
           currentUser={currentUser}
         />
@@ -686,7 +607,6 @@ function Dashboard({
               <Sidebar
                 currentTab={currentTab}
                 onTabChange={handleTabChange}
-                onNewTransaction={handleNewTransaction}
                 onLogout={onLogout}
                 currentUser={currentUser}
                 isMobile={true}
@@ -701,13 +621,7 @@ function Dashboard({
       <div className="flex-1 flex flex-col min-w-0">
         {/* Dynamic header navigation */}
         <Header
-          currentTab={currentTab}
-          searchValue={searchQuery}
-          onSearch={setSearchQuery}
-          searchResults={searchResults}
-          onSearchResultSelect={handleSearchResultSelect}
           onTabChange={handleTabChange}
-          searchPlaceholder={getSearchPlaceholder()}
           onSync={handleForceSync}
           currentUser={currentUser}
           onMenuToggle={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

@@ -58,8 +58,6 @@ interface DashboardViewProps {
   expenses?: Expense[];
   pos?: PO[];
   returns?: ReturnRecord[];
-  totalSales: number;
-  totalOrdersCount: number;
   onTabChange: (tab: string) => void;
   onQuickRestock: () => void;
 }
@@ -72,8 +70,6 @@ export default function DashboardView({
   expenses = [],
   pos = [],
   returns = [],
-  totalSales, 
-  totalOrdersCount, 
   onTabChange, 
   onQuickRestock 
 }: DashboardViewProps) {

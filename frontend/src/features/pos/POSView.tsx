@@ -4,19 +4,15 @@ import {
   Trash2, 
   Plus, 
   Minus, 
-  Printer as PrinterIcon, 
   UserPlus, 
   BadgePercent,
   Banknote,
   Store,
   Truck,
-  FileDown,
-  Sparkles,
   Barcode,
   Volume2,
   VolumeX,
   Camera,
-  Play,
   X,
   Package,
   SlidersHorizontal,
@@ -116,7 +112,6 @@ interface POSViewProps {
   onUpdateProducts: (updatedProducts: Product[]) => void;
   onUpdateCustomers: (updatedCustomers: Customer[]) => void;
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
-  onAddSaleToKPIs: (salesAmount: number) => void;
   onRecordSale?: (invoice: SalesInvoice) => void;
   cashierName?: string;
   currentUser?: CurrentUser | null;
@@ -137,7 +132,6 @@ export default function POSView({
   onUpdateProducts, 
   onUpdateCustomers, 
   onAddActivity,
-  onAddSaleToKPIs,
   onRecordSale,
   cashierName,
   currentUser,
@@ -228,7 +222,6 @@ export default function POSView({
   const [newProductSku, setNewProductSku] = useState('');
   const [newProductCategory, setNewProductCategory] = useState('');
   const [newProductUnit, setNewProductUnit] = useState('pcs');
-  const [newProductRetailPrice, setNewProductRetailPrice] = useState(0);
   const [newProductWholesalePrice, setNewProductWholesalePrice] = useState(0);
   const [newProductProjectPrice, setNewProductProjectPrice] = useState(0);
   const [newProductStock, setNewProductStock] = useState(0);
@@ -334,7 +327,6 @@ export default function POSView({
     setNewProductSku('');
     setNewProductCategory(categoryNames[0] || '');
     setNewProductUnit('pcs');
-    setNewProductRetailPrice(0);
     setNewProductWholesalePrice(0);
     setNewProductProjectPrice(0);
     setNewProductStock(0);
@@ -761,7 +753,6 @@ const commitQtyInput = (sku: string) => {
 
     setLastOrderDetails(orderDetails);
     setShowCheckoutReceipt(true);
-    onAddSaleToKPIs(totalAmount);
 
     // Add activity stream event
     onAddActivity(
@@ -1607,7 +1598,6 @@ const commitQtyInput = (sku: string) => {
             sku={newProductSku} onSkuChange={setNewProductSku}
             category={newProductCategory} onCategoryChange={setNewProductCategory}
             unit={newProductUnit} onUnitChange={setNewProductUnit}
-            retailPrice={newProductRetailPrice} onRetailPriceChange={setNewProductRetailPrice}
             wholesalePrice={newProductWholesalePrice} onWholesalePriceChange={setNewProductWholesalePrice}
             projectPrice={newProductProjectPrice} onProjectPriceChange={setNewProductProjectPrice}
             stock={newProductStock} onStockChange={setNewProductStock}

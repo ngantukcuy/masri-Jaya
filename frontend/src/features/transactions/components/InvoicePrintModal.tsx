@@ -38,7 +38,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
   // For surat jalan, let the user pick which items are actually being sent out
   // before printing — a single transaksi is often delivered in more than one trip.
   const [deliveryQuantities, setDeliveryQuantities] = useState<Record<number, number>>(
-    () => Object.fromEntries(invoice.items.map((item, idx) => [idx, 0]))
+    () => Object.fromEntries(invoice.items.map((_, idx) => [idx, 0]))
   );
   const [selectedItemIdx, setSelectedItemIdx] = useState<Set<number>>(new Set());
   const [driverName, setDriverName] = useState(invoice.driverName || '');

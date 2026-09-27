@@ -1,11 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { MapPin, RotateCw, Bell, Menu, Clock, X, AlertTriangle, PackageX, ShoppingBag, WifiOff, CloudUpload, Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { MapPin, RotateCw, Bell, Menu, Clock, AlertTriangle, PackageX, ShoppingBag, WifiOff, CloudUpload } from 'lucide-react';
 import { useOnlineStatus, usePendingSyncCount } from '../../lib/useOnlineStatus';
 import InstallAppButton from '../shared/InstallAppButton';
 import ProfileBadge from '../shared/ProfileBadge';
 import { CurrentUser, canSeeApproverNotifications } from '../../lib/permissions';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { cn } from '../../lib/utils';
 
@@ -43,21 +42,7 @@ interface HeaderNotification {
   pending?: boolean;
 }
 
-interface HeaderSearchResult {
-  id: string;
-  label: string;
-  sublabel: string;
-  category: string;
-  tab: string;
-}
-
 interface HeaderProps {
-  currentTab: string;
-  searchValue?: string;
-  onSearch?: (value: string) => void;
-  searchResults?: HeaderSearchResult[];
-  onSearchResultSelect?: (tab: string) => void;
-  searchPlaceholder?: string;
   onTabChange: (tab: string) => void;
   onSync: () => void;
   currentUser: CurrentUser | null;
@@ -89,12 +74,6 @@ function activityTargetTab(title: string, subtitle: string): string {
 }
 
 export default function Header({
-  currentTab,
-  searchValue = '',
-  onSearch,
-  searchResults = [],
-  onSearchResultSelect,
-  searchPlaceholder = 'Cari...',
   onTabChange,
   onSync,
   currentUser,
@@ -190,12 +169,6 @@ export default function Header({
       default: return <ShoppingBag className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />;
     }
   };
-
-  const navTabCls = (active: boolean) =>
-    cn(
-      'h-auto px-0 pb-1 rounded-none text-xs font-bold uppercase tracking-wider bg-transparent shadow-none border-b-2',
-      active ? 'text-primary border-primary hover:bg-transparent' : 'text-slate-500 border-transparent hover:text-primary hover:bg-transparent'
-    );
 
   return (
     <header className="h-16 w-full bg-white/70 backdrop-blur-md border-b border-slate-200/50 sticky top-0 z-40 flex items-center justify-between px-4 md:px-8 shadow-sm">

@@ -1,8 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   LayoutDashboard,
-  Calculator,
-  PlusCircle,
   Boxes,
   FileBarChart2,
   Users,
@@ -45,7 +43,6 @@ interface NavItem {
 interface SidebarProps {
   currentTab: string;
   onTabChange: (tab: string) => void;
-  onNewTransaction: () => void;
   onLogout: () => void;
   currentUser?: CurrentUser;
   isMobile?: boolean;
@@ -55,7 +52,6 @@ interface SidebarProps {
 export default function Sidebar({
   currentTab,
   onTabChange,
-  onNewTransaction,
   onLogout,
   currentUser,
   isMobile = false,
@@ -120,7 +116,6 @@ export default function Sidebar({
 
   const visibleExtraItems = extraItems.filter((item) => canAccessTab(currentUser, item.id));
   const canOpenSettings = canAccessTab(currentUser, 'settings');
-  const canStartNewTransaction = canAccessTab(currentUser, 'pos');
 
   const baseTab = currentTab.split(':')[0];
 

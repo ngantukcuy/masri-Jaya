@@ -1,4 +1,4 @@
-import { Printer, FileDown, Sparkles, Truck, Store } from 'lucide-react';
+import { Printer, FileDown, Truck, Store } from 'lucide-react';
 import { Dialog, DialogContent } from '../../../components/ui/dialog';
 import { Button } from '../../../components/ui/button';
 

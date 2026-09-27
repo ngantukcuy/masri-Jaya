@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { History, Search, Receipt, Printer, Truck, CornerUpLeft, CalendarRange, CheckCircle2, Trash2, Clock, XCircle } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Search, Receipt, Printer, Truck, CornerUpLeft, CalendarRange, CheckCircle2, Trash2, Clock, XCircle } from 'lucide-react';
 import { Customer, Product, SalesInvoice, ReturnRecord } from '../../types';
 import InvoicePrintModal from './components/InvoicePrintModal';
 import { reverseSale } from '../../lib/cashSession';
