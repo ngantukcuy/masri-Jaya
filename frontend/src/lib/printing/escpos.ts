@@ -164,7 +164,7 @@ export function buildInvoiceReceipt(
   b.line(`Kasir   : ${cashierName || 'Staff Aktif'}`);
   b.divider('-', RECEIPT_WIDTH);
 
-  b.line(`Pelanggan: ${invoice.customerName}`);
+  b.line(`Pelanggan   : ${invoice.customerName}`);
   b.line(`Pembayaran  : ${invoice.paymentMethod === 'Cash' ? 'Tunai' : invoice.paymentMethod}`);
 
   if (invoice.paymentMethod === 'Transfer' && invoice.paymentAccountName) {
@@ -172,10 +172,10 @@ export function buildInvoiceReceipt(
     b.line(`No.Rek  : ${invoice.paymentAccountNumber || '-'}`);
   }
   if (invoice.fulfillmentMethod) {
-    b.line(`Pengambilan   : ${invoice.fulfillmentMethod === 'Delivery' ? 'Diantar' : 'Ambil Sendiri'}`);
+    b.line(`Pengambilan : ${invoice.fulfillmentMethod === 'Delivery' ? 'Diantar' : 'Ambil Sendiri'}`);
   }
   if (invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress) {
-    b.line(`Alamat  : ${invoice.deliveryAddress}`);
+    b.line(`Alamat: ${invoice.deliveryAddress}`);
   }
 
   b.divider('-', RECEIPT_WIDTH);
@@ -202,7 +202,7 @@ export function buildInvoiceReceipt(
 
   if (invoice.paymentMethod === 'Cash' && typeof invoice.cashReceived === 'number') {
     b.line(twoColumns('Tunai', formatRupiah(invoice.cashReceived)));
-    b.line(twoColumns('Kembali', formatRupiah(invoice.changeAmount || 0)));
+    b.line(twoColumns('Kembalian', formatRupiah(invoice.changeAmount || 0)));
   }
   if (invoice.paymentMethod === 'Split' && typeof invoice.splitPaidAmount === 'number') {
     b.line(twoColumns('Dibayar', formatRupiah(invoice.splitPaidAmount)));
@@ -246,13 +246,13 @@ export function buildDeliveryReceipt(
   if (storeProfile?.phone) b.line(`Telp: ${storeProfile.phone}`);
 
   b.line('STRUK SURAT JALAN').divider('-', RECEIPT_WIDTH).align('left');
-  b.line(`${invoice.invoiceNumber} - ${invoice.date}`);
+  b.line(`${invoice.invoiceNumber} - ${formatReceiptDateTime(invoice)}`);
   b.line(`Pelanggan: ${invoice.customerName}`);
   if (invoice.driverName) b.line(`Sopir   : ${invoice.driverName}`);
   const deliveryText = invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress
     ? invoice.deliveryAddress
     : 'Diambil langsung di toko';
-  b.line(`Alamat  : ${deliveryText}`);
+  b.line(`Alamat: ${deliveryText}`);
   b.divider('-', RECEIPT_WIDTH);
 
   for (const item of deliveryItems) {
