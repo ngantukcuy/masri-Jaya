@@ -27,6 +27,19 @@ export class EscPosBuilder {
     return this.push([ESC, 0x40]);
   }
 
+  /**
+   * Forces the printer's left print margin to 0 dots. Some printers keep a
+   * left-margin value in their own NV memory (set once by a previous app,
+   * a factory default, or the printer's own control panel) that ESC/POS's
+   * plain `init` does NOT reset — that stored offset is what shows up as a
+   * left gutter even though nothing in this receipt asks for one. GS L
+   * (0x1D 0x4C) explicitly sets it back to 0 so the app doesn't depend on
+   * whatever the printer happened to have configured.
+   */
+  leftMargin(dots: number = 0) {
+    return this.push([GS, 0x4c, dots & 0xff, (dots >> 8) & 0xff]);
+  }
+
   text(str: string) {
     return this.push(new TextEncoder().encode(str));
   }
@@ -78,6 +91,7 @@ export function buildTestPrint(printerName: string, storeName?: string): Uint8Ar
   const now = new Date();
   return new EscPosBuilder()
     .init()
+    .leftMargin(0)
     .align('center')
     .bold(true)
     .line(storeName || 'Masri Jaya')
@@ -138,7 +152,7 @@ export function buildInvoiceReceipt(
   isReprint: boolean = false
 ): Uint8Array {
   const storeName = storeProfile?.storeName || 'Toko Saya';
-  const b = new EscPosBuilder().init().align('center').bold(true).line(storeName).bold(false);
+  const b = new EscPosBuilder().init().leftMargin(0).align('center').bold(true).line(storeName).bold(false);
 
   if (storeProfile?.address) b.line(storeProfile.address);
   if (storeProfile?.phone) b.line(`Tel: ${storeProfile.phone}`);
@@ -222,7 +236,7 @@ export function buildDeliveryReceipt(
 ): Uint8Array {
   const deliveryItems = itemsOverride && itemsOverride.length > 0 ? itemsOverride : invoice.items;
   const storeName = storeProfile?.storeName || 'Toko Saya';
-  const b = new EscPosBuilder().init().align('center').bold(true).line(storeName).bold(false);
+  const b = new EscPosBuilder().init().leftMargin(0).align('center').bold(true).line(storeName).bold(false);
 
   if (storeProfile?.address) b.line(storeProfile.address);
   if (storeProfile?.phone) b.line(`Tel: ${storeProfile.phone}`);
@@ -248,22 +262,33 @@ export function buildDeliveryReceipt(
   b.line('Barang di atas telah diperiksa dan');
   b.line('diterima dalam kondisi baik serta');
   b.line('sesuai jumlah.');
-  b.newline(2);
-  b.line('Sopir,');
-  b.newline(3);
-  b.line(invoice.driverName || '(______________)');
-  b.newline(2);
-  b.line('Pemeriksa,');
-  b.newline(3);
-  b.line('(______________)');
-  b.newline(2);
-  b.line('Penerima,');
-  b.newline(3);
-  b.line('(______________)');
+  b.newline(1);
+
+  // Sopir / Pemeriksa / Penerima side by side in one 32-char-wide line each,
+  // like the on-screen 3-column grid — instead of one full name/label per
+  // line stacked top to bottom, which is what was wasting paper below.
+  const SIG_COLS = 3;
+  const colWidth = Math.floor(RECEIPT_WIDTH / SIG_COLS);
+  const centerIn = (str: string, width: number) => {
+    const text = str.length > width ? str.slice(0, width) : str;
+    const totalPad = width - text.length;
+    const left = Math.floor(totalPad / 2);
+    return ' '.repeat(left) + text + ' '.repeat(totalPad - left);
+  };
+  const threeCols = (a: string, bText: string, c: string) =>
+    [a, bText, c].map((s) => centerIn(s, colWidth)).join('');
+
+  b.line(threeCols('Sopir,', 'Pemeriksa,', 'Penerima,'));
+  b.newline(3); // room to actually sign, not a full blank receipt section per person
+  b.line(threeCols('___________', '___________', '___________'));
+  b.line(threeCols(invoice.driverName || '(Nama)', '(Nama)', '(Nama)'));
 
   b.align('center');
   b.line(`No: SJ-${invoice.invoiceNumber}`);
-  b.feedAndCut(4);
+  // Fewer feed lines than before — most of the printer's own paper-cutter
+  // gap is a fixed physical distance the hardware adds on its own; feeding
+  // more lines here on top of that just wastes extra paper.
+  b.feedAndCut(2);
 
   return b.build();
 }
