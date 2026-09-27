@@ -143,7 +143,7 @@ button {
 
 @media print {
   @page {
-    size: 80mm auto;
+    size: 58mm auto;
     margin: 0;
   }
 
@@ -176,8 +176,8 @@ button {
     left: 0 !important;
     inset: 0 auto auto 0 !important;
     transform: none !important;
-    width: 80mm !important;
-    max-width: 80mm !important;
+    width: 58mm !important;
+    max-width: 58mm !important;
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;

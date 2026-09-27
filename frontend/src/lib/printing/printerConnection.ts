@@ -137,3 +137,71 @@ export async function connectUsbPrinter(
 
   return { handle: { send, disconnect }, deviceName: device.productName || 'Printer USB' };
 }
+
+// ---------------------------------------------------------------------------
+// Global connection registry
+//
+// This app is a single-page app where switching tabs (Kasir <-> Pengaturan
+// <-> Riwayat Transaksi) fully unmounts the previous view and mounts the new
+// one (see App.tsx's renderActiveView, which keys each view on the current
+// tab). A Bluetooth/USB handle kept only in a view's own React state — e.g. a
+// `useState` inside SettingsView — is lost the instant the cashier leaves
+// that tab, because nothing keeps a reference to the connected `device` /
+// `characteristic` anymore. The connection isn't actually broken at the OS
+// level, but from the app's point of view it might as well be: there is no
+// longer any object to call `.send()` on.
+//
+// That's exactly what caused "connects fine, test print works, but printing
+// a real receipt from Kasir/Riwayat Transaksi fails and the printer shows as
+// disconnected again": Kasir and Riwayat Transaksi never had access to the
+// handle created inside Pengaturan in the first place, and by the time you
+// go back to Pengaturan to check, its state has reset to empty too.
+//
+// The fix is to keep connection handles in this module-level singleton
+// instead of component state, so they survive navigating between tabs for as
+// long as the browser tab/app itself stays open. Components subscribe to be
+// notified when a connection is added or removed so they can re-render.
+
+type PrinterConnectionsListener = (connections: Map<string, PrinterConnectionHandle>) => void;
+
+const activeConnections = new Map<string, PrinterConnectionHandle>();
+const listeners = new Set<PrinterConnectionsListener>();
+
+function notifyListeners() {
+  const snapshot = new Map(activeConnections);
+  listeners.forEach((listener) => listener(snapshot));
+}
+
+/** Snapshot of every printer currently connected on this device. Safe to call anywhere, anytime. */
+export function getPrinterConnections(): Map<string, PrinterConnectionHandle> {
+  return new Map(activeConnections);
+}
+
+export function getPrinterConnection(printerId: string): PrinterConnectionHandle | undefined {
+  return activeConnections.get(printerId);
+}
+
+export function isPrinterConnected(printerId: string): boolean {
+  return activeConnections.has(printerId);
+}
+
+export function registerPrinterConnection(printerId: string, handle: PrinterConnectionHandle) {
+  activeConnections.set(printerId, handle);
+  notifyListeners();
+}
+
+export function removePrinterConnection(printerId: string) {
+  if (activeConnections.delete(printerId)) {
+    notifyListeners();
+  }
+}
+
+/**
+ * Lets a component re-render whenever a printer connects/disconnects
+ * anywhere in the app (not just from within that component). Returns an
+ * unsubscribe function — call it in a `useEffect` cleanup.
+ */
+export function subscribeToPrinterConnections(listener: PrinterConnectionsListener): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}

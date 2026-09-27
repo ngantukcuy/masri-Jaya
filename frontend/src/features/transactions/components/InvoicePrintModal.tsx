@@ -5,6 +5,9 @@ import { SalesInvoice } from '../../../types';
 import { generateInvoiceReceiptPDF, generateDeliveryNotePDF } from '../../pos/lib/receiptPdf';
 import { getSupabaseTableCache } from '../../../lib/supabaseCache';
 import NumberInput from '../../../components/shared/NumberInput';
+import { getPrinterConnection, isPrinterConnected } from '../../../lib/printing/printerConnection';
+import { buildInvoiceReceipt } from '../../../lib/printing/escpos';
+import { useDialog } from '../../../components/shared/DialogProvider';
 
 interface StoreProfileLite {
   storeName: string;
@@ -30,6 +33,7 @@ interface InvoicePrintModalProps {
 }
 
 export default function InvoicePrintModal({ invoice, docType, onClose, onDriverAssigned, onDeliveryComplete, storeProfile, cashierName }: InvoicePrintModalProps) {
+  const dialog = useDialog();
   const [isPrintingAnim, setIsPrintingAnim] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [activePrinterName, setActivePrinterName] = useState('');
@@ -105,9 +109,38 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
 
   const handlePrintThermal = () => {
     const registeredPrinters = getSupabaseTableCache<PrinterLite>('printers');
-    const connectedPrinterName = registeredPrinters[0]?.name || 'Printer Kasir';
+    // A printer paired via Bluetooth/USB in Pengaturan > Printer, and still
+    // connected on THIS device (connections are per-device, see
+    // printerConnection.ts). Only this one can actually receive a real
+    // ESC/POS receipt — a printer that's merely registered in the list
+    // can't, which is why re-printing a struk from Riwayat Transaksi
+    // previously only opened the (mostly useless, for a thermal-only
+    // printer) browser print dialog.
+    const connectedPrinter = registeredPrinters.find((p) => isPrinterConnected(p.id));
+    const connectedPrinterName = connectedPrinter?.name || registeredPrinters[0]?.name || 'Printer Kasir';
     setIsPrintingAnim(true);
     setActivePrinterName(connectedPrinterName);
+
+    if (connectedPrinter && docType === 'invoice') {
+      const handle = getPrinterConnection(connectedPrinter.id);
+      (async () => {
+        try {
+          await handle?.send(buildInvoiceReceipt(printableInvoice, storeProfile, cashierName, true));
+          markDeliveryComplete();
+        } catch (err: any) {
+          dialog.alert(
+            `Gagal mencetak ke ${connectedPrinterName}: ${err?.message || 'Terjadi kesalahan tidak diketahui.'}\n\nPastikan printer masih tersambung Bluetooth/USB di perangkat ini (cek Pengaturan > Printer).`
+          );
+        } finally {
+          setIsPrintingAnim(false);
+        }
+      })();
+      return;
+    }
+
+    // No live connection on this device, or this is a surat jalan (delivery
+    // note — a signed paper form, not a thermal roll receipt): fall back to
+    // the browser's native print dialog.
     setTimeout(() => {
       setIsPrintingAnim(false);
       window.print();

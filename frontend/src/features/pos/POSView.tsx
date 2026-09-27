@@ -36,7 +36,9 @@ import ProfileBadge from '../../components/shared/ProfileBadge';
 import { CurrentUser } from '../../lib/permissions';
 import { getSupabaseTableCache } from '../../lib/supabaseCache';
 import { playBeep, playPrintSound } from './lib/posAudio';
-import { generateReceiptPDF } from './lib/receiptPdf';
+import { generateReceiptPDF, orderDetailsToSalesInvoice } from './lib/receiptPdf';
+import { getPrinterConnection, isPrinterConnected } from '../../lib/printing/printerConnection';
+import { buildInvoiceReceipt } from '../../lib/printing/escpos';
 import {
   CartItem,
   AdditionalFee,
@@ -775,28 +777,56 @@ const commitQtyInput = (sku: string) => {
     setMobileActiveSubTab('products');
   };
 
-  // Trigger simulated receipt feed
+  // Print the just-completed receipt to the cashier's thermal printer.
   const handlePrintReceiptSim = () => {
     // Printers are registered in Supabase (shared across devices); whether
     // one is actually connected right now is local to whichever browser
-    // paired it in Pengaturan > Printer, so this only checks that at least
-    // one printer is registered — not live connection state.
+    // paired it in Pengaturan > Printer, so we look that up separately below
+    // — this only checks that at least one printer is registered at all.
     const registeredPrinters = getSupabaseTableCache<Printer>('printers');
     const hasRegisteredPrinter = registeredPrinters.length > 0;
-    const connectedPrinterName = registeredPrinters[0]?.name || "Printer Kasir";
 
     if (!hasRegisteredPrinter) {
       dialog.alert("PENCETAKAN GAGAL:\nBelum ada printer yang terdaftar! Silakan masuk ke tab 'Pengaturan' -> 'Printer' untuk menambahkan dan menyambungkan printer kasir.");
       return;
     }
 
+    // A printer paired via Bluetooth/USB in Pengaturan > Printer, and still
+    // connected on THIS device (connections are per-device, see
+    // printerConnection.ts) — this is the one that can actually receive a
+    // real ESC/POS receipt, unlike a printer that's merely registered.
+    const connectedPrinter = registeredPrinters.find((p) => isPrinterConnected(p.id));
+    const connectedPrinterName = connectedPrinter?.name || registeredPrinters[0]?.name || 'Printer Kasir';
+
     setIsPrintingAnim(true);
     setActivePrinterName(connectedPrinterName);
     playPrintSound(soundEnabled);
-    
+
+    if (connectedPrinter && lastOrderDetails) {
+      // Send the real receipt straight to the paired thermal printer over
+      // Bluetooth/USB — most thermal printers have no OS print driver, so
+      // relying on window.print() here (as before) silently produced
+      // nothing on the actual receipt roll.
+      const handle = getPrinterConnection(connectedPrinter.id);
+      (async () => {
+        try {
+          const invoiceForReceipt = orderDetailsToSalesInvoice(lastOrderDetails);
+          await handle?.send(buildInvoiceReceipt(invoiceForReceipt, storeProfile, cashierName));
+        } catch (err: any) {
+          dialog.alert(
+            `Gagal mencetak ke ${connectedPrinterName}: ${err?.message || 'Terjadi kesalahan tidak diketahui.'}\n\nPastikan printer masih tersambung Bluetooth/USB di perangkat ini (cek Pengaturan > Printer).`
+          );
+        } finally {
+          setIsPrintingAnim(false);
+        }
+      })();
+      return;
+    }
+
+    // No live connection on this device — fall back to the browser's native
+    // print dialog (e.g. a printer set up at the OS level, or "print to PDF").
     setTimeout(() => {
       setIsPrintingAnim(false);
-      // Trigger native print dialog for compliant design
       window.print();
     }, 1800);
   };

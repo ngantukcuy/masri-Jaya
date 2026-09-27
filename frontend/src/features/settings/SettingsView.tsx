@@ -30,6 +30,10 @@ import {
   connectUsbPrinter,
   isBluetoothSupported,
   isUsbSupported,
+  getPrinterConnections,
+  registerPrinterConnection,
+  removePrinterConnection,
+  subscribeToPrinterConnections,
   type PrinterConnectionHandle,
 } from '../../lib/printing/printerConnection';
 import { buildTestPrint } from '../../lib/printing/escpos';
@@ -159,7 +163,13 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   // physically near the printer, so that part is local-only React state —
   // see printerConnectionsRef below.
   const [printers, setPrinters] = useSupabaseTable<Printer>('printers', [], (p) => p.id);
-  const [printerConnections, setPrinterConnections] = useState<Map<string, PrinterConnectionHandle>>(new Map());
+  // Read from (and subscribe to) the module-level connection registry
+  // instead of keeping the Map in local state — a connection made here must
+  // still show as connected (and still be usable) after navigating to Kasir
+  // or Riwayat Transaksi, which fully unmount this component. See
+  // printerConnection.ts for details.
+  const [printerConnections, setPrinterConnectionsSnapshot] = useState<Map<string, PrinterConnectionHandle>>(() => getPrinterConnections());
+  useEffect(() => subscribeToPrinterConnections(setPrinterConnectionsSnapshot), []);
   const [connectingPrinterId, setConnectingPrinterId] = useState<string | null>(null);
   const [showAddPrinterForm, setShowAddPrinterForm] = useState(false);
   const [newPrinterName, setNewPrinterName] = useState('');
@@ -515,11 +525,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     setConnectingPrinterId(printer.id);
     try {
       const onDisconnect = () => {
-        setPrinterConnections((prev) => {
-          const next = new Map(prev);
-          next.delete(printer.id);
-          return next;
-        });
+        removePrinterConnection(printer.id);
         triggerToast(`${printer.name} terputus.`);
       };
 
@@ -528,7 +534,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
           ? await connectBluetoothPrinter(onDisconnect)
           : await connectUsbPrinter(onDisconnect);
 
-      setPrinterConnections((prev) => new Map(prev).set(printer.id, handle));
+      registerPrinterConnection(printer.id, handle);
       triggerToast(`Terhubung ke ${deviceName}.`);
     } catch (err: any) {
       if (err?.name === 'NotFoundError') {
@@ -544,11 +550,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
 
   const handleDisconnectPrinter = (printer: Printer) => {
     printerConnections.get(printer.id)?.disconnect();
-    setPrinterConnections((prev) => {
-      const next = new Map(prev);
-      next.delete(printer.id);
-      return next;
-    });
+    removePrinterConnection(printer.id);
     triggerToast(`${printer.name} diputuskan.`);
   };
 

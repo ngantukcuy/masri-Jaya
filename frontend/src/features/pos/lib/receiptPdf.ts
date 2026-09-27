@@ -16,13 +16,14 @@ interface StoreProfileFull extends StoreProfileLite {
   taxId?: string;
 }
 
-// The PDF uses the same rendered receipt content as ReceiptModal so the
-// downloaded/printed PDF cannot drift from the on-screen receipt styling.
-export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreProfileLite | undefined, cashierName: string | undefined) {
-  // ReceiptModal is a browser DOM surface and can be hidden behind the dialog
-  // portal when html2canvas runs, which produces a valid but white PDF. Use
-  // the deterministic invoice renderer for the downloadable receipt instead.
-  const invoice: SalesInvoice = {
+// Converts the POS cart shape (item.product + item.selectedPriceType, as
+// stored in `lastOrderDetails` right after checkout) into the flat
+// SalesInvoice shape used by the invoice renderer/PDF/ESC-POS builder.
+// Exported so the real Bluetooth/USB thermal print path in POSView can
+// build the exact same receipt content as the PDF/on-screen version instead
+// of duplicating this mapping.
+export function orderDetailsToSalesInvoice(orderDetails: any): SalesInvoice {
+  return {
     invoiceNumber: orderDetails.invoice,
     customerName: orderDetails.customerName,
     date: orderDetails.date,
@@ -60,6 +61,15 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
     paymentAccountNumber: orderDetails.transferAccount?.accountNumber,
     paymentAccountHolder: orderDetails.transferAccount?.holderName,
   };
+}
+
+// The PDF uses the same rendered receipt content as ReceiptModal so the
+// downloaded/printed PDF cannot drift from the on-screen receipt styling.
+export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreProfileLite | undefined, cashierName: string | undefined) {
+  // ReceiptModal is a browser DOM surface and can be hidden behind the dialog
+  // portal when html2canvas runs, which produces a valid but white PDF. Use
+  // the deterministic invoice renderer for the downloadable receipt instead.
+  const invoice: SalesInvoice = orderDetailsToSalesInvoice(orderDetails);
   await generateInvoiceReceiptPDF(invoice, storeProfile, cashierName);
   return;
 
@@ -186,8 +196,8 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
 /** Struk Pembelian (purchase receipt) rendered from a saved SalesInvoice — used both right after checkout and when re-printing from Riwayat Transaksi (isReprint controls the "Cetak ulang" footer note). */
 export async function generateInvoiceReceiptPDF(invoice: SalesInvoice, storeProfile: StoreProfileFull | undefined, cashierName: string | undefined, isReprint = false) {
   const storeName = storeProfile?.storeName || 'Toko Saya';
-  const pageWidth = 80;
-  const marginX = 5;
+  const pageWidth = 58;
+  const marginX = 4;
   const contentWidth = pageWidth - marginX * 2;
   const lineHeight = 4.2;
 
