@@ -161,6 +161,7 @@ export function buildInvoiceReceipt(
   b.line(`Invoice : ${invoice.invoiceNumber}`);
   b.line(`Tanggal : ${invoice.date}`);
   b.line(`Kasir   : ${cashierName || 'Staff Aktif'}`);
+  
   b.line(`Pelanggan: ${invoice.customerName}`);
   b.line(`Pembayaran  : ${invoice.paymentMethod === 'Cash' ? 'Tunai' : invoice.paymentMethod}`);
 
@@ -239,7 +240,7 @@ export function buildDeliveryReceipt(
   const b = new EscPosBuilder().init().leftMargin(0).align('center').bold(true).line(storeName).bold(false);
 
   if (storeProfile?.address) b.line(storeProfile.address);
-  if (storeProfile?.phone) b.line(`Tel: ${storeProfile.phone}`);
+  if (storeProfile?.phone) b.line(`Telp: ${storeProfile.phone}`);
 
   b.line('STRUK SURAT JALAN').divider('-', RECEIPT_WIDTH).align('left');
   b.line(`${invoice.invoiceNumber}`); (`${invoice.date}`);
@@ -258,10 +259,9 @@ export function buildDeliveryReceipt(
   b.divider('-', RECEIPT_WIDTH);
 
   b.align('left');
-  b.line('Barang di atas telah ');
-  b.line('diperiksa danditerima dalam')
-  b.line('kondisi baik serta');
-  b.line('sesuai jumlah.');
+  b.line('Barang di atas telah diperiksa');
+  b.line('dan diterima dalam kondisi')
+  b.line('baik serta sesuai jumlah.');
   b.newline(1);
 
   // Sopir / Pemeriksa / Penerima side by side in one 32-char-wide line each,
