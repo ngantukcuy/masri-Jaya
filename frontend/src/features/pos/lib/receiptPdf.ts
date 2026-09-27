@@ -466,12 +466,12 @@ export async function printInvoiceReceipt(invoice: SalesInvoice, storeProfile: S
 }
 
 /**
- * Struk Surat Jalan (delivery note) — no prices, includes signature boxes.
- *
- * Renders at the same 58mm thermal width as the on-screen modal
- * (InvoicePrintModal, docType 'delivery') instead of a separate A5-landscape
- * table layout, so what prints matches what the kasir already checked on
- * screen and actually fits a 58mm thermal roll.
+ * Struk Surat Jalan (delivery note) at 58mm thermal width — used only by
+ * "Cetak Thermal" (printDeliveryNote below), so it matches the on-screen
+ * modal and an actual thermal roll. "Cetak PDF" intentionally stays as the
+ * separate A5-landscape letterhead layout further down
+ * (buildDeliveryNoteDocA5Landscape) — that one is meant for regular paper,
+ * signed by hand, not the thermal printer.
  */
 async function buildDeliveryNoteDoc(
   invoice: SalesInvoice,
@@ -632,11 +632,11 @@ export async function generateDeliveryNotePDF(
   storeProfile: StoreProfileFull | undefined,
   itemsOverride?: SalesInvoice['items'],
 ) {
-  const { doc, filename } = await buildDeliveryNoteDoc(invoice, storeProfile, itemsOverride);
+  const { doc, filename } = await buildDeliveryNoteDocA5Landscape(invoice, storeProfile, itemsOverride);
   await savePdfDoc(doc, filename);
 }
 
-/** Same surat jalan, sent straight to a printer instead of saved/shared — see printInvoiceReceipt/printPdfDoc for why. */
+/** Same surat jalan, sent straight to a printer as a 58mm-wide page (not the A5-landscape "Cetak PDF" layout above) — see printInvoiceReceipt/printPdfDoc for why 58mm matters for thermal printing. */
 export async function printDeliveryNote(
   invoice: SalesInvoice,
   storeProfile: StoreProfileFull | undefined,
@@ -644,4 +644,128 @@ export async function printDeliveryNote(
 ) {
   const { doc, filename } = await buildDeliveryNoteDoc(invoice, storeProfile, itemsOverride);
   await printPdfDoc(doc, filename);
+}
+
+/**
+ * Surat Jalan as a proper letterhead-style A5 landscape document — this is
+ * what "Cetak PDF" produces: a page meant to be printed on regular paper,
+ * signed by hand, and filed/handed to the driver, not a 58mm thermal strip.
+ */
+async function buildDeliveryNoteDocA5Landscape(
+  invoice: SalesInvoice,
+  storeProfile: StoreProfileFull | undefined,
+  itemsOverride?: SalesInvoice['items'],
+): Promise<{ doc: jsPDF; filename: string }> {
+  const deliveryItems = itemsOverride && itemsOverride.length > 0 ? itemsOverride : invoice.items;
+  const storeName = storeProfile?.storeName || 'Toko Saya';
+  const doc = new jsPDF({ unit: 'mm', format: 'a5', orientation: 'landscape' });
+  registerReceiptFont(doc);
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginX = 12;
+  const contentWidth = pageWidth - marginX * 2;
+  const lineHeight = 5.2;
+  let y = 14;
+
+  const setFont = (size: number, bold = false) => {
+    doc.setFontSize(size);
+    doc.setFont('JetBrainsMono', bold ? 'bold' : 'normal');
+  };
+
+  // Header / letterhead
+  setFont(13, true);
+  doc.text(storeName, marginX, y);
+  y += 5.5;
+  setFont(8);
+  const contactLine = [storeProfile?.address, storeProfile?.phone ? `Telp: ${storeProfile.phone}` : null].filter(Boolean).join(' • ');
+  if (contactLine) {
+    const wrapped = doc.splitTextToSize(contactLine, contentWidth);
+    doc.text(wrapped, marginX, y);
+    y += wrapped.length * 4;
+  }
+  y += 1;
+  doc.setLineWidth(0.4);
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 7;
+
+  // Title
+  setFont(13, true);
+  doc.text('SURAT JALAN', pageWidth / 2, y, { align: 'center' });
+  y += 5.5;
+  setFont(8.5);
+  doc.text(`No: SJ-${invoice.invoiceNumber}`, pageWidth / 2, y, { align: 'center' });
+  y += 8;
+
+  // Meta info
+  setFont(9);
+  doc.text('Tanggal', marginX, y);
+  doc.text(`: ${invoice.date}`, marginX + 24, y);
+  y += lineHeight;
+  doc.text('No. Invoice', marginX, y);
+  doc.text(`: ${invoice.invoiceNumber}`, marginX + 24, y);
+  y += lineHeight;
+  doc.text('Kepada', marginX, y);
+  doc.text(`: ${invoice.customerName}`, marginX + 24, y);
+  y += lineHeight;
+  const deliveryText = invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress
+    ? invoice.deliveryAddress
+    : 'Diambil langsung di toko';
+  doc.text('Alamat Kirim', marginX, y);
+  const wrappedAddr = doc.splitTextToSize(`: ${deliveryText}`, contentWidth - 24);
+  doc.text(wrappedAddr, marginX + 24, y);
+  y += wrappedAddr.length * lineHeight;
+  y += 3;
+
+  // Items table
+  const col = { no: marginX, name: marginX + 10, qty: pageWidth - marginX - 28, unit: pageWidth - marginX - 12 };
+  setFont(8.5, true);
+  doc.setLineWidth(0.3);
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 4.5;
+  doc.text('No', col.no, y);
+  doc.text('Nama Barang', col.name, y);
+  doc.text('Jumlah', col.qty, y, { align: 'right' });
+  doc.text('Satuan', col.unit, y);
+  y += 2;
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 5;
+
+  setFont(8.5);
+  deliveryItems.forEach((item, idx) => {
+    const nameLines = doc.splitTextToSize(item.name, col.qty - col.name - 20);
+    doc.text(String(idx + 1), col.no, y);
+    doc.text(nameLines, col.name, y);
+    doc.text(String(item.quantity), col.qty, y, { align: 'right' });
+    doc.text(item.unit || '-', col.unit, y);
+    y += Math.max(nameLines.length, 1) * lineHeight;
+  });
+  y += 1;
+  doc.line(marginX, y, pageWidth - marginX, y);
+  y += 8;
+
+  setFont(7.5);
+  doc.text('Barang di atas telah diperiksa dan diterima dalam kondisi baik serta sesuai jumlah.', marginX, y);
+  y += 14;
+
+  // Signature boxes
+  const boxWidth = contentWidth / 3 - 5;
+  setFont(9, true);
+  const secondBoxX = marginX + boxWidth + 7.5;
+  const thirdBoxX = secondBoxX + boxWidth + 7.5;
+  doc.text('Sopir,', marginX, y);
+  doc.text('Pemeriksa,', secondBoxX, y);
+  doc.text('Penerima,', thirdBoxX, y);
+  y += 20;
+  setFont(8);
+  doc.line(marginX, y, marginX + boxWidth, y);
+  doc.line(secondBoxX, y, secondBoxX + boxWidth, y);
+  doc.line(thirdBoxX, y, thirdBoxX + boxWidth, y);
+  y += 8;
+
+  if (invoice.driverName) {
+    doc.text(`${invoice.driverName}`, marginX, y, { align: 'left' });
+  }
+  doc.text('( Nama )', secondBoxX, y);
+  doc.text('( Nama )', thirdBoxX, y);
+
+  return { doc, filename: `SuratJalan_${invoice.invoiceNumber}.pdf` };
 }

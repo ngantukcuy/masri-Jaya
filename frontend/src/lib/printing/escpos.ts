@@ -204,3 +204,66 @@ export function buildInvoiceReceipt(
 
   return b.build();
 }
+
+/**
+ * The surat jalan (delivery note) sent to a connected Bluetooth/USB thermal
+ * printer — same idea as buildInvoiceReceipt above, but no prices, and a
+ * plain-text signature section (ESC/POS can't draw the boxed grid the
+ * on-screen modal/PDF use, so labelled underscores stand in for it).
+ * Printing this way sends raw bytes straight to the print head — there is
+ * no OS page/margin layer involved at all, so it sidesteps the left-margin
+ * and bottom-margin issues that come from going through a PDF + system
+ * print dialog instead.
+ */
+export function buildDeliveryReceipt(
+  invoice: SalesInvoice,
+  storeProfile: ReceiptStoreProfile | undefined,
+  itemsOverride?: SalesInvoice['items'],
+): Uint8Array {
+  const deliveryItems = itemsOverride && itemsOverride.length > 0 ? itemsOverride : invoice.items;
+  const storeName = storeProfile?.storeName || 'Toko Saya';
+  const b = new EscPosBuilder().init().align('center').bold(true).line(storeName).bold(false);
+
+  if (storeProfile?.address) b.line(storeProfile.address);
+  if (storeProfile?.phone) b.line(`Tel: ${storeProfile.phone}`);
+
+  b.line('STRUK SURAT JALAN').divider('-', RECEIPT_WIDTH).align('left');
+  b.line(`Invoice : ${invoice.invoiceNumber}`);
+  b.line(`Tanggal : ${invoice.date}`);
+  b.line(`Pelanggan: ${invoice.customerName}`);
+  if (invoice.driverName) b.line(`Sopir   : ${invoice.driverName}`);
+  const deliveryText = invoice.fulfillmentMethod === 'Delivery' && invoice.deliveryAddress
+    ? invoice.deliveryAddress
+    : 'Diambil langsung di toko';
+  b.line(`Alamat  : ${deliveryText}`);
+  b.divider('-', RECEIPT_WIDTH);
+
+  for (const item of deliveryItems) {
+    b.line(item.name);
+    b.line(`  ${item.quantity}${item.unit ? ` ${item.unit}` : ''}`);
+  }
+  b.divider('-', RECEIPT_WIDTH);
+
+  b.align('left');
+  b.line('Barang di atas telah diperiksa dan');
+  b.line('diterima dalam kondisi baik serta');
+  b.line('sesuai jumlah.');
+  b.newline(2);
+  b.line('Sopir,');
+  b.newline(3);
+  b.line(invoice.driverName || '(______________)');
+  b.newline(2);
+  b.line('Pemeriksa,');
+  b.newline(3);
+  b.line('(______________)');
+  b.newline(2);
+  b.line('Penerima,');
+  b.newline(3);
+  b.line('(______________)');
+
+  b.align('center');
+  b.line(`No: SJ-${invoice.invoiceNumber}`);
+  b.feedAndCut(4);
+
+  return b.build();
+}

@@ -6,7 +6,7 @@ import { generateInvoiceReceiptPDF, generateDeliveryNotePDF, printInvoiceReceipt
 import { getSupabaseTableCache } from '../../../lib/supabaseCache';
 import NumberInput from '../../../components/shared/NumberInput';
 import { getPrinterConnections } from '../../../lib/printing/printerConnection';
-import { buildInvoiceReceipt } from '../../../lib/printing/escpos';
+import { buildInvoiceReceipt, buildDeliveryReceipt } from '../../../lib/printing/escpos';
 import { useDialog } from '../../../components/shared/DialogProvider';
 
 interface StoreProfileLite {
@@ -127,10 +127,13 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
     setIsPrintingAnim(true);
     setActivePrinterName(connectedPrinterName);
 
-    if (handle && docType === 'invoice') {
+    if (handle) {
       (async () => {
         try {
-          await handle.send(buildInvoiceReceipt(printableInvoice, storeProfile, cashierName, true));
+          const bytes = docType === 'invoice'
+            ? buildInvoiceReceipt(printableInvoice, storeProfile, cashierName, true)
+            : buildDeliveryReceipt(printableInvoice, storeProfile, deliveryItems);
+          await handle.send(bytes);
           markDeliveryComplete();
         } catch (err: any) {
           dialog.alert(
@@ -143,14 +146,18 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
       return;
     }
 
-    // No live Bluetooth/USB connection on this device (true for every iPad —
-    // Safari doesn't support Web Bluetooth/WebUSB at all), or this is a
-    // surat jalan (a signed paper form, not a thermal roll receipt): fall
-    // back to a properly-sized PDF sent through the OS print pipeline
-    // (AirPrint on iOS) instead of window.print() on the live DOM. A PDF's
-    // page size is embedded in the file, so — unlike @page CSS — it's what
-    // actually keeps the printout at 58mm instead of landscape A4 with big
-    // margins and a wasted blank tail.
+    // No live Bluetooth/USB connection on this device — true for every
+    // iPad/iPhone (Safari has no Web Bluetooth/WebUSB support at all), or
+    // simply no printer paired yet on this browser tab. Fall back to a
+    // properly-sized 58mm PDF sent through the OS print pipeline (AirPrint
+    // on iOS) instead of window.print() on the live DOM. A PDF's page size
+    // is embedded in the file, so — unlike @page CSS — it's what actually
+    // keeps the printout at 58mm instead of landscape A4 with big margins
+    // and a wasted blank tail. Any leftover margin here comes from the
+    // printer driver's own physical print-head offset, which is outside
+    // what a PDF can control — a connected Bluetooth/USB printer (the
+    // branch above) avoids that entirely by sending raw bytes with no page
+    // concept at all.
     setTimeout(() => {
       (async () => {
         try {
@@ -308,52 +315,52 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
 
           <div className="space-y-1.5 text-[10px] py-3">
             <div className="flex justify-between">
-              <span>Invoice:</span>
+              <span>INVOICE:</span>
               <span className="font-bold text-gray-900">{printableInvoice.invoiceNumber}</span>
             </div>
             <div className="flex justify-between">
-              <span>Tanggal:</span>
+              <span>TANGGAL:</span>
               <span>{printableInvoice.date}</span>
             </div>
             <div className="flex justify-between">
-              <span>Kasir:</span>
+              <span>KASIR:</span>
               <span className="font-bold">{cashierName || 'Staff Aktif'}</span>
             </div>
             <div className="flex justify-between">
-              <span>Pelanggan:</span>
+              <span>PELANGGAN:</span>
               <span className="font-bold">{printableInvoice.customerName}</span>
             </div>
             {docType === 'invoice' && (
               <div className="flex justify-between">
-                <span>Pembayaran:</span>
+                <span>METODE:</span>
                 <span className="font-bold uppercase text-blue-600">{printableInvoice.paymentMethod === 'Cash' ? 'TUNAI' : printableInvoice.paymentMethod}</span>
               </div>
             )}
             {docType === 'invoice' && printableInvoice.paymentMethod === 'Transfer' && printableInvoice.paymentAccountName && (
               <div className="space-y-0.5 border-l-2 border-blue-600 pl-2">
-                <div className="flex justify-between"><span>Rekening:</span><span className="font-bold">{printableInvoice.paymentAccountName}</span></div>
-                <div className="flex justify-between"><span>Nomor:</span><span className="font-bold">{printableInvoice.paymentAccountNumber || '-'}</span></div>
-                {printableInvoice.paymentAccountHolder && <div className="flex justify-between"><span>Atas Nama:</span><span>{printableInvoice.paymentAccountHolder}</span></div>}
+                <div className="flex justify-between"><span>REKENING:</span><span className="font-bold">{printableInvoice.paymentAccountName}</span></div>
+                <div className="flex justify-between"><span>NOMOR:</span><span className="font-bold">{printableInvoice.paymentAccountNumber || '-'}</span></div>
+                {printableInvoice.paymentAccountHolder && <div className="flex justify-between"><span>PEMILIK:</span><span>{printableInvoice.paymentAccountHolder}</span></div>}
               </div>
             )}
             {printableInvoice.fulfillmentMethod && (
               <div className="flex justify-between">
-                <span>Pengambilan:</span>
+                <span>PENGAMBILAN:</span>
                 <span className="font-bold uppercase flex items-center gap-1">
                   {printableInvoice.fulfillmentMethod === 'Delivery' ? <Truck className="w-3 h-3" /> : <Store className="w-3 h-3" />}
-                  {printableInvoice.fulfillmentMethod === 'Delivery' ? 'Di Antar' : 'Ambil Sendiri'}
+                  {printableInvoice.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI'}
                 </span>
               </div>
             )}
             {printableInvoice.fulfillmentMethod === 'Delivery' && printableInvoice.deliveryAddress && (
               <div className="flex justify-between gap-2">
-                <span className="shrink-0">Alamat:</span>
+                <span className="shrink-0">ALAMAT:</span>
                 <span className="text-right">{printableInvoice.deliveryAddress}</span>
               </div>
             )}
             {printableInvoice.driverName && (
               <div className="flex justify-between">
-                <span>Sopir:</span>
+                <span>SOPIR:</span>
                 <span className="font-bold">{printableInvoice.driverName}</span>
               </div>
             )}
@@ -380,7 +387,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
           {docType === 'invoice' ? (
             <div className="space-y-1 text-right text-[11px] py-3">
               <div className="flex justify-between">
-                <span>Subtotal </span> 
+                <span>SUBTOTAL  </span> 
                 <span>Rp {subtotal.toLocaleString('id-ID')}</span>
               </div>
               <div className="flex justify-between">
@@ -389,7 +396,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
               </div>
               {!!printableInvoice.discountAmount && (
                 <div className="flex justify-between text-red-600 font-bold">
-                  <span>Diskon {printableInvoice.discountType === 'fixed' ? '(Rp)' : `(${printableInvoice.discountValue || 0}%)`}:</span>
+                  <span>DISKON {printableInvoice.discountType === 'fixed' ? '(Rp)' : `(${printableInvoice.discountValue || 0}%)`}:</span>
                   <span>-Rp {printableInvoice.discountAmount.toLocaleString('id-ID')}</span>
                 </div>
               )}
@@ -400,29 +407,29 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
               {printableInvoice.paymentMethod === 'Cash' && typeof printableInvoice.cashReceived === 'number' && (
                 <>
                   <div className="flex justify-between pt-1">
-                    <span>Tunai Diterima:</span>
+                    <span>TUNAI DITERIMA:</span>
                     <span>Rp {printableInvoice.cashReceived.toLocaleString('id-ID')}</span>
                   </div>
                   <div className="flex justify-between font-bold text-emerald-600">
-                    <span>Kembalian:</span>
+                    <span>KEMBALIAN:</span>
                     <span>Rp {(printableInvoice.changeAmount || 0).toLocaleString('id-ID')}</span>
                   </div>
                 </>
               )}
               {printableInvoice.paymentMethod === 'Split' && typeof printableInvoice.splitPaidAmount === 'number' && (
                 <div className="flex justify-between pt-1">
-                  <span>Dibayar Sekarang:</span>
+                  <span>DIBAYAR SEKARANG:</span>
                   <span>Rp {printableInvoice.splitPaidAmount.toLocaleString('id-ID')}</span>
                 </div>
               )}
               {(printableInvoice.paymentMethod === 'Split' || printableInvoice.paymentMethod === 'Piutang') && (
                 <>
                   <div className="flex justify-between font-bold text-amber-600">
-                    <span>Sisa (Piutang):</span>
+                    <span>SISA (PIUTANG):</span>
                     <span>Rp {(printableInvoice.splitRemainingDebt || 0).toLocaleString('id-ID')}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Jatuh Tempo:</span>
+                    <span>JATUH TEMPO:</span>
                     <span>{printableInvoice.splitDueDate ? new Date(`${printableInvoice.splitDueDate}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</span>
                   </div>
                 </>
