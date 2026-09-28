@@ -93,13 +93,34 @@ export default function DebtsView({
   const isEffectivelyOverdue = (cust: Customer) =>
     cust.currentDebt > 0 && (cust.debtStatus === 'Overdue' || (!!cust.nextDueDate && cust.nextDueDate < todayIso));
 
+  // Waktu piutang BARU terakhir tiap pelanggan (pencatatan hutang / bon POS), dipakai
+  // untuk menaruh pelanggan dengan piutang terbaru di urutan pertama tabel. Pembayaran
+  // cicilan tidak ikut dihitung. Sumbernya: riwayat mutasi bernilai positif (pakai
+  // createdAt kalau ada, kalau data lama pakai tanggalnya) + bon POS yang masih ada sisanya
+  // (createdAt-nya berupa jam persis, jadi urutan di hari yang sama tetap benar).
+  const latestDebtTime = (() => {
+    const map = new Map<string, number>();
+    const bump = (id: string | undefined, raw?: string) => {
+      if (!id || !raw) return;
+      const t = Date.parse(raw);
+      if (!isNaN(t) && t > (map.get(id) ?? 0)) map.set(id, t);
+    };
+    customers.forEach((c) => (c.lastTransactions || []).forEach((trx) => {
+      if (trx.amount > 0) bump(c.id, trx.createdAt || trx.date);
+    }));
+    salesInvoices.forEach((inv) => {
+      if ((inv.splitRemainingDebt || 0) > 0) bump(inv.customerId, inv.createdAt);
+    });
+    return map;
+  })();
+
   // Get filtered customers
   const filteredCustomers = customers.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           c.id.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'Semua' || (statusFilter === 'Overdue' ? isEffectivelyOverdue(c) : c.debtStatus === statusFilter);
     return matchesSearch && matchesStatus;
-  });
+  }).sort((a, b) => (latestDebtTime.get(b.id) ?? 0) - (latestDebtTime.get(a.id) ?? 0));
   const pageCount = Math.ceil(filteredCustomers.length / PAGE_SIZE);
   const safePage = Math.min(currentPage, Math.max(1, pageCount));
   const paginatedCustomers = filteredCustomers.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
@@ -171,6 +192,63 @@ export default function DebtsView({
     onUpdateCustomers(updatedCustomers);
     setSelectedCustomerForAction(nextCustomer);
     triggerToast(index === 'all' ? 'Seluruh riwayat berhasil dihapus.' : 'Catatan riwayat berhasil dihapus.');
+  };
+
+  // Hapus SATU hutang dari Surat Mutasi: catatannya dihapus DAN sisa hutang pelanggan
+  // ikut berkurang. Kalau hutang itu berasal dari bon POS (nomor INV ada di nama
+  // catatan), sisa bon-nya juga dinolkan supaya tidak muncul lagi di form cicilan.
+  // Tidak mencatat pembayaran ke kas — sama seperti Reset hutang manual.
+  const handleDeleteDebtEntry = async (customer: Customer, index: number) => {
+    const entry = customer.lastTransactions[index];
+    if (!entry || entry.amount <= 0) return;
+
+    const invoiceNo = entry.orderName.match(/INV-[\w-]+/)?.[0];
+    const linkedInvoice = invoiceNo
+      ? salesInvoices.find((inv) => inv.invoiceNumber === invoiceNo && inv.customerId === customer.id)
+      : undefined;
+    const outstanding = linkedInvoice ? (linkedInvoice.splitRemainingDebt || 0) : entry.amount;
+    const removed = Math.min(customer.currentDebt || 0, outstanding);
+    const nextDebt = Math.max(0, (customer.currentDebt || 0) - removed);
+
+    const confirmed = await dialog.confirm(
+      removed > 0
+        ? `Hapus hutang "${entry.orderName}"? Sisa hutang ${customer.name} berkurang Rp ${removed.toLocaleString('id-ID')} (dari Rp ${(customer.currentDebt || 0).toLocaleString('id-ID')} menjadi Rp ${nextDebt.toLocaleString('id-ID')}). Tidak mencatat pembayaran ke kas.`
+        : `Hutang "${entry.orderName}" sudah lunas. Hanya catatan riwayatnya yang dihapus, sisa hutang ${customer.name} tidak berubah.`,
+      { danger: true }
+    );
+    if (!confirmed) return;
+
+    if (linkedInvoice && (linkedInvoice.splitRemainingDebt || 0) > 0) {
+      onUpdateSalesInvoice?.({ ...linkedInvoice, splitRemainingDebt: 0 });
+    }
+
+    const otherDueDates = salesInvoices
+      .filter((inv) => inv.customerId === customer.id && inv.invoiceNumber !== linkedInvoice?.invoiceNumber && (inv.splitRemainingDebt || 0) > 0)
+      .map((inv) => inv.splitDueDate)
+      .filter((d): d is string => Boolean(d))
+      .sort();
+
+    let nextCustomer: Customer = customer;
+    const updatedCustomers = customers.map((item) => {
+      if (item.id !== customer.id) return item;
+      const wasOverdue = item.debtStatus === 'Overdue';
+      nextCustomer = {
+        ...item,
+        currentDebt: nextDebt,
+        debtStatus: nextDebt === 0 ? ('Cleared' as const) : item.debtStatus,
+        overdueAmount: nextDebt === 0 ? 0 : wasOverdue ? Math.max(0, (item.overdueAmount || 0) - removed) : item.overdueAmount,
+        pendingAmount: nextDebt === 0 ? 0 : wasOverdue ? item.pendingAmount : Math.max(0, (item.pendingAmount || 0) - removed),
+        nextDueDate: nextDebt === 0 ? undefined : otherDueDates[0] || item.nextDueDate,
+        lastTransactions: item.lastTransactions.filter((_, i) => i !== index),
+      };
+      return nextCustomer;
+    });
+    onUpdateCustomers(updatedCustomers);
+    if (removed > 0) {
+      onAddActivity('Hapus Hutang', `Hutang ${customer.name} sebesar Rp ${removed.toLocaleString('id-ID')} dihapus oleh ${currentUser?.name || 'Owner'}`, 0, 'overdue');
+    }
+    setSelectedCustomerForAction(nextCustomer);
+    triggerToast(removed > 0 ? `Hutang Rp ${removed.toLocaleString('id-ID')} berhasil dihapus.` : 'Catatan riwayat berhasil dihapus.');
   };
 
   const handleResetDebt = async (customer: Customer) => {
@@ -316,7 +394,7 @@ export default function DebtsView({
       if (c.id === selectedCustomerForAction.id) {
         const nextDebt = c.currentDebt + amount;
         const nextTransactions = [
-          { orderName: `Pencatatan Piutang: ${debtDescription || 'Bahan Bangunan'}`, date: new Date().toISOString().split('T')[0], amount: amount },
+          { orderName: `Pencatatan Piutang: ${debtDescription || 'Bahan Bangunan'}`, date: new Date().toISOString().split('T')[0], createdAt: new Date().toISOString(), amount: amount },
           ...c.lastTransactions
         ];
         return {
@@ -835,11 +913,14 @@ export default function DebtsView({
                             {canResetDebt && (
                               <button
                                 type="button"
-                                onClick={() => handleDeleteHistory(selectedCustomerForAction, idx)}
-                                className="print:hidden text-slate-300 hover:text-red-500 cursor-pointer"
-                                title="Hapus catatan ini"
+                                onClick={() => (trx.amount > 0
+                                  ? handleDeleteDebtEntry(selectedCustomerForAction, idx)
+                                  : handleDeleteHistory(selectedCustomerForAction, idx))}
+                                className={`print:hidden flex items-center gap-0.5 cursor-pointer hover:text-red-600 ${trx.amount > 0 ? 'text-red-400' : 'text-slate-300 hover:text-red-500'}`}
+                                title={trx.amount > 0 ? 'Hapus hutang ini (sisa hutang berkurang)' : 'Hapus catatan ini'}
                               >
                                 <Trash2 className="w-3 h-3" />
+                                {trx.amount > 0 && <span className="text-[9px] font-bold">Hapus</span>}
                               </button>
                             )}
                           </div>

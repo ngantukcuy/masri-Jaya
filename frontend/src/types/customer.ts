@@ -2,6 +2,8 @@ export interface CustomerTransaction {
   orderName: string;
   date: string;
   amount: number;
+  /** ISO timestamp saat dicatat — dipakai mengurutkan pelanggan dengan piutang terbaru di halaman Piutang. Data lama belum punya. */
+  createdAt?: string;
 }
 
 export interface DepositTransaction {

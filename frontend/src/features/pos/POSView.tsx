@@ -297,7 +297,7 @@ export default function POSView({
                           prod.sku.toLowerCase().includes(q) ||
                           (prod.barcode || '').toLowerCase().includes(q);
     return matchesCategory && matchesSearch;
-  });
+  }).sort((a, b) => a.name.localeCompare(b.name, 'id', { sensitivity: 'base', numeric: true }));
 
   const handleAddCustomer = (name: string, loyaltyTier: string, phone?: string) => {
     const nextId = `CUST-${Math.floor(10000 + Math.random() * 90000)}`;
@@ -790,7 +790,7 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
             debtStatus: 'Pending' as const,
             pendingAmount: (cust.pendingAmount || 0) + splitRemainingDebt,
             lastTransactions: [
-              { orderName: `Penjualan POS (${methodUsed === 'Piutang' ? (paymentDetails.payOnDelivery ? 'Bayar Setelah Diantar' : 'Piutang') : 'Cicil'}): ${invNumber}`, date: new Date().toISOString().split('T')[0], amount: splitRemainingDebt },
+              { orderName: `Penjualan POS (${methodUsed === 'Piutang' ? (paymentDetails.payOnDelivery ? 'Bayar Setelah Diantar' : 'Piutang') : 'Cicil'}): ${invNumber}`, date: new Date().toISOString().split('T')[0], createdAt: new Date().toISOString(), amount: splitRemainingDebt },
               ...cust.lastTransactions
             ],
             nextDueDate: cust.nextDueDate && cust.nextDueDate < debtDueDate ? cust.nextDueDate : debtDueDate
