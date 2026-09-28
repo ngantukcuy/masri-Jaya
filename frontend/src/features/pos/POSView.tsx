@@ -1172,8 +1172,22 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
                   }
                 }}
                 placeholder="Ketik nama, scan pakai HP (F1), atau scan pakai alat USB/Bluetooth..."
-                className="pl-10 pr-12 bg-gray-50 border-none"
+                className={`pl-10 bg-gray-50 border-none ${searchQuery ? 'pr-20' : 'pr-12'}`}
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    document.getElementById('barcode-search-input')?.focus();
+                  }}
+                  title="Hapus pencarian"
+                  aria-label="Hapus pencarian"
+                  className="absolute right-11 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-gray-200 text-gray-500 hover:bg-gray-300 hover:text-gray-700 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] bg-gray-200 text-gray-500 px-1 py-0.5 rounded font-black font-mono">F1</span>
             </div>
 

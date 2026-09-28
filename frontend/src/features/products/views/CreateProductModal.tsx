@@ -13,6 +13,7 @@ interface CreateProductModalProps {
   setShowCreateModal: (open: boolean) => void;
   handleCreateSubmit: (e: React.FormEvent) => void;
   generateSkuCode: () => string;
+  generateBarcodeCode: () => string;
   setShowSkuScanner: (open: boolean) => void;
   categoryNames: string[];
   unitNames: string[];
@@ -49,6 +50,7 @@ export default function CreateProductModal({
   setShowCreateModal,
   handleCreateSubmit,
   generateSkuCode,
+  generateBarcodeCode,
   setShowSkuScanner,
   categoryNames,
   unitNames,
@@ -99,12 +101,12 @@ export default function CreateProductModal({
                 />
               </div>
               <div>
-                <Label>Kode SKU</Label>
+                <Label>Kode Batang (Barcode)</Label>
                 <div className="flex gap-1.5">
                   <Input
                     type="text"
                     required
-                    placeholder="SKU-XXXXXX"
+                    placeholder="Scan atau generate kode batang..."
                     value={formSku}
                     onChange={(e) => setFormSku(e.target.value)}
                     className="font-mono flex-1 min-w-0"
@@ -112,15 +114,15 @@ export default function CreateProductModal({
                   <Button
                     type="button"
                     variant="secondary"
-                    title="Generate kode SKU acak"
-                    onClick={() => setFormSku(generateSkuCode())}
+                    title="Generate kode batang acak"
+                    onClick={() => setFormSku(generateBarcodeCode())}
                     className="bg-gray-900 hover:bg-black text-white px-2.5 shrink-0"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                   </Button>
                   <Button
                     type="button"
-                    title="Scan kode SKU/barcode dengan kamera"
+                    title="Scan kode batang dengan kamera"
                     onClick={() => setShowSkuScanner(true)}
                     className="px-2.5 shrink-0"
                   >

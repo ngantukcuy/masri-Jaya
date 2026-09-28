@@ -18,3 +18,16 @@ export function generateSkuCode(prefix = 'SKU', length = 6): string {
   }
   return `${prefix}-${code}`;
 }
+
+/**
+ * Generate kode batang (barcode) numerik 13 digit format EAN-13 dengan check
+ * digit yang valid, awalan 200 (rentang untuk pemakaian internal toko).
+ * Contoh: generateBarcodeCode() -> "2004839172645"
+ */
+export function generateBarcodeCode(): string {
+  let digits = '200';
+  for (let i = 0; i < 9; i++) digits += Math.floor(Math.random() * 10);
+  let sum = 0;
+  for (let i = 0; i < 12; i++) sum += Number(digits[i]) * (i % 2 === 0 ? 1 : 3);
+  return digits + ((10 - (sum % 10)) % 10);
+}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit3, Loader2, Upload } from 'lucide-react';
+import { Edit3, Loader2, Upload, RefreshCw, ScanLine } from 'lucide-react';
 import { Supplier, SkuLocation, SellUnit } from '../../../types';
 import SearchableSelect from '../../../components/shared/SearchableSelect';
 import SellUnitsField from '../../../components/shared/SellUnitsField';
@@ -30,6 +30,10 @@ interface EditProductModalProps {
   formAlias: string;
   setFormAlias: (v: string) => void;
   formSku: string;
+  generateBarcodeCode: () => string;
+  formBarcode: string;
+  setFormBarcode: (v: string) => void;
+  setShowBarcodeScanner: (open: boolean) => void;
   formName: string;
   setFormName: (v: string) => void;
   formSupplier: string;
@@ -89,6 +93,10 @@ export default function EditProductModal({
   formAlias,
   setFormAlias,
   formSku,
+  generateBarcodeCode,
+  formBarcode,
+  setFormBarcode,
+  setShowBarcodeScanner,
   formName,
   setFormName,
   formSupplier,
@@ -150,6 +158,36 @@ export default function EditProductModal({
               <div>
                 <Label>Kode SKU (Tidak Dapat Diubah)</Label>
                 <Input type="text" disabled value={formSku} className="font-mono bg-muted text-muted-foreground cursor-not-allowed" />
+              </div>
+            </div>
+
+            <div>
+              <Label>Kode Batang (Barcode)</Label>
+              <div className="flex gap-1.5">
+                <Input
+                  type="text"
+                  placeholder="Scan atau generate barcode..."
+                  value={formBarcode}
+                  onChange={(e) => setFormBarcode(e.target.value)}
+                  className="font-mono flex-1 min-w-0"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  title="Generate barcode acak"
+                  onClick={() => setFormBarcode(generateBarcodeCode())}
+                  className="bg-gray-900 hover:bg-black text-white px-2.5 shrink-0"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  title="Scan barcode dengan kamera"
+                  onClick={() => setShowBarcodeScanner(true)}
+                  className="px-2.5 shrink-0"
+                >
+                  <ScanLine className="w-3.5 h-3.5" />
+                </Button>
               </div>
             </div>
 

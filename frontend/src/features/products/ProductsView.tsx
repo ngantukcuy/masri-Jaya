@@ -22,7 +22,7 @@ import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
 import BarcodeScannerModal from '../../components/shared/BarcodeScannerModal';
-import { generateSkuCode } from '../../lib/generateSku';
+import { generateSkuCode, generateBarcodeCode } from '../../lib/generateSku';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -938,7 +938,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     // stok/lokasi ngasal. Sekarang beneran kosong/nol, cuma Kode SKU yang
     // di-generate otomatis (karena itu memang harus unik per produk).
     setFormName('');
-    setFormSku(generateSkuCode());
+    setFormSku(generateBarcodeCode());
     setFormCategory(categoryNames[0] || '');
     setFormUnit('Sack');
     setFormRetailPrice(0);
@@ -957,9 +957,12 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     setFormCategory2(prod.category2 || '');
     setFormCategory3(prod.category3 || '');
     setFormUnit(prod.unit);
-    setFormRetailPrice(prod.retailPrice);
-    setFormWholesalePrice(prod.wholesalePrice);
-    setFormProjectPrice(prod.projectPrice);
+    // Baca dari field Harga Modal/Standard/Minimum yang asli (SKU Master),
+    // bukan dari retailPrice — di produk hasil SKU Master retailPrice berisi
+    // harga standard, jadi kalau dibaca dari sana Harga Modal ikut salah.
+    setFormRetailPrice(prod.costPrice ?? prod.retailPrice);
+    setFormWholesalePrice(prod.standardSellPrice ?? prod.wholesalePrice);
+    setFormProjectPrice(prod.minSellPrice ?? prod.projectPrice);
     setFormStock(prod.stock);
     setFormLocation(prod.warehouseLocation || (prod as any).location || '');
     setFormImage(prod.image || '');
@@ -1000,7 +1003,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formSku.trim()) {
-      dialog.alert("Nama dan SKU produk wajib diisi!");
+      dialog.alert("Nama dan kode batang produk wajib diisi!");
       return;
     }
     if (!formCategory) {
@@ -1032,7 +1035,11 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       lastRestock: new Date().toISOString().split('T')[0],
       leadTime: '3-5 Days',
       warehouseLocation: formLocation,
-      image: formImage
+      image: formImage,
+      barcode: formSku.trim(),
+      costPrice: Number(formRetailPrice),
+      standardSellPrice: Number(formWholesalePrice),
+      minSellPrice: Number(formProjectPrice),
     };
 
     onUpdateProducts([newProd, ...products]);
@@ -1594,11 +1601,11 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                 <div className="divide-y divide-border border border-border rounded-xl bg-muted/40 p-1">
                   <div className="flex justify-between p-2">
                     <span className="text-muted-foreground font-medium">Harga Modal</span>
-                    <span className="font-extrabold text-foreground">Rp {selectedProduct.retailPrice.toLocaleString('id-ID')} / {selectedProduct.unit}</span>
+                    <span className="font-extrabold text-foreground">Rp {(selectedProduct.costPrice ?? selectedProduct.retailPrice).toLocaleString('id-ID')} / {selectedProduct.unit}</span>
                   </div>
                   <div className="flex justify-between p-2">
                     <span className="text-muted-foreground font-medium flex items-center gap-1">Harga Standard <Info className="w-3.5 h-3.5 text-primary" /></span>
-                    <span className="font-extrabold text-foreground">Rp {selectedProduct.wholesalePrice.toLocaleString('id-ID')} / {selectedProduct.unit}</span>
+                    <span className="font-extrabold text-foreground">Rp {(selectedProduct.standardSellPrice ?? selectedProduct.wholesalePrice).toLocaleString('id-ID')} / {selectedProduct.unit}</span>
                   </div>
                   <div className="flex justify-between p-2">
                     <span className="text-muted-foreground font-medium">Harga Minimum</span>
@@ -1663,6 +1670,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
         setShowCreateModal={setShowCreateModal}
         handleCreateSubmit={handleCreateSubmit}
         generateSkuCode={generateSkuCode}
+        generateBarcodeCode={generateBarcodeCode}
         setShowSkuScanner={setShowSkuScanner}
         categoryNames={categoryNames}
         unitNames={unitNames}
@@ -1706,6 +1714,10 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
         formAlias={formAlias}
         setFormAlias={setFormAlias}
         formSku={formSku}
+        generateBarcodeCode={generateBarcodeCode}
+        formBarcode={formBarcode}
+        setFormBarcode={setFormBarcode}
+        setShowBarcodeScanner={setShowEditBarcodeScanner}
         formName={formName}
         setFormName={setFormName}
         formSupplier={formSupplier}
@@ -1763,7 +1775,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
 
       {showSkuScanner && (
         <BarcodeScannerModal
-          title="Scan Kode SKU"
+          title="Scan Kode Batang"
           onClose={() => setShowSkuScanner(false)}
           onDetected={(code) => {
             setFormSku(code);
