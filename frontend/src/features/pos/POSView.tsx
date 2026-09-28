@@ -30,6 +30,8 @@ import ScannerModal from './components/ScannerModal';
 import QRISModal from './components/QRISModal';
 import ReceiptModal from './components/ReceiptModal';
 import AddProductModal from './components/AddProductModal';
+import QuantityPickerModal from './components/QuantityPickerModal';
+import { roundQty, formatQty, lineAmount } from '../../lib/quantity';
 import AddCustomerModal from './components/AddCustomerModal';
 import SelectCustomerModal from './components/SelectCustomerModal';
 import PaymentMethodModal from './components/PaymentMethodModal';
@@ -270,6 +272,8 @@ export default function POSView({
 
   // New Product quick add states
   const [showAddProductModal, setShowAddProductModal] = useState(false);
+  // Produk yang boleh dijual pecahan: klik produk → pop-up "mau beli berapa".
+  const [pickerProduct, setPickerProduct] = useState<Product | null>(null);
   const [newProductName, setNewProductName] = useState('');
   const [newProductSku, setNewProductSku] = useState('');
   const [newProductCategory, setNewProductCategory] = useState('');
@@ -410,12 +414,27 @@ export default function POSView({
       if (getStockPoolSku(item.product) !== poolSku) return acc;
       return acc + item.quantity * getStockPerUnit(item.product);
     }, 0);
-    return Math.max(0, Math.floor(round3((pool.stock - usedByOthers) / getStockPerUnit(prod)) + 1e-9));
+    const rawAvailable = round3((pool.stock - usedByOthers) / getStockPerUnit(prod));
+    // Produk yang boleh dijual pecahan (½ kg, per meter, dst) tidak dibulatkan ke bawah.
+    return Math.max(0, prod.allowDecimalQty ? rawAvailable : Math.floor(rawAvailable + 1e-9));
   };
 
-  // Add to cart
-  const handleAddToCart = (prod: Product, quiet = false) => {
-    if (getAvailableUnits(prod) <= 0) {
+  // Langkah jumlah untuk tombol +/- di keranjang. Produk biasa: 1. Produk
+  // pecahan: satuan jual terkecil (mis. 0,1 untuk "ons"), minimal 0,5 kalau
+  // tidak ada satuan tambahan.
+  const getQtyStep = (prod: Product) => {
+    if (!prod.allowDecimalQty) return 1;
+    const small = (prod.sellUnits || []).map((u) => u.factor).filter((f) => f > 0 && f < 0.5);
+    return small.length ? Math.min(...small) : 0.5;
+  };
+
+  // Add to cart — `qty` dalam satuan dasar produk (boleh desimal untuk produk pecahan).
+  // `total` (opsional) = harga total untuk `qty` — dipakai kalau satuan jual punya
+  // harga sendiri (mis. 1 ons = Rp 3.500). Baris keranjang tetap satu per produk:
+  // harga per satuan dasar dihitung ulang dari total semua yang sudah dipilih.
+  const handleAddToCart = (prod: Product, quiet = false, qty = 1, total?: number) => {
+    const available = getAvailableUnits(prod);
+    if (available <= 0) {
       dialog.alert("Stok barang habis! Silakan buat pesanan PO di tab Pembelian terlebih dahulu.");
       return;
     }
@@ -426,22 +445,47 @@ export default function POSView({
 
     const existingIdx = cart.findIndex(item => item.product.sku === prod.sku);
     if (existingIdx > -1) {
-      const updated = [...cart];
-      if (updated[existingIdx].quantity + 1 > getAvailableUnits(prod, prod.sku)) {
+      const nextQty = roundQty(cart[existingIdx].quantity + qty);
+      if (nextQty > getAvailableUnits(prod, prod.sku) + 1e-9) {
         dialog.alert("Jumlah melebihi stok fisik gudang!");
         return;
       }
-      updated[existingIdx].quantity += 1;
-      setCart(updated);
+      setCart(cart.map((item, idx) => {
+        if (idx !== existingIdx) return item;
+        if (total === undefined || item.bonus) return { ...item, quantity: nextQty };
+        const mergedTotal = lineAmount(getCartItemPrice(item), item.quantity) + total;
+        return { ...item, quantity: nextQty, customPrice: Math.round((mergedTotal / nextQty) * 100) / 100 };
+      }));
     } else {
+      if (qty > available + 1e-9) {
+        dialog.alert("Jumlah melebihi stok fisik gudang!");
+        return;
+      }
       setCart([...cart, {
         product: prod,
-        quantity: 1,
+        quantity: roundQty(qty),
         selectedPriceType: 'wholesale',
-        customPrice: prod.wholesalePrice,
+        customPrice: total === undefined ? prod.wholesalePrice : Math.round((total / roundQty(qty)) * 100) / 100,
         notes: ''
       }]);
     }
+  };
+
+  // Dipanggil saat produk diklik / barcode di-scan. Produk yang boleh dijual
+  // pecahan membuka pop-up "mau beli berapa"; produk biasa langsung +1 seperti sebelumnya.
+  const handleProductPick = (prod: Product, quiet = false) => {
+    if (!prod.allowDecimalQty) {
+      handleAddToCart(prod, quiet);
+      return;
+    }
+    if (getAvailableUnits(prod) <= 0) {
+      dialog.alert("Stok barang habis! Silakan buat pesanan PO di tab Pembelian terlebih dahulu.");
+      return;
+    }
+    if (!quiet) {
+      playBeep(soundEnabled);
+    }
+    setPickerProduct(prod);
   };
 
   const stopCameraPreview = useCallback(() => {
@@ -493,7 +537,7 @@ export default function POSView({
     const matchedProduct = products.find((p) => p.barcode === barcodeSku || p.sku === barcodeSku);
     if (matchedProduct) {
       playBeep(soundEnabled);
-      handleAddToCart(matchedProduct, true);
+      handleProductPick(matchedProduct, true);
       setScanSuccessMessage(`BERHASIL DISCAN: ${matchedProduct.name}`);
       setShowScannerModal(false);
       stopCameraPreview();
@@ -508,8 +552,10 @@ export default function POSView({
     const updated = cart.map((item) => {
       if (item.product.sku !== sku) return item;
 
-      const safeQty = Math.max(1, nextQty);
-      if (safeQty > getAvailableUnits(item.product, item.product.sku)) {
+      // Produk pecahan: 0 / kosong = batalkan ubahan (jumlah lama dipertahankan).
+      if (item.product.allowDecimalQty && !(nextQty > 0)) return item;
+      const safeQty = item.product.allowDecimalQty ? roundQty(nextQty) : Math.max(1, nextQty);
+      if (safeQty > getAvailableUnits(item.product, item.product.sku) + 1e-9) {
         dialog.alert("Jumlah tidak boleh melebihi stok fisik di gudang!");
         return item;
       }
@@ -520,17 +566,17 @@ export default function POSView({
     setCart(updated);
   };
 
-  const handleQtyInputChange = (sku: string, rawValue: string) => {
-  const val = rawValue.replace(/[^0-9]/g, '');
+  const handleQtyInputChange = (sku: string, rawValue: string, allowDecimal = false) => {
+  const val = allowDecimal ? rawValue.replace(/[^0-9,.]/g, '') : rawValue.replace(/[^0-9]/g, '');
   setEditingQty((prev) => ({ ...prev, [sku]: val }));
 };
 
-const commitQtyInput = (sku: string) => {
+const commitQtyInput = (sku: string, allowDecimal = false) => {
   const rawValue = editingQty[sku];
   if (rawValue === undefined) return;
 
-  const parsed = parseInt(rawValue, 10);
-  handleSetQty(sku, isNaN(parsed) ? 1 : parsed);
+  const parsed = allowDecimal ? parseFloat(rawValue.replace(',', '.')) : parseInt(rawValue, 10);
+  handleSetQty(sku, isNaN(parsed) ? (allowDecimal ? 0 : 1) : parsed);
 
   setEditingQty((prev) => {
     const next = { ...prev };
@@ -543,9 +589,9 @@ const commitQtyInput = (sku: string) => {
   const handleUpdateQty = (sku: string, delta: number) => {
     const updated = cart.map((item) => {
       if (item.product.sku === sku) {
-        const targetQty = item.quantity + delta;
+        const targetQty = roundQty(item.quantity + delta * getQtyStep(item.product));
         if (targetQty <= 0) return null;
-        if (targetQty > getAvailableUnits(item.product, item.product.sku)) {
+        if (targetQty > getAvailableUnits(item.product, item.product.sku) + 1e-9) {
           dialog.alert("Jumlah tidak boleh melebihi stok fisik di gudang!");
           return item;
         }
@@ -598,7 +644,7 @@ const commitQtyInput = (sku: string) => {
 
   // Cart Calculations
   const getCartSubtotal = () => {
-    return cart.reduce((acc, item) => acc + (getCartItemPrice(item) * item.quantity), 0);
+    return cart.reduce((acc, item) => acc + lineAmount(getCartItemPrice(item), item.quantity), 0);
   };
 
   const subtotal = getCartSubtotal();
@@ -694,7 +740,7 @@ const commitQtyInput = (sku: string) => {
     const usedByPool = new Map<string, number>();
     cart.forEach((cartItem) => {
       const poolSku = getStockPoolSku(cartItem.product);
-      usedByPool.set(poolSku, (usedByPool.get(poolSku) || 0) + cartItem.quantity * getStockPerUnit(cartItem.product));
+      usedByPool.set(poolSku, round3((usedByPool.get(poolSku) || 0) + cartItem.quantity * getStockPerUnit(cartItem.product)));
     });
     const statusFor = (prod: Product, nextStock: number): 'Healthy' | 'Low Stock' | 'Out of Stock' => {
       if (nextStock <= 0) return 'Out of Stock';
@@ -763,7 +809,7 @@ const commitQtyInput = (sku: string) => {
     onUpdateCustomers(updatedCustomers);
 
     // Also link to Kas Harian session (only cash payments move the physical drawer)
-    const stockQtySold = cart.reduce((acc, i) => acc + i.quantity, 0);
+    const stockQtySold = roundQty(cart.reduce((acc, i) => acc + i.quantity, 0));
     const cashPaidAmount = methodUsed === 'Split'
       ? Math.max(0, paymentDetails.splitPaidAmount || 0)
       : totalAmount;
@@ -843,7 +889,7 @@ const commitQtyInput = (sku: string) => {
     // Add activity stream event
     onAddActivity(
       `Penjualan POS: ${invNumber}`,
-      `Selesai untuk ${selectedCustomer.name} • ${cart.reduce((acc, i) => acc + i.quantity, 0)} barang`,
+      `Selesai untuk ${selectedCustomer.name} • ${formatQty(cart.reduce((acc, i) => acc + i.quantity, 0))} barang`,
       totalAmount,
       'sale'
     );
@@ -1099,7 +1145,7 @@ const commitQtyInput = (sku: string) => {
         >
           <span>Keranjang Belanja</span>
           {cart.length > 0 && (
-            <Badge className="animate-pulse">{cart.reduce((acc, item) => acc + item.quantity, 0)}</Badge>
+            <Badge className="animate-pulse">{formatQty(cart.reduce((acc, item) => acc + item.quantity, 0))}</Badge>
           )}
         </Button>
       </div>
@@ -1318,7 +1364,7 @@ const commitQtyInput = (sku: string) => {
           {filteredProducts.map((prod) => (
             <motion.div 
               whileTap={{ scale: 0.98 }}
-              onClick={() => handleAddToCart(prod)}
+              onClick={() => handleProductPick(prod)}
               key={prod.sku}
             >
               <Card className="p-3 flex flex-col justify-between hover:border-primary/50 cursor-pointer group transition-all gap-0">
@@ -1341,7 +1387,7 @@ const commitQtyInput = (sku: string) => {
                   variant={prod.stockStatus === 'Healthy' ? 'success' : prod.stockStatus === 'Low Stock' ? 'warning' : 'destructive'}
                   className="absolute bottom-2 left-2"
                 >
-                  STOK: {prod.stockSourceSku ? getAvailableUnits(prod) : prod.stock}
+                  STOK: {formatQty(prod.stockSourceSku ? getAvailableUnits(prod) : prod.stock)}
                 </Badge>
               </div>
 
@@ -1412,9 +1458,15 @@ const commitQtyInput = (sku: string) => {
           ) : (
             cart.map((item) => {
               const price = getCartItemPrice(item);
-              const lineTotal = price * item.quantity;
+              const lineTotal = lineAmount(price, item.quantity);
               const minPrice = item.product.projectPrice;
-              const maxPrice = item.product.wholesalePrice;
+              // Harga satuan jual (mis. ons) boleh lebih mahal per kg dari harga standar,
+              // jadi batas atas ikut naik supaya harga campuran tidak terpotong.
+              const maxPrice = Math.max(
+                item.product.wholesalePrice,
+                Math.ceil(price),
+                ...(item.product.sellUnits || []).filter((u) => (u.price || 0) > 0 && u.factor > 0).map((u) => Math.ceil((u.price as number) / u.factor))
+              );
 
               return (
                 <div key={item.product.sku} className="p-3 bg-gray-50 border border-gray-100 rounded-xl space-y-2 relative group">
@@ -1472,17 +1524,19 @@ const commitQtyInput = (sku: string) => {
 
     <input
       type="text"
-      inputMode="numeric"
-      pattern="[0-9]*"
-      value={editingQty[item.product.sku] ?? String(item.quantity)}
-      onChange={(e) => handleQtyInputChange(item.product.sku, e.target.value)}
-      onBlur={() => commitQtyInput(item.product.sku)}
+      inputMode={item.product.allowDecimalQty ? 'decimal' : 'numeric'}
+      value={editingQty[item.product.sku] ?? (item.product.allowDecimalQty ? String(roundQty(item.quantity)).replace('.', ',') : String(item.quantity))}
+      onChange={(e) => handleQtyInputChange(item.product.sku, e.target.value, !!item.product.allowDecimalQty)}
+      onBlur={() => commitQtyInput(item.product.sku, !!item.product.allowDecimalQty)}
       onKeyDown={(e) => {
         if (e.key === 'Enter') e.currentTarget.blur();
       }}
       onFocus={(e) => e.target.select()}
-      className="w-10 text-center text-xs font-black text-gray-800 bg-transparent outline-none border-none focus:ring-0"
+      className={`${item.product.allowDecimalQty ? 'w-14' : 'w-10'} text-center text-xs font-black text-gray-800 bg-transparent outline-none border-none focus:ring-0`}
     />
+    {item.product.allowDecimalQty && (
+      <span className="text-[10px] font-bold text-gray-400 pr-1">{item.product.unit}</span>
+    )}
 
     <Button
       variant="ghost"
@@ -1674,7 +1728,7 @@ const commitQtyInput = (sku: string) => {
         <div className="fixed bottom-[74px] left-4 right-4 z-[90] md:hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3.5 rounded-2xl flex items-center justify-between shadow-xl shadow-blue-900/30 border border-blue-500/30 animate-in fade-in slide-in-from-bottom-5 duration-200">
           <div className="flex flex-col">
             <span className="text-[9px] text-blue-100 font-extrabold uppercase tracking-widest">
-              {cart.reduce((acc, item) => acc + item.quantity, 0)} Barang di Keranjang
+              {formatQty(cart.reduce((acc, item) => acc + item.quantity, 0))} Barang di Keranjang
             </span>
             <span className="text-sm font-black">
               Rp {totalAmount.toLocaleString('id-ID')}
@@ -1775,6 +1829,27 @@ const commitQtyInput = (sku: string) => {
             lastOrderDetails={lastOrderDetails}
             cashierName={cashierName}
             storeProfile={storeProfile}
+          />
+        )}
+
+        {pickerProduct && (
+          <QuantityPickerModal
+            product={pickerProduct}
+            price={(() => {
+              // Kalau ada satuan jual berharga sendiri, semua pilihan dihitung dari harga daftar
+              // (total baris dijumlahkan di handleAddToCart); kalau tidak, pakai harga baris keranjang.
+              const hasUnitPrices = (pickerProduct.sellUnits || []).some((u) => (u.price || 0) > 0);
+              const existing = cart.find((it) => it.product.sku === pickerProduct.sku);
+              return existing && !hasUnitPrices ? getCartItemPrice(existing) : pickerProduct.wholesalePrice;
+            })()}
+            available={getAvailableUnits(pickerProduct)}
+            inCart={cart.find((it) => it.product.sku === pickerProduct.sku)?.quantity || 0}
+            onClose={() => setPickerProduct(null)}
+            onConfirm={(qty, total) => {
+              const hasUnitPrices = (pickerProduct.sellUnits || []).some((u) => (u.price || 0) > 0);
+              handleAddToCart(pickerProduct, true, qty, hasUnitPrices ? total : undefined);
+              setPickerProduct(null);
+            }}
           />
         )}
 

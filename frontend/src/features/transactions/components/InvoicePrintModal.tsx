@@ -8,6 +8,7 @@ import NumberInput from '../../../components/shared/NumberInput';
 import { getPrinterConnections } from '../../../lib/printing/printerConnection';
 import { buildInvoiceReceipt, buildDeliveryReceipt } from '../../../lib/printing/escpos';
 import { useDialog } from '../../../components/shared/DialogProvider';
+import { formatQty, lineAmount, roundQty } from '../../../lib/quantity';
 
 interface StoreProfileLite {
   storeName: string;
@@ -52,7 +53,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
   const setDeliveryQuantity = (idx: number, value: number) => {
     const delivered = invoice.items[idx].deliveredQuantity || 0;
     const remaining = Math.max(0, invoice.items[idx].quantity - delivered);
-    setDeliveryQuantities((prev) => ({ ...prev, [idx]: Math.min(remaining, Math.max(0, Math.round(value))) }));
+    setDeliveryQuantities((prev) => ({ ...prev, [idx]: Math.min(remaining, Math.max(0, Number.isInteger(invoice.items[idx].quantity) ? Math.round(value) : roundQty(value))) }));
   };
 
   const toggleItem = (idx: number) => {
@@ -95,8 +96,14 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
   // other the way they used to — that mismatch was exactly why the Riwayat
   // Transaksi truck icon stayed amber after printing a surat jalan for a
   // qty-1 item: the note printed "1 terkirim" but 0 was ever recorded.
-  const effectiveDeliveryQty = (idx: number) =>
-    deliveryQuantities[idx] || (invoice.items[idx].quantity === 1 && selectedItemIdx.has(idx) ? 1 : 0);
+  const effectiveDeliveryQty = (idx: number) => {
+    if (deliveryQuantities[idx]) return deliveryQuantities[idx];
+    if (!selectedItemIdx.has(idx)) return 0;
+    const item = invoice.items[idx];
+    if (item.quantity === 1) return 1;
+    // Barang jual pecahan (mis. 0,5 kg): kalau dicentang & jumlah belum diisi, anggap semua sisa diantar.
+    return Number.isInteger(item.quantity) ? 0 : roundQty(Math.max(0, item.quantity - (item.deliveredQuantity || 0)));
+  };
 
   const deliveryItems =
     docType === 'delivery'
@@ -112,7 +119,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
     ? { ...invoice, driverName: driverName.trim() || invoice.driverName, items: deliveryItems }
     : invoice;
 
-  const subtotal = printableInvoice.subtotal ?? printableInvoice.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
+  const subtotal = printableInvoice.subtotal ?? printableInvoice.items.reduce((acc, it) => acc + lineAmount(it.price, it.quantity), 0);
 
   const continueToPrint = () => {
     if (!driverName.trim() || deliveryItems.length === 0) return;
@@ -197,7 +204,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
       driverName: driverName.trim() || undefined,
       items: invoice.items.map((item, idx) => ({
         ...item,
-        deliveredQuantity: Math.min(item.quantity, (item.deliveredQuantity || 0) + effectiveDeliveryQty(idx)),
+        deliveredQuantity: roundQty(Math.min(item.quantity, (item.deliveredQuantity || 0) + effectiveDeliveryQty(idx))),
       })),
     };
     onDeliveryComplete?.(updatedInvoice);
@@ -280,11 +287,12 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
                   )}
                   <span className="flex-1 min-w-0">
                     <p className={`truncate font-semibold ${complete ? 'text-emerald-700' : 'text-gray-900'}`}>{item.name}</p>
-                    <p className="text-[10px] text-gray-400">Terkirim {delivered} / {item.quantity} {item.unit || ''} {complete ? '• Selesai' : `• Sisa ${remaining}`}</p>
+                    <p className="text-[10px] text-gray-400">Terkirim {formatQty(delivered)} / {formatQty(item.quantity)} {item.unit || ''} {complete ? '• Selesai' : `• Sisa ${formatQty(remaining)}`}</p>
                   </span>
                   {!complete && selectedItemIdx.has(idx) && (
                     <NumberInput
                       value={deliveryQuantities[idx] || 0}
+                      allowDecimal={!Number.isInteger(item.quantity)}
                       min={0}
                       max={remaining}
                       onChange={(value) => setDeliveryQuantity(idx, value)}
@@ -386,12 +394,12 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
                 <div className="flex-1 min-w-0 pr-2">
                   <p className="font-bold text-gray-900 truncate">{item.name}</p>
                   <p className="text-[9px] text-gray-400 font-mono">
-                    {item.quantity} {item.unit || ''}
+                    {formatQty(item.quantity)} {item.unit || ''}
                     {docType === 'invoice' && item.bonus ? <> x <span className="line-through">Rp {(item.originalPrice || 0).toLocaleString('id-ID')}</span> <span className="font-bold text-amber-600">BONUS Rp 0</span></> : docType === 'invoice' && ` x Rp ${item.price.toLocaleString('id-ID')}`}
                   </p>
                 </div>
                 {docType === 'invoice' && (
-                  <span className="font-bold text-gray-900">{item.bonus ? <><span className="line-through text-gray-400">Rp {((item.originalPrice || 0) * item.quantity).toLocaleString('id-ID')}</span> <span className="text-amber-600">Rp 0</span></> : `Rp ${(item.price * item.quantity).toLocaleString('id-ID')}`}</span>
+                  <span className="font-bold text-gray-900">{item.bonus ? <><span className="line-through text-gray-400">Rp {lineAmount(item.originalPrice || 0, item.quantity).toLocaleString('id-ID')}</span> <span className="text-amber-600">Rp 0</span></> : `Rp ${lineAmount(item.price, item.quantity).toLocaleString('id-ID')}`}</span>
                 )}
               </div>
             ))}

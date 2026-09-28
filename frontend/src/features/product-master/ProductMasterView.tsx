@@ -16,7 +16,8 @@ import {
   ArrowRight,
   PackageOpen
 } from 'lucide-react';
-import { Product, Bundle, BundleItem, SkuLocation, Supplier } from '../../types';
+import { Product, Bundle, BundleItem, SkuLocation, Supplier, SellUnit } from '../../types';
+import SellUnitsField, { cleanSellUnits } from '../../components/shared/SellUnitsField';
 import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import { uploadProductImage } from '../../lib/uploadProductImage';
 import BarcodeScannerModal from '../../components/shared/BarcodeScannerModal';
@@ -108,6 +109,8 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     brand: '',
     alias: '',
     unit: units[0]?.name || '',
+    allowDecimalQty: false,
+    sellUnits: [] as SellUnit[],
     showLowStockAlert: false,
     minStockQty: 0,
     showInDeadstock: false,
@@ -251,6 +254,8 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
       showInDeadstock: skuForm.showInDeadstock,
       deadstockPeriodMonths: skuForm.deadstockPeriodMonths,
       skuLocationId: skuForm.skuLocationId,
+      allowDecimalQty: skuForm.allowDecimalQty || undefined,
+      sellUnits: skuForm.allowDecimalQty && cleanSellUnits(skuForm.sellUnits).length > 0 ? cleanSellUnits(skuForm.sellUnits) : undefined,
     };
 
     onUpdateProducts([newProduct, ...products]);
@@ -577,6 +582,14 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                   searchPlaceholder="Cari satuan..."
                 />
               </div>
+
+              <SellUnitsField
+                unit={skuForm.unit}
+                allow={skuForm.allowDecimalQty}
+                onAllowChange={(v) => setSkuForm({ ...skuForm, allowDecimalQty: v })}
+                sellUnits={skuForm.sellUnits}
+                onSellUnitsChange={(list) => setSkuForm({ ...skuForm, sellUnits: list })}
+              />
 
               <div className="grid grid-cols-2 gap-4 bg-muted rounded-xl p-3 border border-border">
                 <div className="space-y-2">

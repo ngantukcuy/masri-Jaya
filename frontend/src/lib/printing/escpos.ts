@@ -9,6 +9,7 @@
 
 import type { SalesInvoice } from '../../types';
 import { formatReceiptDateTime, formatReceiptDateOnly } from './receiptDate';
+import { formatQty, lineAmount } from '../quantity';
 
 const ESC = 0x1b;
 const GS = 0x1d;
@@ -181,13 +182,13 @@ export function buildInvoiceReceipt(
   b.divider('-', RECEIPT_WIDTH);
   for (const item of invoice.items) {
     b.line(item.name);
-    const qtyUnit = `${item.quantity}${item.unit ? ` ${item.unit}` : ''}`;
-    const lineTotal = item.bonus ? 0 : item.price * item.quantity;
+    const qtyUnit = `${formatQty(item.quantity)}${item.unit ? ` ${item.unit}` : ''}`;
+    const lineTotal = item.bonus ? 0 : lineAmount(item.price, item.quantity);
     b.line(twoColumns(`  ${qtyUnit} x ${formatRupiah(item.bonus ? 0 : item.price)}`, formatRupiah(lineTotal)));
   }
   b.divider('-', RECEIPT_WIDTH);
 
-  const subtotal = invoice.subtotal ?? invoice.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
+  const subtotal = invoice.subtotal ?? invoice.items.reduce((acc, it) => acc + lineAmount(it.price, it.quantity), 0);
   b.line(twoColumns('Subtotal', formatRupiah(subtotal)));
 
   const additionalFee = invoice.additionalFees?.reduce((acc, fee) => acc + fee.amount, 0) ?? invoice.additionalFee ?? 0;
@@ -259,7 +260,7 @@ export function buildDeliveryReceipt(
 
   for (const item of deliveryItems) {
     b.line(item.name);
-    b.line(`  ${item.quantity}${item.unit ? ` ${item.unit}` : ''}`);
+    b.line(`  ${formatQty(item.quantity)}${item.unit ? ` ${item.unit}` : ''}`);
   }
   b.divider('-', RECEIPT_WIDTH);
 

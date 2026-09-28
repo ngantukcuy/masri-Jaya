@@ -18,6 +18,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { formatQty, lineAmount, roundQty } from '../../lib/quantity';
 
 const numberInputClass =
   'flex h-8 w-full rounded-lg border border-input bg-background px-2 py-1 text-xs font-bold outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/20';
@@ -77,7 +78,7 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
       .reduce((sum, it) => sum + it.quantity, 0);
 
   const getRemainingQty = (refNumber: string, originalQty: number, sku: string) =>
-    Math.max(0, originalQty - getAlreadyReturnedQty(refNumber, sku));
+    roundQty(Math.max(0, originalQty - getAlreadyReturnedQty(refNumber, sku)));
   const [activeTab, setActiveTab] = useState<'penjualan' | 'pembelian'>('penjualan');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -130,7 +131,7 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
   const computeSubtotal = () => {
     return currentItems.reduce((acc, item) => {
       const qty = returnQtys[item.sku] || 0;
-      return acc + qty * item.price;
+      return acc + lineAmount(item.price, qty);
     }, 0);
   };
 
@@ -197,7 +198,7 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
       if (record.type === 'Penjualan') {
         // Goods came back from customer: only restock if condition is good
         if (item.condition === 'Baik') {
-          const nextStock = updatedProducts[idx].stock + item.quantity;
+          const nextStock = roundQty(updatedProducts[idx].stock + item.quantity);
           updatedProducts[idx] = {
             ...updatedProducts[idx],
             stock: nextStock,
@@ -207,7 +208,7 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
         // Rusak items go to the "Gudang Barang Rusak" location conceptually; not added back to sellable stock
       } else {
         // Goods sent back to supplier: reduce our stock either way
-        const nextStock = Math.max(0, updatedProducts[idx].stock - item.quantity);
+        const nextStock = Math.max(0, roundQty(updatedProducts[idx].stock - item.quantity));
         updatedProducts[idx] = {
           ...updatedProducts[idx],
           stock: nextStock,
@@ -359,13 +360,14 @@ export default function ReturView({ products, onUpdateProducts, salesInvoices, p
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="font-bold text-xs text-gray-800">{item.name}</p>
-                        <p className="text-[10px] text-gray-400">Sisa bisa diretur: {item.quantity} · Rp {item.price.toLocaleString('id-ID')}</p>
+                        <p className="text-[10px] text-gray-400">Sisa bisa diretur: {formatQty(item.quantity)} · Rp {item.price.toLocaleString('id-ID')}</p>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <Label className="text-[9px]">Jumlah Retur</Label>
                         <NumberInput
+                          allowDecimal={!Number.isInteger(item.quantity)}
                           max={item.quantity}
                           value={returnQtys[item.sku] || 0}
                           onChange={(v) => setReturnQtys({ ...returnQtys, [item.sku]: v })}

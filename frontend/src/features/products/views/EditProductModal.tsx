@@ -1,7 +1,8 @@
 import React from 'react';
 import { Edit3, Loader2, Upload } from 'lucide-react';
-import { Supplier, SkuLocation, Product } from '../../../types';
+import { Supplier, SkuLocation, Product, SellUnit } from '../../../types';
 import SearchableSelect from '../../../components/shared/SearchableSelect';
+import SellUnitsField from '../../../components/shared/SellUnitsField';
 import NumberInput from '../../../components/shared/NumberInput';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -65,6 +66,10 @@ interface EditProductModalProps {
   setFormStockSourceSku: (v: string) => void;
   formStockPerUnit: number;
   setFormStockPerUnit: (v: number) => void;
+  formAllowDecimalQty: boolean;
+  setFormAllowDecimalQty: (v: boolean) => void;
+  formSellUnits: SellUnit[];
+  setFormSellUnits: (v: SellUnit[]) => void;
   formLocation: string;
   setFormLocation: (v: string) => void;
   formImage: string;
@@ -125,6 +130,10 @@ export default function EditProductModal({
   setFormStockSourceSku,
   formStockPerUnit,
   setFormStockPerUnit,
+  formAllowDecimalQty,
+  setFormAllowDecimalQty,
+  formSellUnits,
+  setFormSellUnits,
   formLocation,
   setFormLocation,
   formImage,
@@ -324,6 +333,14 @@ export default function EditProductModal({
                 </div>
               </div>
             </div>
+
+            <SellUnitsField
+              unit={formUnit}
+              allow={formAllowDecimalQty}
+              onAllowChange={setFormAllowDecimalQty}
+              sellUnits={formSellUnits}
+              onSellUnitsChange={setFormSellUnits}
+            />
 
             <div className="grid grid-cols-2 gap-4">
               <div>

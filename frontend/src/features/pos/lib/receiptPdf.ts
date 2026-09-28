@@ -4,6 +4,7 @@ import { SalesInvoice } from '../../../types';
 import { savePdfDoc, printPdfDoc } from '../../../lib/savePdf';
 import { registerReceiptFont } from '../../../lib/fonts/registerReceiptFont';
 import { formatReceiptDateTime } from '../../../lib/printing/receiptDate';
+import { formatQty, lineAmount } from '../../../lib/quantity';
 
 interface StoreProfileLite {
   storeName: string;
@@ -407,11 +408,11 @@ async function buildInvoiceReceiptDoc(invoice: SalesInvoice, storeProfile: Store
     const nameLines = doc.splitTextToSize(item.name, contentWidth);
     doc.text(nameLines, marginX, y);
     y += nameLines.length * lineHeight;
-    row(`  ${item.quantity} x ${item.bonus ? `${rupiah(item.originalPrice || 0)} BONUS` : rupiah(item.price)}${item.unit ? ` (${item.unit})` : ''}`, rupiah(item.price * item.quantity), false, 7);
+    row(`  ${formatQty(item.quantity)} x ${item.bonus ? `${rupiah(item.originalPrice || 0)} BONUS` : rupiah(item.price)}${item.unit ? ` (${item.unit})` : ''}`, rupiah(lineAmount(item.price, item.quantity)), false, 7);
   });
   dashedLine();
 
-  const subtotal = invoice.subtotal ?? invoice.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
+  const subtotal = invoice.subtotal ?? invoice.items.reduce((acc, it) => acc + lineAmount(it.price, it.quantity), 0);
   row('Subtotal:', rupiah(subtotal), false, 7.5);
   if (invoice.discountAmount) {
     const label = invoice.discountType === 'fixed'
@@ -586,7 +587,7 @@ async function buildDeliveryNoteDoc(
     y += nameLines.length * lineHeight;
     doc.setFont('JetBrainsMono', 'normal');
     doc.setFontSize(7);
-    doc.text(`  ${item.quantity} ${item.unit || ''}`, marginX, y);
+    doc.text(`  ${formatQty(item.quantity)} ${item.unit || ''}`, marginX, y);
     y += lineHeight;
   });
   dashedLine();
@@ -736,7 +737,7 @@ async function buildDeliveryNoteDocA5Landscape(
     const nameLines = doc.splitTextToSize(item.name, col.qty - col.name - 20);
     doc.text(String(idx + 1), col.no, y);
     doc.text(nameLines, col.name, y);
-    doc.text(String(item.quantity), col.qty, y, { align: 'right' });
+    doc.text(formatQty(item.quantity), col.qty, y, { align: 'right' });
     doc.text(item.unit || '-', col.unit, y);
     y += Math.max(nameLines.length, 1) * lineHeight;
   });

@@ -40,6 +40,23 @@ export interface Product {
   // qty × stockPerUnit. Contoh: "Pasir Pickup Besar" → sumber "Pasir", 1,2 kubik.
   stockSourceSku?: string;
   stockPerUnit?: number;
+  // ---- Jual pecahan (½ kg, ¼ kg, 1 ons, ½ batang, per meter, dst) ----
+  // Kalau true, saat produk diklik di kasir muncul pop-up "mau beli berapa"
+  // dan jumlah di keranjang boleh desimal. Harga tetap per satuan dasar
+  // (`unit`), total = harga × jumlah. Tidak perlu bikin SKU terpisah per ukuran.
+  allowDecimalQty?: boolean;
+  // Satuan jual tambahan selain `unit`. `factor` = berapa satuan dasar dalam
+  // 1 satuan ini. Contoh (unit = kg): { label: 'ons', factor: 0.1 }.
+  // Contoh (unit = batang, 1 batang = 4 m): { label: 'meter', factor: 0.25 }.
+  sellUnits?: SellUnit[];
+}
+
+export interface SellUnit {
+  label: string;
+  factor: number;
+  /** Harga jual untuk 1 satuan ini (mis. 1 ons = Rp 3.500). Kosong/0 = ikut
+   * harga proporsional dari harga per satuan dasar (harga × factor). */
+  price?: number;
 }
 
 // ---- SKU Location (Lokasi Penyimpanan / Gudang) ----

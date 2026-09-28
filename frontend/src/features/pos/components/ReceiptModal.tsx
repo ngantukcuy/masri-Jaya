@@ -1,6 +1,7 @@
 import { Printer, FileDown, Truck, Store } from 'lucide-react';
 import { Dialog, DialogContent } from '../../../components/ui/dialog';
 import { Button } from '../../../components/ui/button';
+import { formatQty, lineAmount } from '../../../lib/quantity';
 
 interface StoreProfileLite {
   storeName: string;
@@ -100,10 +101,10 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
                   <div className="flex-1 min-w-0 pr-2">
                     <p className="font-bold text-foreground truncate">{item.product.name}</p>
                     <p className="text-[9px] text-muted-foreground font-mono">
-                      {item.quantity} x {item.bonus ? <><span className="line-through">Rp {regularPrice.toLocaleString('id-ID')}</span> <span className="font-bold text-amber-600">BONUS</span> Rp 0</> : <>Rp {price.toLocaleString('id-ID')}</>} ({item.product.unit})
+                      {formatQty(item.quantity)} x {item.bonus ? <><span className="line-through">Rp {regularPrice.toLocaleString('id-ID')}</span> <span className="font-bold text-amber-600">BONUS</span> Rp 0</> : <>Rp {price.toLocaleString('id-ID')}</>} ({item.product.unit})
                     </p>
                   </div>
-                  <span className="font-bold text-foreground">{item.bonus ? <><span className="line-through text-muted-foreground">Rp {(regularPrice * item.quantity).toLocaleString('id-ID')}</span> <span className="text-amber-600">Rp 0</span></> : `Rp ${(price * item.quantity).toLocaleString('id-ID')}`}</span>
+                  <span className="font-bold text-foreground">{item.bonus ? <><span className="line-through text-muted-foreground">Rp {lineAmount(regularPrice, item.quantity).toLocaleString('id-ID')}</span> <span className="text-amber-600">Rp 0</span></> : `Rp ${lineAmount(price, item.quantity).toLocaleString('id-ID')}`}</span>
                 </div>
               );
             })}

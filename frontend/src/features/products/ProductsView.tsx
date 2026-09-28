@@ -13,7 +13,8 @@ import {
   Edit3,
   Trash2,
 } from 'lucide-react';
-import { Product, SkuLocation, Supplier, PO, SalesInvoice } from '../../types';
+import { Product, SkuLocation, Supplier, PO, SalesInvoice, SellUnit } from '../../types';
+import { cleanSellUnits } from '../../components/shared/SellUnitsField';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import { uploadProductImage } from '../../lib/uploadProductImage';
@@ -167,6 +168,8 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const [formMinStockQty, setFormMinStockQty] = useState(0);
   const [formStockSourceSku, setFormStockSourceSku] = useState('');
   const [formStockPerUnit, setFormStockPerUnit] = useState(0);
+  const [formAllowDecimalQty, setFormAllowDecimalQty] = useState(false);
+  const [formSellUnits, setFormSellUnits] = useState<SellUnit[]>([]);
   const [formShowInDeadstock, setFormShowInDeadstock] = useState(false);
   const [formDeadstockPeriodMonths, setFormDeadstockPeriodMonths] = useState(3);
   const [showEditBarcodeScanner, setShowEditBarcodeScanner] = useState(false);
@@ -973,6 +976,8 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     setFormMinStockQty(prod.minStockQty || 0);
     setFormStockSourceSku(prod.stockSourceSku || '');
     setFormStockPerUnit(prod.stockPerUnit || 0);
+    setFormAllowDecimalQty(!!prod.allowDecimalQty);
+    setFormSellUnits((prod.sellUnits || []).map((u) => ({ ...u })));
     setFormShowInDeadstock(!!prod.showInDeadstock);
     setFormDeadstockPeriodMonths(prod.deadstockPeriodMonths || 3);
     setShowEditModal(true);
@@ -1096,6 +1101,8 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
           stockStatus: status,
           stockSourceSku: formStockSourceSku || undefined,
           stockPerUnit: formStockSourceSku ? Number(formStockPerUnit) : undefined,
+          allowDecimalQty: formAllowDecimalQty || undefined,
+          sellUnits: formAllowDecimalQty && cleanSellUnits(formSellUnits).length > 0 ? cleanSellUnits(formSellUnits) : undefined,
           warehouseLocation: formLocation,
           image: formImage,
           alias: formAlias.trim(),
@@ -1757,6 +1764,10 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
         setFormStockSourceSku={setFormStockSourceSku}
         formStockPerUnit={formStockPerUnit}
         setFormStockPerUnit={setFormStockPerUnit}
+        formAllowDecimalQty={formAllowDecimalQty}
+        setFormAllowDecimalQty={setFormAllowDecimalQty}
+        formSellUnits={formSellUnits}
+        setFormSellUnits={setFormSellUnits}
         formLocation={formLocation}
         setFormLocation={setFormLocation}
         formImage={formImage}

@@ -11,6 +11,7 @@ import { Badge } from '../../components/ui/badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
 import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { formatQty, lineAmount, roundQty } from '../../lib/quantity';
 
 interface StoreProfileLite {
   storeName: string;
@@ -140,7 +141,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
     const updatedProducts = products.map((product) => {
       const soldItem = invoice.items.find((item) => item.sku === product.sku);
       if (!soldItem) return product;
-      const nextStock = product.stock + soldItem.quantity;
+      const nextStock = roundQty(product.stock + soldItem.quantity);
       const nextStatus: Product['stockStatus'] = nextStock <= 0 ? 'Out of Stock' : nextStock <= 15 ? 'Low Stock' : 'Healthy';
       return {
         ...product,
@@ -172,7 +173,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
     reverseSale(
       invoice.paymentMethod,
       invoice.total,
-      invoice.items.reduce((sum, item) => sum + item.quantity, 0),
+      roundQty(invoice.items.reduce((sum, item) => sum + item.quantity, 0)),
       invoice.invoiceNumber,
       invoice.splitPaidAmount || 0
     );
@@ -455,8 +456,8 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
               <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden text-xs">
                 {selectedItems.map((it, i) => (
                   <div key={i} className="flex justify-between p-2.5">
-                    <span className="text-gray-700">{it.name} x{it.quantity}</span>
-                    <span className="font-bold text-gray-800">Rp {(it.price * it.quantity).toLocaleString('id-ID')}</span>
+                    <span className="text-gray-700">{it.name} x{formatQty(it.quantity)}</span>
+                    <span className="font-bold text-gray-800">Rp {lineAmount(it.price, it.quantity).toLocaleString('id-ID')}</span>
                   </div>
                 ))}
               </div>
@@ -481,8 +482,8 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                       <div className="text-[11px] text-gray-600 space-y-0.5">
                         {r.items.map((it, i) => (
                           <div key={i} className="flex justify-between">
-                            <span>{it.name} x{it.quantity} <span className="text-gray-400">({it.condition})</span></span>
-                            <span className="font-semibold text-gray-700">Rp {(it.price * it.quantity).toLocaleString('id-ID')}</span>
+                            <span>{it.name} x{formatQty(it.quantity)} <span className="text-gray-400">({it.condition})</span></span>
+                            <span className="font-semibold text-gray-700">Rp {lineAmount(it.price, it.quantity).toLocaleString('id-ID')}</span>
                           </div>
                         ))}
                       </div>
