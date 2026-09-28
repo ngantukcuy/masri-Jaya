@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
@@ -185,7 +185,16 @@ function Dashboard({
   }, [currentUser.name, currentUser.role]);
 
   const [registeredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string; address?: string; phone?: string; receiptNote?: string; taxId?: string } | null>('store_owner', null);
-  const [products, setProducts] = useSupabaseTable<Product>('products', [], (p) => p.sku);
+  const [rawProducts, setProducts] = useSupabaseTable<Product>('products', [], (p) => p.sku);
+  // Produk eceran selalu tampil dengan nama alias saja (tanpa nama produk induk),
+  // termasuk data lama yang tersimpan sebagai "Semen (1 kg)".
+  const products = useMemo(
+    () => rawProducts.map((p) => {
+      const alias = p.productType === 'Eceran' ? (p.alias || '').trim() : '';
+      return alias && p.name !== alias ? { ...p, name: alias } : p;
+    }),
+    [rawProducts]
+  );
   const [pos, setPOs] = useSupabaseTable<PO>('purchase_orders', [], (po) => po.poNumber);
   const [customers, setCustomers] = useSupabaseTable<Customer>('customers', [], (c) => c.id);
   const [suppliers, setSuppliers] = useSupabaseTable<Supplier>('suppliers', [], (s) => s.name);

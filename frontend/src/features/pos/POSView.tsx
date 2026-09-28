@@ -395,27 +395,20 @@ export default function POSView({
     );
   };
 
-  // ---- Stok varian takaran (pasir/kerikil/tanah/batu) ----
-  // Produk varian (mis. "Pasir Pickup Besar") tidak punya stok sendiri: stoknya
-  // diambil dari produk sumber (mis. "Pasir" dalam kubik) dengan pemakaian
-  // `stockPerUnit` per 1 unit terjual. Semua varian dari sumber yang sama
-  // berbagi satu tumpukan stok, jadi pickup besar & kecil saling mengurangi.
+  // ---- Stok tersedia ----
+  // Sisa stok yang bisa dijual = stok produk dikurangi jumlah yang sudah ada di
+  // keranjang (kecuali baris `excludeSku`, yang sedang diubah jumlahnya).
   const round3 = (n: number) => Math.round(n * 1000) / 1000;
-  const getStockPerUnit = (prod: Product) => (prod.stockSourceSku ? Math.max(0.001, prod.stockPerUnit || 1) : 1);
-  const getStockPoolSku = (prod: Product) => prod.stockSourceSku || prod.sku;
-  /** Sisa stok fisik yang bisa dijual untuk produk ini, sudah memperhitungkan
-   * isi keranjang dari produk lain yang berbagi tumpukan stok yang sama. */
   const getAvailableUnits = (prod: Product, excludeSku?: string) => {
-    const poolSku = getStockPoolSku(prod);
-    const pool = products.find((p) => p.sku === poolSku);
-    if (!pool) return prod.stock;
-    const usedByOthers = cart.reduce((acc, item) => {
+    const live = products.find((p) => p.sku === prod.sku);
+    const stock = live ? live.stock : prod.stock;
+    const inCart = cart.reduce((acc, item) => {
       if (item.product.sku === excludeSku) return acc;
-      if (getStockPoolSku(item.product) !== poolSku) return acc;
-      return acc + item.quantity * getStockPerUnit(item.product);
+      if (item.product.sku !== prod.sku) return acc;
+      return acc + item.quantity;
     }, 0);
-    const rawAvailable = round3((pool.stock - usedByOthers) / getStockPerUnit(prod));
-    // Produk yang boleh dijual pecahan (½ kg, per meter, dst) tidak dibulatkan ke bawah.
+    const rawAvailable = round3(stock - inCart);
+    // Produk yang boleh dijual pecahan (½ kg, per meter, kubik, dst) tidak dibulatkan ke bawah.
     return Math.max(0, prod.allowDecimalQty ? rawAvailable : Math.floor(rawAvailable + 1e-9));
   };
 
@@ -734,30 +727,20 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
     // Generate Invoice ID
     const invNumber = `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    // Deduct physical stocks — produk varian memotong stok produk sumbernya
-    // (dalam satuan sumber, mis. kubik), lalu stok tampilan semua varian
-    // dari sumber itu disinkronkan ulang supaya halaman Stok tetap akurat.
-    const usedByPool = new Map<string, number>();
+    // Potong stok fisik sesuai jumlah terjual (boleh desimal untuk produk pecahan).
+    const usedBySku = new Map<string, number>();
     cart.forEach((cartItem) => {
-      const poolSku = getStockPoolSku(cartItem.product);
-      usedByPool.set(poolSku, round3((usedByPool.get(poolSku) || 0) + cartItem.quantity * getStockPerUnit(cartItem.product)));
+      usedBySku.set(cartItem.product.sku, round3((usedBySku.get(cartItem.product.sku) || 0) + cartItem.quantity));
     });
     const statusFor = (prod: Product, nextStock: number): 'Healthy' | 'Low Stock' | 'Out of Stock' => {
       if (nextStock <= 0) return 'Out of Stock';
       const threshold = prod.minStockQty && prod.minStockQty > 0 ? prod.minStockQty : (prod.unit && /kubik|m3|m³|ton/i.test(prod.unit) ? 0 : 15);
       return nextStock <= threshold ? 'Low Stock' : 'Healthy';
     };
-    const afterPool = products.map((prod) => {
-      const used = usedByPool.get(prod.sku);
+    const updatedProducts = products.map((prod) => {
+      const used = usedBySku.get(prod.sku);
       if (!used) return prod;
       const nextStock = Math.max(0, round3(prod.stock - used));
-      return { ...prod, stock: nextStock, stockStatus: statusFor(prod, nextStock) };
-    });
-    const updatedProducts = afterPool.map((prod) => {
-      if (!prod.stockSourceSku) return prod;
-      const pool = afterPool.find((p) => p.sku === prod.stockSourceSku);
-      if (!pool || !usedByPool.has(pool.sku)) return prod;
-      const nextStock = Math.floor(round3(pool.stock / getStockPerUnit(prod)) + 1e-9);
       return { ...prod, stock: nextStock, stockStatus: statusFor(prod, nextStock) };
     });
     onUpdateProducts(updatedProducts);
@@ -1387,7 +1370,7 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
                   variant={prod.stockStatus === 'Healthy' ? 'success' : prod.stockStatus === 'Low Stock' ? 'warning' : 'destructive'}
                   className="absolute bottom-2 left-2"
                 >
-                  STOK: {formatQty(prod.stockSourceSku ? getAvailableUnits(prod) : prod.stock)}
+                  STOK: {formatQty(prod.stock)}
                 </Badge>
               </div>
 

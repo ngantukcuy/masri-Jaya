@@ -34,12 +34,6 @@ export interface Product {
   // Produk Eceran only: link to induk + conversion value (e.g. 1 sak = 40 kg -> 40)
   parentSku?: string;
   conversionValue?: number;
-  // ---- Varian takaran dari satu tumpukan stok (pasir, kerikil, tanah, batu) ----
-  // Kalau diisi, produk ini TIDAK punya stok sendiri: setiap terjual, stok
-  // dipotong dari produk sumber (mis. "Pasir (kubik)") sebanyak
-  // qty × stockPerUnit. Contoh: "Pasir Pickup Besar" → sumber "Pasir", 1,2 kubik.
-  stockSourceSku?: string;
-  stockPerUnit?: number;
   // ---- Jual pecahan (½ kg, ¼ kg, 1 ons, ½ batang, per meter, dst) ----
   // Kalau true, saat produk diklik di kasir muncul pop-up "mau beli berapa"
   // dan jumlah di keranjang boleh desimal. Harga tetap per satuan dasar

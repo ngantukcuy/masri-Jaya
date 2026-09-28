@@ -1,6 +1,6 @@
 import React from 'react';
 import { Edit3, Loader2, Upload } from 'lucide-react';
-import { Supplier, SkuLocation, Product, SellUnit } from '../../../types';
+import { Supplier, SkuLocation, SellUnit } from '../../../types';
 import SearchableSelect from '../../../components/shared/SearchableSelect';
 import SellUnitsField from '../../../components/shared/SellUnitsField';
 import NumberInput from '../../../components/shared/NumberInput';
@@ -60,12 +60,6 @@ interface EditProductModalProps {
   setFormProjectPrice: (v: number) => void;
   formStock: number;
   setFormStock: (v: number) => void;
-  /** Daftar produk — dipakai memilih "stok diambil dari" untuk varian takaran (pickup besar/kecil). */
-  products: Product[];
-  formStockSourceSku: string;
-  setFormStockSourceSku: (v: string) => void;
-  formStockPerUnit: number;
-  setFormStockPerUnit: (v: number) => void;
   formAllowDecimalQty: boolean;
   setFormAllowDecimalQty: (v: boolean) => void;
   formSellUnits: SellUnit[];
@@ -125,11 +119,6 @@ export default function EditProductModal({
   setFormProjectPrice,
   formStock,
   setFormStock,
-  products,
-  formStockSourceSku,
-  setFormStockSourceSku,
-  formStockPerUnit,
-  setFormStockPerUnit,
   formAllowDecimalQty,
   setFormAllowDecimalQty,
   formSellUnits,
@@ -303,37 +292,6 @@ export default function EditProductModal({
               </div>
             </div>
 
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-3">
-              <div>
-                <p className="text-xs font-black text-foreground">Varian Takaran (pickup besar / kecil)</p>
-                <p className="text-[10px] text-muted-foreground">Kosongkan kalau produk ini punya stok sendiri. Isi kalau produk ini hanya takaran jual dari tumpukan stok lain (mis. &quot;Pasir Pickup Besar&quot; diambil dari &quot;Pasir&quot; yang stoknya dalam kubik).</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Stok Diambil Dari</Label>
-                  <SearchableSelect
-                    value={formStockSourceSku}
-                    onChange={setFormStockSourceSku}
-                    options={[{ value: '', label: '— Stok sendiri —' }, ...products.filter((p) => p.sku !== formSku && !p.stockSourceSku).map((p) => ({ value: p.sku, label: `${p.name} (${p.unit})` }))]}
-                    placeholder="Pilih produk sumber..."
-                    searchPlaceholder="Cari produk..."
-                  />
-                </div>
-                <div>
-                  <Label>Pemakaian per 1 Unit Terjual</Label>
-                  <NumberInput
-                    allowDecimal
-                    disabled={!formStockSourceSku}
-                    value={formStockPerUnit}
-                    onChange={setFormStockPerUnit}
-                    placeholder="Contoh: 1,2"
-                    className="w-full bg-background border border-input rounded-lg p-2.5 font-bold text-foreground outline-none"
-                  />
-                  <p className="text-[10px] text-muted-foreground mt-1">Pickup besar = 1,2 • pickup kecil = 0,5 (satuan sumber, mis. kubik)</p>
-                </div>
-              </div>
-            </div>
-
             <SellUnitsField
               unit={formUnit}
               allow={formAllowDecimalQty}
@@ -344,10 +302,9 @@ export default function EditProductModal({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>{formStockSourceSku ? 'Stok Tersedia (otomatis dari sumber)' : 'Stok Gudang'}</Label>
+                <Label>Stok Gudang</Label>
                 <NumberInput
-                  required={!formStockSourceSku}
-                  disabled={!!formStockSourceSku}
+                  required
                   allowDecimal
                   value={formStock}
                   onChange={setFormStock}

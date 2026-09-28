@@ -291,7 +291,8 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     const locationName = skuLocations.find(l => l.id === eceranForm.skuLocationId)?.name || '';
 
     const newProduct: Product = {
-      name: `${parent.name} (${eceranForm.alias || eceranForm.unit})`,
+      // Produk eceran tampil dengan nama alias saja (tanpa nama produk induk).
+      name: (eceranForm.alias || '').trim() || eceranForm.unit,
       sku,
       supplier: parent.supplier,
       category: parent.category,
