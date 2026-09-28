@@ -166,7 +166,7 @@ export default function POSView({
   const [searchQuery, setSearchQuery] = useState('');
   const genericWalkInCustomer = (): Customer => ({
     id: GENERIC_CUSTOMER_ID,
-    name: 'Customer',
+    name: 'Umum',
     loyaltyTier: 'Pelanggan Retail',
     points: 0,
     currentDebt: 0,
@@ -391,9 +391,31 @@ export default function POSView({
     );
   };
 
+  // ---- Stok varian takaran (pasir/kerikil/tanah/batu) ----
+  // Produk varian (mis. "Pasir Pickup Besar") tidak punya stok sendiri: stoknya
+  // diambil dari produk sumber (mis. "Pasir" dalam kubik) dengan pemakaian
+  // `stockPerUnit` per 1 unit terjual. Semua varian dari sumber yang sama
+  // berbagi satu tumpukan stok, jadi pickup besar & kecil saling mengurangi.
+  const round3 = (n: number) => Math.round(n * 1000) / 1000;
+  const getStockPerUnit = (prod: Product) => (prod.stockSourceSku ? Math.max(0.001, prod.stockPerUnit || 1) : 1);
+  const getStockPoolSku = (prod: Product) => prod.stockSourceSku || prod.sku;
+  /** Sisa stok fisik yang bisa dijual untuk produk ini, sudah memperhitungkan
+   * isi keranjang dari produk lain yang berbagi tumpukan stok yang sama. */
+  const getAvailableUnits = (prod: Product, excludeSku?: string) => {
+    const poolSku = getStockPoolSku(prod);
+    const pool = products.find((p) => p.sku === poolSku);
+    if (!pool) return prod.stock;
+    const usedByOthers = cart.reduce((acc, item) => {
+      if (item.product.sku === excludeSku) return acc;
+      if (getStockPoolSku(item.product) !== poolSku) return acc;
+      return acc + item.quantity * getStockPerUnit(item.product);
+    }, 0);
+    return Math.max(0, Math.floor(round3((pool.stock - usedByOthers) / getStockPerUnit(prod)) + 1e-9));
+  };
+
   // Add to cart
   const handleAddToCart = (prod: Product, quiet = false) => {
-    if (prod.stock <= 0) {
+    if (getAvailableUnits(prod) <= 0) {
       dialog.alert("Stok barang habis! Silakan buat pesanan PO di tab Pembelian terlebih dahulu.");
       return;
     }
@@ -405,7 +427,7 @@ export default function POSView({
     const existingIdx = cart.findIndex(item => item.product.sku === prod.sku);
     if (existingIdx > -1) {
       const updated = [...cart];
-      if (updated[existingIdx].quantity + 1 > prod.stock) {
+      if (updated[existingIdx].quantity + 1 > getAvailableUnits(prod, prod.sku)) {
         dialog.alert("Jumlah melebihi stok fisik gudang!");
         return;
       }
@@ -487,7 +509,7 @@ export default function POSView({
       if (item.product.sku !== sku) return item;
 
       const safeQty = Math.max(1, nextQty);
-      if (safeQty > item.product.stock) {
+      if (safeQty > getAvailableUnits(item.product, item.product.sku)) {
         dialog.alert("Jumlah tidak boleh melebihi stok fisik di gudang!");
         return item;
       }
@@ -523,7 +545,7 @@ const commitQtyInput = (sku: string) => {
       if (item.product.sku === sku) {
         const targetQty = item.quantity + delta;
         if (targetQty <= 0) return null;
-        if (targetQty > item.product.stock) {
+        if (targetQty > getAvailableUnits(item.product, item.product.sku)) {
           dialog.alert("Jumlah tidak boleh melebihi stok fisik di gudang!");
           return item;
         }
@@ -656,6 +678,7 @@ const commitQtyInput = (sku: string) => {
     splitRemainingDebt?: number;
     transferAccount?: BankAccount;
     dueDate?: string;
+    payOnDelivery?: boolean;
   };
 
   const executeFinalCheckout = (
@@ -665,22 +688,31 @@ const commitQtyInput = (sku: string) => {
     // Generate Invoice ID
     const invNumber = `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    // Deduct physical stocks
-    const updatedProducts = products.map((prod) => {
-      const cartItem = cart.find(item => item.product.sku === prod.sku);
-      if (cartItem) {
-        const nextStock = Math.max(0, prod.stock - cartItem.quantity);
-        let nextStatus: 'Healthy' | 'Low Stock' | 'Out of Stock' = 'Healthy';
-        if (nextStock === 0) nextStatus = 'Out of Stock';
-        else if (nextStock <= 15) nextStatus = 'Low Stock';
-
-        return {
-          ...prod,
-          stock: nextStock,
-          stockStatus: nextStatus
-        };
-      }
-      return prod;
+    // Deduct physical stocks — produk varian memotong stok produk sumbernya
+    // (dalam satuan sumber, mis. kubik), lalu stok tampilan semua varian
+    // dari sumber itu disinkronkan ulang supaya halaman Stok tetap akurat.
+    const usedByPool = new Map<string, number>();
+    cart.forEach((cartItem) => {
+      const poolSku = getStockPoolSku(cartItem.product);
+      usedByPool.set(poolSku, (usedByPool.get(poolSku) || 0) + cartItem.quantity * getStockPerUnit(cartItem.product));
+    });
+    const statusFor = (prod: Product, nextStock: number): 'Healthy' | 'Low Stock' | 'Out of Stock' => {
+      if (nextStock <= 0) return 'Out of Stock';
+      const threshold = prod.minStockQty && prod.minStockQty > 0 ? prod.minStockQty : (prod.unit && /kubik|m3|m³|ton/i.test(prod.unit) ? 0 : 15);
+      return nextStock <= threshold ? 'Low Stock' : 'Healthy';
+    };
+    const afterPool = products.map((prod) => {
+      const used = usedByPool.get(prod.sku);
+      if (!used) return prod;
+      const nextStock = Math.max(0, round3(prod.stock - used));
+      return { ...prod, stock: nextStock, stockStatus: statusFor(prod, nextStock) };
+    });
+    const updatedProducts = afterPool.map((prod) => {
+      if (!prod.stockSourceSku) return prod;
+      const pool = afterPool.find((p) => p.sku === prod.stockSourceSku);
+      if (!pool || !usedByPool.has(pool.sku)) return prod;
+      const nextStock = Math.floor(round3(pool.stock / getStockPerUnit(prod)) + 1e-9);
+      return { ...prod, stock: nextStock, stockStatus: statusFor(prod, nextStock) };
     });
     onUpdateProducts(updatedProducts);
 
@@ -712,7 +744,7 @@ const commitQtyInput = (sku: string) => {
             debtStatus: 'Pending' as const,
             pendingAmount: (cust.pendingAmount || 0) + splitRemainingDebt,
             lastTransactions: [
-              { orderName: `Penjualan POS (${methodUsed === 'Piutang' ? 'Piutang' : 'Cicil'}): ${invNumber}`, date: new Date().toISOString().split('T')[0], amount: splitRemainingDebt },
+              { orderName: `Penjualan POS (${methodUsed === 'Piutang' ? (paymentDetails.payOnDelivery ? 'Bayar Setelah Diantar' : 'Piutang') : 'Cicil'}): ${invNumber}`, date: new Date().toISOString().split('T')[0], amount: splitRemainingDebt },
               ...cust.lastTransactions
             ],
             nextDueDate: cust.nextDueDate && cust.nextDueDate < debtDueDate ? cust.nextDueDate : debtDueDate
@@ -770,6 +802,7 @@ const commitQtyInput = (sku: string) => {
         splitPaidAmount: methodUsed === 'Split' ? paymentDetails.splitPaidAmount : undefined,
         splitRemainingDebt: (methodUsed === 'Split' || methodUsed === 'Piutang') ? splitRemainingDebt : undefined,
         splitDueDate: (methodUsed === 'Split' || methodUsed === 'Piutang') ? paymentDetails.dueDate : undefined,
+        payOnDelivery: methodUsed === 'Piutang' && paymentDetails.payOnDelivery ? true : undefined,
         paymentAccountName: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.name : undefined,
         paymentAccountNumber: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.accountNumber : undefined,
         paymentAccountHolder: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.holderName : undefined
@@ -1308,7 +1341,7 @@ const commitQtyInput = (sku: string) => {
                   variant={prod.stockStatus === 'Healthy' ? 'success' : prod.stockStatus === 'Low Stock' ? 'warning' : 'destructive'}
                   className="absolute bottom-2 left-2"
                 >
-                  STOK: {prod.stock}
+                  STOK: {prod.stockSourceSku ? getAvailableUnits(prod) : prod.stock}
                 </Badge>
               </div>
 
@@ -1712,9 +1745,10 @@ const commitQtyInput = (sku: string) => {
         {showPiutangDueDateModal && (
           <PiutangDueDateModal
             onClose={() => setShowPiutangDueDateModal(false)}
-            onConfirm={(dueDate) => {
+            isDelivery={fulfillmentMethod === 'Delivery'}
+            onConfirm={(dueDate, payOnDelivery) => {
               setShowPiutangDueDateModal(false);
-              executeFinalCheckout('Piutang', { dueDate });
+              executeFinalCheckout('Piutang', { dueDate, payOnDelivery });
             }}
             totalAmount={totalAmount}
             customer={selectedCustomer}

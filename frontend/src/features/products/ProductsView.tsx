@@ -165,6 +165,8 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const [formCategory3, setFormCategory3] = useState('');
   const [formShowLowStockAlert, setFormShowLowStockAlert] = useState(false);
   const [formMinStockQty, setFormMinStockQty] = useState(0);
+  const [formStockSourceSku, setFormStockSourceSku] = useState('');
+  const [formStockPerUnit, setFormStockPerUnit] = useState(0);
   const [formShowInDeadstock, setFormShowInDeadstock] = useState(false);
   const [formDeadstockPeriodMonths, setFormDeadstockPeriodMonths] = useState(3);
   const [showEditBarcodeScanner, setShowEditBarcodeScanner] = useState(false);
@@ -969,6 +971,8 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
     setFormBarcode(prod.barcode || '');
     setFormShowLowStockAlert(!!prod.showLowStockAlert);
     setFormMinStockQty(prod.minStockQty || 0);
+    setFormStockSourceSku(prod.stockSourceSku || '');
+    setFormStockPerUnit(prod.stockPerUnit || 0);
     setFormShowInDeadstock(!!prod.showInDeadstock);
     setFormDeadstockPeriodMonths(prod.deadstockPeriodMonths || 3);
     setShowEditModal(true);
@@ -1054,9 +1058,19 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       return;
     }
 
+    if (formStockSourceSku && !(formStockPerUnit > 0)) {
+      dialog.alert("Isi \"Pemakaian per 1 Unit Terjual\" (mis. 1,2 untuk pickup besar) karena stok produk ini diambil dari produk lain.");
+      return;
+    }
+    // Varian takaran: stok tampilan = sisa stok sumber ÷ pemakaian per unit.
+    const sourceProduct = formStockSourceSku ? products.find((p) => p.sku === formStockSourceSku) : undefined;
+    const effectiveStock = sourceProduct
+      ? Math.floor(Math.round((sourceProduct.stock / formStockPerUnit) * 1000) / 1000 + 1e-9)
+      : Number(formStock);
+
     let status: 'Healthy' | 'Low Stock' | 'Out of Stock' = 'Healthy';
-    if (formStock === 0) status = 'Out of Stock';
-    else if (formStock <= 15) status = 'Low Stock';
+    if (effectiveStock === 0) status = 'Out of Stock';
+    else if (effectiveStock <= (formMinStockQty > 0 ? formMinStockQty : 15)) status = 'Low Stock';
 
     const updated = products.map((p) => {
       if (p.sku === formSku) {
@@ -1078,8 +1092,10 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
           costPrice: Number(formRetailPrice),
           standardSellPrice: Number(formWholesalePrice),
           minSellPrice: Number(formProjectPrice),
-          stock: Number(formStock),
+          stock: effectiveStock,
           stockStatus: status,
+          stockSourceSku: formStockSourceSku || undefined,
+          stockPerUnit: formStockSourceSku ? Number(formStockPerUnit) : undefined,
           warehouseLocation: formLocation,
           image: formImage,
           alias: formAlias.trim(),
@@ -1098,7 +1114,16 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       return p;
     });
 
-    onUpdateProducts(updated);
+    // Sinkronkan stok tampilan semua varian takaran yang mengambil stok dari
+    // produk ini (mis. stok Pasir diubah → stok Pickup Besar/Kecil ikut).
+    const synced = updated.map((p) => {
+      if (p.stockSourceSku !== formSku || !p.stockPerUnit) return p;
+      const src = updated.find((x) => x.sku === formSku);
+      if (!src) return p;
+      const nextStock = Math.floor(Math.round((src.stock / p.stockPerUnit) * 1000) / 1000 + 1e-9);
+      return { ...p, stock: nextStock, stockStatus: (nextStock === 0 ? 'Out of Stock' : nextStock <= (p.minStockQty || 15) ? 'Low Stock' : 'Healthy') as Product['stockStatus'] };
+    });
+    onUpdateProducts(synced);
     setShowEditModal(false);
 
     onAddActivity(
@@ -1727,6 +1752,11 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
         setFormProjectPrice={setFormProjectPrice}
         formStock={formStock}
         setFormStock={setFormStock}
+        products={products}
+        formStockSourceSku={formStockSourceSku}
+        setFormStockSourceSku={setFormStockSourceSku}
+        formStockPerUnit={formStockPerUnit}
+        setFormStockPerUnit={setFormStockPerUnit}
         formLocation={formLocation}
         setFormLocation={setFormLocation}
         formImage={formImage}

@@ -79,7 +79,8 @@ export default function StockOpnameModal({
             <div>
               <Label>Jumlah Unit</Label>
               <NumberInput
-                min={1}
+                allowDecimal
+                min={0.001}
                 value={adjustValue}
                 onChange={setAdjustValue}
                 placeholder="0"

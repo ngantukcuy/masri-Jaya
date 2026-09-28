@@ -54,10 +54,10 @@ export default function PaymentMethodModal({ onClose, onSelect, totalAmount, cus
     },
     {
       method: 'Piutang',
-      label: 'Piutang',
+      label: 'Piutang / Bayar Setelah Diantar',
       desc: isGenericCustomer 
         ? 'Pilih pelanggan asli dulu — "Customer" umum tidak bisa punya piutang' 
-        : 'Bayar sebelum tempo, catat sebagai hutang pelanggan (piutang)',
+        : 'Bayar nanti / setelah barang diantar — dicatat sebagai piutang pelanggan',
       icon: <Landmark className="w-5 h-5" />,
     },
     {

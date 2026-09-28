@@ -16,12 +16,31 @@ interface NumberInputProps {
   autoFocus?: boolean;
   id?: string;
   name?: string;
+  /** Izinkan desimal (pakai koma, mis. "9,6") — untuk stok bersatuan kubik/ton. Maks 3 angka di belakang koma. */
+  allowDecimal?: boolean;
 }
 
 const formatThousands = (digits: string) => digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
-const toDisplay = (value: number | undefined) =>
-  value ? formatThousands(String(Math.trunc(Math.abs(value)))) : '';
+const toDisplay = (value: number | undefined, allowDecimal = false) => {
+  if (!value) return '';
+  if (!allowDecimal) return formatThousands(String(Math.trunc(Math.abs(value))));
+  const fixed = String(Math.round(Math.abs(value) * 1000) / 1000);
+  const [intPart, decPart] = fixed.split('.');
+  return formatThousands(intPart) + (decPart ? ',' + decPart : '');
+};
+
+/** Ubah teks ketikan ("1.234,56") jadi angka + teks yang sudah dirapikan. */
+const parseDecimalText = (raw: string) => {
+  const cleaned = raw.replace(/[^\d,]/g, '');
+  const commaIdx = cleaned.indexOf(',');
+  const intDigits = (commaIdx === -1 ? cleaned : cleaned.slice(0, commaIdx)).replace(/^0+(?=\d)/, '');
+  const decDigits = commaIdx === -1 ? '' : cleaned.slice(commaIdx + 1).replace(/,/g, '').slice(0, 3);
+  const hasComma = commaIdx !== -1;
+  const text = formatThousands(intDigits || (hasComma ? '0' : '')) + (hasComma ? ',' + decDigits : '');
+  const num = Number((intDigits || '0') + (decDigits ? '.' + decDigits : ''));
+  return { text, num };
+};
 
 /**
  * Drop-in replacement for `<input type="number">` for Rupiah / quantity
@@ -42,19 +61,28 @@ export default function NumberInput({
   autoFocus,
   id,
   name,
+  allowDecimal = false,
 }: NumberInputProps) {
-  const [text, setText] = useState(() => toDisplay(value));
+  const [text, setText] = useState(() => toDisplay(value, allowDecimal));
   const isFocused = useRef(false);
 
   // Stay in sync with external value changes (form reset, editing a
   // different row, etc.) as long as the user isn't actively typing here.
   useEffect(() => {
     if (!isFocused.current) {
-      setText(toDisplay(value));
+      setText(toDisplay(value, allowDecimal));
     }
-  }, [value]);
+  }, [value, allowDecimal]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (allowDecimal) {
+      const { text: nextText, num } = parseDecimalText(e.target.value);
+      const clamped = typeof max === 'number' && num > max ? max : num;
+      setText(clamped === num ? nextText : toDisplay(clamped, true));
+      onChange(clamped);
+      return;
+    }
+
     const digitsOnly = e.target.value.replace(/[^\d]/g, '');
 
     if (digitsOnly === '') {
@@ -78,16 +106,16 @@ export default function NumberInput({
     isFocused.current = false;
     if (typeof min === 'number' && value !== undefined && value > 0 && value < min) {
       onChange(min);
-      setText(toDisplay(min));
+      setText(toDisplay(min, allowDecimal));
     } else {
-      setText(toDisplay(value));
+      setText(toDisplay(value, allowDecimal));
     }
   };
 
   return (
     <input
       type="text"
-      inputMode="numeric"
+      inputMode={allowDecimal ? 'decimal' : 'numeric'}
       autoComplete="off"
       id={id}
       name={name}

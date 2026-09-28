@@ -216,7 +216,7 @@ export function buildInvoiceReceipt(
 
   b.divider('-', RECEIPT_WIDTH).align('center');
   b.line(storeProfile?.receiptNote || `Terima kasih telah berbelanja di ${storeName}!`);
-  if (isReprint) b.line('(Cetak ulang dari' + b.line('Riwayat Transaksi)'));
+  if (isReprint) b.line('(Cetak ulang struk)');
  
   b.feedAndCut(1);
 
