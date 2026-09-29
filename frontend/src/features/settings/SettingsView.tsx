@@ -79,15 +79,15 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const can = (key: string) => hasPermission(currentUser, key);
   const [activeTab, setActiveTab] = useState<'profile' | 'branches' | 'locations' | 'printers' | 'security' | 'accounts' | 'audit'>('profile');
   const [storeProfile, setStoreProfile] = useState<StoreProfile>({
-    storeName: 'TB Sinar Maju Pusat',
-    ownerName: 'Owner',
-    email: 'admin@sinarmaju-materials.com',
-    phone: '+62 812-0000-0000',
-    address: 'Jl. Panglima Sudirman No. 45',
-    city: 'Pekanbaru',
-    taxId: 'NPWP-99.283.4-X10.000',
+    storeName: '',
+    ownerName: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    taxId: '',
     receiptNote: 'Terima kasih telah berbelanja',
-    pin: '882100'
+    pin: ''
   });
   const [branchForm, setBranchForm] = useState({
     name: '',
@@ -139,12 +139,12 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const [lockdownActive, setLockdownActive] = useState(false);
 
   // Profile forms state
-  const [companyName, setCompanyName] = useState('TB Sinar Maju Pusat');
-  const [taxId, setTaxId] = useState('NPWP-99.283.4-X10.000');
-  const [email, setEmail] = useState('admin@sinarmaju-materials.com');
+  const [companyName, setCompanyName] = useState('');
+  const [taxId, setTaxId] = useState('');
+  const [email, setEmail] = useState('');
 
   // Security & Staff states
-  const [ownerPin, setOwnerPin] = useState('882100');
+  const [ownerPin, setOwnerPin] = useState('');
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffPhone, setNewStaffPhone] = useState('');
   const [newStaffPin, setNewStaffPin] = useState('');
@@ -833,7 +833,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">Customer (Pelanggan Umum)</SelectItem>
+                  <SelectItem value="__none__">Pelanggan Umum</SelectItem>
                   {customers.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}

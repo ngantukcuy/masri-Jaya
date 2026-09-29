@@ -157,7 +157,7 @@ export function buildInvoiceReceipt(
   const b = new EscPosBuilder().init().leftMargin(0).align('center').bold(true).line(storeName).bold(false);
 
   if (storeProfile?.address) b.line(storeProfile.address);
-  if (storeProfile?.phone) b.line(`Tel: ${storeProfile.phone}`);
+  if (storeProfile?.phone) b.line(`Telp: ${storeProfile.phone}`);
 
   b.line('STRUK PEMBELIAN').divider('-', RECEIPT_WIDTH).align('left');
   b.line(`Invoice : ${invoice.invoiceNumber}`);
