@@ -354,7 +354,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
             {docType === 'invoice' && (
               <div className="flex justify-between">
                 <span>METODE:</span>
-                <span className="font-bold uppercase text-blue-600">{printableInvoice.paymentMethod === 'Cash' ? 'TUNAI' : printableInvoice.paymentMethod}</span>
+                <span className="font-bold uppercase text-blue-600">{printableInvoice.paymentMethod === 'Cash' ? 'TUNAI' : (printableInvoice.paymentMethod === 'Piutang' && printableInvoice.payOnDelivery) ? 'BAYAR DITEMPAT' : printableInvoice.paymentMethod}</span>
               </div>
             )}
             {docType === 'invoice' && printableInvoice.paymentMethod === 'Transfer' && printableInvoice.paymentAccountName && (
@@ -443,7 +443,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
                   <span>Rp {printableInvoice.splitPaidAmount.toLocaleString('id-ID')}</span>
                 </div>
               )}
-              {(printableInvoice.paymentMethod === 'Split' || printableInvoice.paymentMethod === 'Piutang') && (
+              {(printableInvoice.paymentMethod === 'Split' || (printableInvoice.paymentMethod === 'Piutang' && !printableInvoice.payOnDelivery)) && (
                 <>
                   <div className="flex justify-between font-bold text-amber-600">
                     <span>SISA (PIUTANG):</span>

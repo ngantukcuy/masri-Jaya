@@ -61,7 +61,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
             </div>
             <div className="flex justify-between">
               <span>METODE:</span>
-              <span className="font-bold uppercase text-primary">{lastOrderDetails.paymentMethod === 'Cash' ? 'TUNAI' : lastOrderDetails.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : lastOrderDetails.paymentMethod}</span>
+              <span className="font-bold uppercase text-primary">{lastOrderDetails.paymentMethod === 'Cash' ? 'TUNAI' : lastOrderDetails.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : (lastOrderDetails.paymentMethod === 'Piutang' && lastOrderDetails.payOnDelivery) ? 'BAYAR DITEMPAT' : lastOrderDetails.paymentMethod}</span>
             </div>
             {lastOrderDetails.paymentMethod === 'Transfer' && lastOrderDetails.transferAccount && (
               <div className="space-y-0.5 border-l-2 border-primary pl-2">
@@ -165,7 +165,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
                 <span>Rp {lastOrderDetails.splitPaidAmount.toLocaleString('id-ID')}</span>
               </div>
             )}
-            {(lastOrderDetails.paymentMethod === 'Split' || lastOrderDetails.paymentMethod === 'Piutang') && (
+            {(lastOrderDetails.paymentMethod === 'Split' || (lastOrderDetails.paymentMethod === 'Piutang' && !lastOrderDetails.payOnDelivery)) && (
               <>
                 <div className="flex justify-between font-bold text-amber-600">
                   <span>SISA (PIUTANG):</span>

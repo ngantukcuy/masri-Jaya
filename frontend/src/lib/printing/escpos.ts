@@ -166,7 +166,7 @@ export function buildInvoiceReceipt(
   b.divider('-', RECEIPT_WIDTH);
 
   b.line(`Pelanggan   : ${invoice.customerName}`);
-  b.line(`Pembayaran  : ${invoice.paymentMethod === 'Cash' ? 'Tunai' : invoice.paymentMethod}`);
+  b.line(`Pembayaran  : ${invoice.paymentMethod === 'Cash' ? 'Tunai' : (invoice.paymentMethod === 'Piutang' && invoice.payOnDelivery) ? 'Bayar Ditempat' : invoice.paymentMethod}`);
 
   if (invoice.paymentMethod === 'Transfer' && invoice.paymentAccountName) {
     b.line(`Rekening: ${invoice.paymentAccountName}`);
@@ -208,7 +208,7 @@ export function buildInvoiceReceipt(
   if (invoice.paymentMethod === 'Split' && typeof invoice.splitPaidAmount === 'number') {
     b.line(twoColumns('Dibayar', formatRupiah(invoice.splitPaidAmount)));
   }
-  if (invoice.paymentMethod === 'Split' || invoice.paymentMethod === 'Piutang') {
+  if (invoice.paymentMethod === 'Split' || (invoice.paymentMethod === 'Piutang' && !invoice.payOnDelivery)) {
     b.line(twoColumns('Sisa (Piutang)', formatRupiah(invoice.splitRemainingDebt || 0)));
     if (invoice.splitDueDate) {
       b.line(`Jatuh Tempo: ${new Date(`${invoice.splitDueDate}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`);

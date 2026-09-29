@@ -366,7 +366,6 @@ function Dashboard({
                         address: registeredOwner.address,
                         phone: registeredOwner.phone,
                         receiptNote: registeredOwner.receiptNote,
-                        taxId: registeredOwner.taxId,
                       } : undefined}
                       onExitFullScreen={() => setCurrentTab(firstAccessibleTab(currentUser))}
                       onGoToKasHarian={() => setCurrentTab('kas-harian')}
@@ -459,7 +458,6 @@ function Dashboard({
                         address: registeredOwner.address,
                         phone: registeredOwner.phone,
                         receiptNote: registeredOwner.receiptNote,
-                        taxId: registeredOwner.taxId,
                       } : undefined}
                     />
                   );
@@ -513,7 +511,7 @@ function Dashboard({
                         storeName: registeredOwner.storeName,
                         address: registeredOwner.address,
                         phone: registeredOwner.phone,
-                        taxId: registeredOwner.taxId,
+                        receiptNote: registeredOwner.receiptNote,
                       } : undefined}
                     />
                   );

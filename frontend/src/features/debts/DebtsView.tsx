@@ -34,7 +34,7 @@ interface DebtsStoreProfileLite {
   storeName: string;
   address?: string;
   phone?: string;
-  taxId?: string;
+  receiptNote?: string;
 }
 
 interface DebtsViewProps {
@@ -863,7 +863,6 @@ export default function DebtsView({
                       {[storeProfile?.address, storeProfile?.phone ? `Telp: ${storeProfile.phone}` : null].filter(Boolean).join(' • ')}
                     </p>
                   )}
-                  {storeProfile?.taxId && <p className="text-[9px] text-slate-400">NPWP: {storeProfile.taxId}</p>}
                 </div>
 
                 <div className="space-y-2 mb-4">
@@ -951,7 +950,7 @@ export default function DebtsView({
 
                 <div className="text-center border-t border-slate-200 pt-4 mt-4 text-[9px] text-slate-400">
                   <p>Harap lunasi tagihan Anda sebelum jatuh tempo.</p>
-                  <p className="font-bold mt-1 text-slate-600">Terima Kasih atas Kemitraan Anda</p>
+                  <p className="font-bold mt-1 text-slate-600">{storeProfile?.receiptNote || 'Terima Kasih atas Kemitraan Anda'}</p>
                 </div>
               </div>
 

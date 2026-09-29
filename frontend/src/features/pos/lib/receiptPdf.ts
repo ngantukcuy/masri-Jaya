@@ -60,6 +60,7 @@ export function orderDetailsToSalesInvoice(orderDetails: any): SalesInvoice {
     splitPaidAmount: orderDetails.splitPaidAmount,
     splitRemainingDebt: orderDetails.splitRemainingDebt,
     splitDueDate: orderDetails.splitDueDate,
+    payOnDelivery: orderDetails.payOnDelivery,
     paymentAccountName: orderDetails.transferAccount?.name,
     paymentAccountNumber: orderDetails.transferAccount?.accountNumber,
     paymentAccountHolder: orderDetails.transferAccount?.holderName,
@@ -130,6 +131,7 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
         changeAmount: orderDetails.changeAmount,
         splitPaidAmount: orderDetails.splitPaidAmount,
         splitRemainingDebt: orderDetails.splitRemainingDebt,
+        payOnDelivery: orderDetails.payOnDelivery,
         paymentAccountName: orderDetails.transferAccount?.name,
         paymentAccountNumber: orderDetails.transferAccount?.accountNumber,
         paymentAccountHolder: orderDetails.transferAccount?.holderName,
@@ -173,6 +175,7 @@ export async function generateReceiptPDF(orderDetails: any, storeProfile: StoreP
       changeAmount: orderDetails.changeAmount,
       splitPaidAmount: orderDetails.splitPaidAmount,
       splitRemainingDebt: orderDetails.splitRemainingDebt,
+      payOnDelivery: orderDetails.payOnDelivery,
       paymentAccountName: orderDetails.transferAccount?.name,
       paymentAccountNumber: orderDetails.transferAccount?.accountNumber,
       paymentAccountHolder: orderDetails.transferAccount?.holderName,
@@ -274,7 +277,7 @@ async function buildInvoiceReceiptDoc(invoice: SalesInvoice, storeProfile: Store
   if (invoice.paymentMethod === 'Split' && typeof invoice.splitPaidAmount === 'number') {
     addHeight(1);
   }
-  if (invoice.paymentMethod === 'Split' || invoice.paymentMethod === 'Piutang') {
+  if (invoice.paymentMethod === 'Split' || (invoice.paymentMethod === 'Piutang' && !invoice.payOnDelivery)) {
     addHeight(2); // Sisa & Jatuh tempo
   }
   calcY += 3; // y += 2 + 1
@@ -381,7 +384,7 @@ async function buildInvoiceReceiptDoc(invoice: SalesInvoice, storeProfile: Store
 
   row('Pelanggan:', invoice.customerName, false, 7.5);
   if (invoice.driverName) row('Sopir:', invoice.driverName, false, 7.5);
-  row('Metode:', invoice.paymentMethod === 'Cash' ? 'TUNAI' : invoice.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : invoice.paymentMethod, true, 7.5, COLOR_PRIMARY);
+  row('Metode:', invoice.paymentMethod === 'Cash' ? 'TUNAI' : invoice.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : (invoice.paymentMethod === 'Piutang' && invoice.payOnDelivery) ? 'BAYAR DITEMPAT' : invoice.paymentMethod, true, 7.5, COLOR_PRIMARY);
   if (invoice.paymentMethod === 'Transfer' && invoice.paymentAccountName) {
     row('Rekening:', invoice.paymentAccountName, true, 7.5);
     row('Nomor:', invoice.paymentAccountNumber || '-', false, 7.5);
@@ -443,7 +446,7 @@ async function buildInvoiceReceiptDoc(invoice: SalesInvoice, storeProfile: Store
   if (invoice.paymentMethod === 'Split' && typeof invoice.splitPaidAmount === 'number') {
     row('Dibayar Sekarang:', rupiah(invoice.splitPaidAmount), false, 7.5);
   }
-  if (invoice.paymentMethod === 'Split' || invoice.paymentMethod === 'Piutang') {
+  if (invoice.paymentMethod === 'Split' || (invoice.paymentMethod === 'Piutang' && !invoice.payOnDelivery)) {
     row('Sisa (Piutang):', rupiah(invoice.splitRemainingDebt || 0), true, 7.5);
     row('Jatuh Tempo:', invoice.splitDueDate ? new Date(`${invoice.splitDueDate}T00:00:00`).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric' }) : '-', false, 7.5);
   }
