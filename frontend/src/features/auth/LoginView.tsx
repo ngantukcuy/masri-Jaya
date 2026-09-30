@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { db, saveStoreProfile } from '../../lib/db/repos';
 import { supabase } from '../../lib/supabase';
-import { verifyLogin, setPin, getLockedStaff, sendOwnerPinResetEmail, resetOwnerPinViaEmail, maskEmail } from '../../lib/pinAuth';
+import { verifyLogin, setPin, getLockedStaff, sendPinResetEmail, resetPinViaEmail, maskEmail } from '../../lib/pinAuth';
 import { useRows, useRepoReady } from '../../lib/db/react';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { StaffMember } from '../../types';
@@ -60,9 +60,9 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   const isLockedOut = !!selectedStaff && lockedIds.includes(selectedStaff.id || '');
 
   const handleSendResetMail = async () => {
-    if (!registeredOwner?.email) return;
+    if (!registeredOwner?.email || !selectedStaff?.id) return;
     setResetMailState('sending');
-    const res = await sendOwnerPinResetEmail(registeredOwner.email);
+    const res = await sendPinResetEmail(registeredOwner.email, selectedStaff.id);
     setResetMailState(res.ok ? 'sent' : 'error');
     setResetMailError(res.message || '');
   };
@@ -72,8 +72,12 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   const [newPinA, setNewPinA] = useState('');
   const [newPinB, setNewPinB] = useState('');
   const [newPinMsg, setNewPinMsg] = useState('');
+  const [resetTargetId, setResetTargetId] = useState('owner-01');
+  const resetTargetName = staffList.find((st) => st.id === resetTargetId)?.name;
   useEffect(() => {
-    if (!new URLSearchParams(window.location.search).has('reset-pin')) return;
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('reset-pin')) return;
+    setResetTargetId(params.get('staff') || 'owner-01');
     void supabase.auth.getSession().then(({ data }) => {
       const user = data.session?.user;
       if (user?.email && !user.is_anonymous) setResetPinMode(true);
@@ -85,74 +89,15 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
       setNewPinMsg('PIN harus 6 digit dan kedua isian harus sama.');
       return;
     }
-    const res = await resetOwnerPinViaEmail(newPinA);
+    const res = await resetPinViaEmail(resetTargetId, newPinA);
     if (res.status === 'ok') {
       await supabase.auth.signOut();
-      await dialog.alert('PIN Owner berhasil diganti dan akun dibuka. Silakan login dengan PIN baru.');
+      await dialog.alert('PIN berhasil diganti dan akun dibuka. Silakan login dengan PIN baru.');
       window.location.replace(window.location.pathname);
     } else if (res.status === 'forbidden') {
       setNewPinMsg('Link ini tidak valid untuk email Owner toko. Minta link baru.');
     } else {
       setNewPinMsg('Gagal mengganti PIN. Coba minta link baru.');
-    }
-  };
-
-  // ---- Reset Registrasi Toko: dilindungi PIN Owner ----
-  // Tombol reset terlihat di halaman awal (sebelum login), jadi siapa pun yang
-  // memegang perangkat bisa menekannya. Karena itu reset hanya jalan setelah
-  // PIN Owner yang benar dimasukkan — diperiksa di database dan memakai
-  // penghitung kegagalan yang sama dengan login Owner (5x salah = terkunci).
-  const [showResetModal, setShowResetModal] = useState(false);
-  const [resetPinInput, setResetPinInput] = useState('');
-  const [resetPinError, setResetPinError] = useState(false);
-  const [resetLocked, setResetLocked] = useState(false);
-
-  const openResetModal = () => {
-    setResetPinInput('');
-    setResetPinError(false);
-    setResetLocked(false);
-    setShowResetModal(true);
-  };
-
-  const closeResetModal = () => {
-    setShowResetModal(false);
-    setResetPinInput('');
-    setResetPinError(false);
-  };
-
-  const handleVerifyResetPin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (resetLocked || resetPinInput.length !== 6) return;
-
-    const ownerStaff = staffList.find((st) => st.role === 'Owner');
-    const res = ownerStaff?.id ? await verifyLogin(ownerStaff.id, resetPinInput) : { status: 'unknown' as const };
-    if (res.status === 'locked') {
-      setResetLocked(true);
-      refreshLocked();
-      setResetPinInput('');
-      return;
-    }
-    if (res.status !== 'ok') {
-      setResetPinError(true);
-      setResetPinInput('');
-      refreshLocked();
-      if (navigator.vibrate) navigator.vibrate(100);
-      return;
-    }
-
-    closeResetModal();
-    const conf = await dialog.confirm(
-      "Apakah Anda yakin ingin mereset data registrasi toko? Ini akan menghapus semua kredensial (Owner dan seluruh akun staf).",
-      { title: 'Reset Registrasi Toko', confirmLabel: 'Ya, Reset', danger: true }
-    );
-    if (conf) {
-      void saveStoreProfile(null);
-      void db.staff.save([]);
-      setIsRegistered(false);
-      setStoreName('');
-      setOwnerName('');
-      setEmail('');
-      setOwnerPin('');
     }
   };
 
@@ -294,8 +239,8 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
       <main className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4 font-sans">
         <form onSubmit={handleSetNewOwnerPin} className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 space-y-4">
           <div>
-            <h2 className="text-sm font-black text-gray-900 uppercase tracking-wide">Atur PIN Owner Baru</h2>
-            <p className="text-xs text-gray-600 mt-1">Email Anda sudah terverifikasi. Buat PIN 6 digit baru untuk akun Owner.</p>
+            <h2 className="text-sm font-black text-gray-900 uppercase tracking-wide">Atur PIN Baru</h2>
+            <p className="text-xs text-gray-600 mt-1">Email Owner sudah terverifikasi. Buat PIN 6 digit baru untuk akun <b>{resetTargetName || 'yang dipilih'}</b>.</p>
           </div>
           <Input type="password" inputMode="numeric" maxLength={6} autoFocus value={newPinA}
             onChange={(e) => { setNewPinA(e.target.value.replace(/\D/g, '').slice(0, 6)); setNewPinMsg(''); }}
@@ -461,17 +406,6 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                       </button>
                     ))}
                   </div>
-
-                  {/* Reset store data option */}
-                  <div className="pt-6 border-t border-gray-200 text-center">
-                    <Button
-                      variant="link"
-                      onClick={openResetModal}
-                      className="h-auto p-0 text-[9px] text-red-700 uppercase tracking-widest"
-                    >
-                      Reset Registrasi Toko
-                    </Button>
-                  </div>
                 </motion.div>
               ) : (
                 /* Interactive numerical PIN keyboard */
@@ -534,21 +468,8 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                       >
                         <p className="text-xs font-extrabold text-red-700 flex items-center gap-1.5"><Lock className="w-4 h-4" /> Akun ini terkunci</p>
                         <p className="text-[11px] text-red-800 font-medium">
-                          PIN salah 5 kali berturut-turut. Demi keamanan, akun tidak bisa dicoba lagi sampai dibuka oleh Owner.
-                          {registeredOwner?.email ? <> Hubungi Owner di <b>{maskEmail(registeredOwner.email)}</b>.</> : ' Hubungi Owner toko.'}
+                          PIN salah 5 kali berturut-turut. Demi keamanan, akun tidak bisa dicoba lagi sampai dibuka oleh Owner (lewat "Lupa PIN?" di bawah atau Pengaturan &gt; Staf).
                         </p>
-                        {selectedStaff?.role === 'Owner' && registeredOwner?.email && (
-                          <div className="pt-1">
-                            {resetMailState === 'sent' ? (
-                              <p className="text-[11px] font-bold text-green-700">Link reset sudah dikirim ke {maskEmail(registeredOwner.email)}. Buka emailnya di perangkat ini.</p>
-                            ) : (
-                              <Button type="button" size="sm" disabled={resetMailState === 'sending'} onClick={handleSendResetMail} className="w-full">
-                                {resetMailState === 'sending' ? 'Mengirim...' : 'Lupa PIN? Kirim link reset ke email Owner'}
-                              </Button>
-                            )}
-                            {resetMailState === 'error' && <p className="text-[11px] text-red-700 mt-1">Gagal mengirim email{resetMailError ? `: ${resetMailError}` : ''}.</p>}
-                          </div>
-                        )}
                       </motion.div>
                     )}
                   </div>
@@ -594,59 +515,29 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                       <Delete className="w-5 h-5" />
                     </Button>
                   </div>
+
+                  {/* Lupa PIN — link ganti PIN dikirim ke email Owner, bukan ke staf */}
+                  <div className="text-center space-y-1">
+                    {resetMailState === 'sent' && registeredOwner?.email ? (
+                      <p className="text-[11px] font-bold text-green-700 normal-case">
+                        Link ganti PIN sudah dikirim ke email Owner ({maskEmail(registeredOwner.email)}). Minta Owner membuka emailnya.
+                      </p>
+                    ) : registeredOwner?.email ? (
+                      <Button type="button" variant="link" disabled={resetMailState === 'sending'} onClick={handleSendResetMail}
+                        className="h-auto p-0 text-[11px] text-blue-700 uppercase tracking-widest">
+                        {resetMailState === 'sending' ? 'Mengirim...' : 'Lupa PIN?'}
+                      </Button>
+                    ) : (
+                      <p className="text-[11px] text-gray-600 normal-case">Lupa PIN? Hubungi Owner toko.</p>
+                    )}
+                    {resetMailState === 'error' && <p className="text-[11px] text-red-700 normal-case">Gagal mengirim email{resetMailError ? `: ${resetMailError}` : ''}.</p>}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Verifikasi PIN Owner sebelum reset registrasi */}
-      {showResetModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/40 backdrop-blur-sm px-4">
-          <form
-            onSubmit={handleVerifyResetPin}
-            className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 space-y-4 select-text"
-          >
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center text-red-600 shrink-0">
-                <ShieldAlert className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-sm font-black text-gray-900 uppercase tracking-wide">Khusus Owner</h2>
-                <p className="text-xs text-gray-600 mt-0.5">Masukkan PIN Owner untuk melanjutkan reset registrasi toko.</p>
-              </div>
-            </div>
-
-            <Input
-              type="password"
-              inputMode="numeric"
-              autoFocus
-              maxLength={6}
-              value={resetPinInput}
-              disabled={resetLocked}
-              onChange={(e) => {
-                setResetPinInput(e.target.value.replace(/\D/g, '').slice(0, 6));
-                setResetPinError(false);
-              }}
-              placeholder="PIN Owner 6 digit"
-              className="h-11 font-mono text-center text-lg tracking-widest"
-            />
-
-            {resetPinError && !resetLocked && (
-              <p className="text-[10px] font-extrabold text-red-700 uppercase tracking-wider text-center">PIN salah. Reset dibatalkan.</p>
-            )}
-            {resetLocked && (
-              <p className="text-[10px] font-extrabold text-red-700 uppercase tracking-wider text-center">Akun Owner terkunci. Gunakan "Lupa PIN" di halaman login Owner untuk membukanya lewat email.</p>
-            )}
-
-            <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" variant="outline" size="sm" onClick={closeResetModal}>Batal</Button>
-              <Button type="submit" size="sm" disabled={resetLocked || resetPinInput.length !== 6} className="bg-red-600 hover:bg-red-700">Lanjutkan</Button>
-            </div>
-          </form>
-        </div>
-      )}
 
       <p className="text-[10px] text-gray-600 mt-8 font-mono text-center uppercase tracking-[0.2em]">
         MASRI JAYA • SECURE ACCESS CONTROL • v{__APP_VERSION__}

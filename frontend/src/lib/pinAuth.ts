@@ -50,21 +50,24 @@ export async function getLockedStaff(): Promise<string[]> {
   return (data as string[] | null) ?? [];
 }
 
-/** Kirim link reset PIN ke email Owner (email toko). Link membawa Owner kembali ke aplikasi. */
-export async function sendOwnerPinResetEmail(ownerEmail: string): Promise<{ ok: boolean; message?: string }> {
+/**
+ * Lupa PIN (akun mana pun): kirim link ke email Owner (email toko). Link membawa
+ * Owner kembali ke aplikasi dan membawa id akun yang PIN-nya mau diganti.
+ */
+export async function sendPinResetEmail(ownerEmail: string, targetStaffId: string): Promise<{ ok: boolean; message?: string }> {
   const { error } = await supabase.auth.signInWithOtp({
     email: ownerEmail,
     options: {
       shouldCreateUser: true,
-      emailRedirectTo: `${window.location.origin}${window.location.pathname}?reset-pin=1`,
+      emailRedirectTo: `${window.location.origin}${window.location.pathname}?reset-pin=1&staff=${encodeURIComponent(targetStaffId)}`,
     },
   });
   return error ? { ok: false, message: error.message } : { ok: true };
 }
 
 /** Dipanggil setelah Owner membuka link di email (sesi sudah terverifikasi email). */
-export const resetOwnerPinViaEmail = (newPin: string) =>
-  call('reset_owner_pin_via_email', { p_new_pin: newPin });
+export const resetPinViaEmail = (targetStaffId: string, newPin: string) =>
+  call('reset_pin_via_email', { p_target_id: targetStaffId, p_new_pin: newPin });
 
 /** "owner@gmail.com" -> "ow***@gmail.com" */
 export function maskEmail(email: string): string {

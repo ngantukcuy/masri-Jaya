@@ -354,3 +354,34 @@ drop trigger if exists trg_notify_cash on public.cash_sessions;
 create trigger trg_notify_cash after insert or update of status on public.cash_sessions for each row execute function public.trg_notify_cash();
 
 grant usage on schema public to authenticated;
+
+-- ------------------------------------------------------ Lupa PIN (akun mana pun)
+-- Dipanggil setelah Owner klik link di email (sesi Supabase Auth non-anonim dengan
+-- email yang sama dengan email toko). Mengganti PIN akun target (staf atau Owner)
+-- dan membuka kuncinya. Staf sendiri TIDAK bisa memanggil ini: butuh sesi email Owner.
+create or replace function public.reset_pin_via_email(p_target_id text, p_new_pin text)
+returns jsonb language plpgsql security definer set search_path = public, extensions as $$
+declare v_email text; v_jwt jsonb; v_name text;
+begin
+  v_jwt := coalesce(auth.jwt(), '{}'::jsonb);
+  select lower(email) into v_email from public.store_profile where id = 'main';
+  if v_email is null or v_email = '' or lower(coalesce(v_jwt->>'email','')) <> v_email
+     or coalesce((v_jwt->>'is_anonymous')::boolean, false) then
+    return jsonb_build_object('status', 'forbidden');
+  end if;
+  if p_new_pin is null or p_new_pin !~ '^[0-9]{6}$' then return jsonb_build_object('status', 'invalid_pin'); end if;
+  select name into v_name from public.staff_list where id = p_target_id;
+  if v_name is null then return jsonb_build_object('status', 'unknown'); end if;
+  insert into public.staff_credentials (staff_id, pin_hash, changed_at)
+  values (p_target_id, crypt(p_new_pin, gen_salt('bf')), now())
+  on conflict (staff_id) do update set pin_hash = excluded.pin_hash, changed_at = now();
+  insert into public.login_lockouts (staff_id, attempts, locked) values (p_target_id, 0, false)
+  on conflict (staff_id) do update set attempts = 0, locked = false, locked_at = null;
+  perform public._notify('pin_reset', 'PIN direset lewat email: ' || v_name, 'PIN akun ini diganti Owner lewat link reset di email.', array['Owner', 'Admin']);
+  return jsonb_build_object('status', 'ok');
+end;
+$$;
+grant execute on function public.reset_pin_via_email(text, text) to authenticated;
+
+-- Wajib: paksa PostgREST membaca ulang fungsi baru (penyebab error 404 PGRST202)
+notify pgrst, 'reload schema';
