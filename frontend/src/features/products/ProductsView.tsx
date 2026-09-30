@@ -16,7 +16,8 @@ import {
 import { Product, SkuLocation, Supplier, PO, SalesInvoice, SellUnit } from '../../types';
 import { cleanSellUnits } from '../../components/shared/SellUnitsField';
 import { motion, AnimatePresence } from 'motion/react';
-import { useSupabaseTable } from '../../lib/useSupabaseTable';
+import { db } from '../../lib/db/repos';
+import { useRows } from '../../lib/db/react';
 import { uploadProductImage } from '../../lib/uploadProductImage';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
@@ -200,8 +201,8 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   // Scan kamera untuk isi field Kode SKU langsung (dipakai form Tambah Produk).
   const [showSkuScanner, setShowSkuScanner] = useState(false);
 
-  const [opnameSubmissions, setOpnameSubmissions] = useSupabaseTable<any>('opname_submissions', [], (s) => s.id);
-  const [productCategories] = useSupabaseTable<ProductCategory>('product_categories', [], (category) => category.id);
+  const opnameSubmissions = useRows(db.opnameSubmissions) as any[];
+  const productCategories = useRows(db.productCategories) as ProductCategory[];
   const categoryNames = productCategories
     .slice()
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
@@ -211,17 +212,18 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
   const kategori3List = productCategories.filter((c) => c.level === 3);
 
   // Sama seperti brand di SKU Master (tabel 'product_brands' yang sama).
-  const [productBrands] = useSupabaseTable<{ id: string; name: string }>('product_brands', [], (b) => b.id);
+  const productBrands = useRows(db.productBrands);
 
   // Unit names for the product unit dropdown
-  const [productUnits] = useSupabaseTable<ProductUnits>('product_units', [], (unit) => unit.id);
+  const productUnits = useRows(db.productUnits) as ProductUnits[];
   const unitNames = productUnits
   .slice()
   .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
   .map((unit) => unit.name);
 
+  // Simpan pengajuan opname = samakan tabel opname_submissions dengan daftar ini.
   const saveSubmissions = (subs: any[]) => {
-    setOpnameSubmissions(subs);
+    void db.opnameSubmissions.save(subs);
   };
 
   const sortedProducts = [...products].sort((a, b) =>

@@ -1,5 +1,5 @@
 import { Product } from '../../../types';
-import { getSupabaseCache, setSupabaseCache } from '../../../lib/supabaseCache';
+import { db, SINGLETON_ID, type PosCartDraft } from '../../../lib/db/repos';
 
 export interface CartItem {
   product: Product;
@@ -35,8 +35,6 @@ export type PersistedPOSState = {
   deliveryAddress: string;
 };
 
-export const POS_CART_STORAGE_KEY = 'pos_cart_state';
-
 const emptyState = (): PersistedPOSState => ({
   cart: [],
   selectedCustomerId: null,
@@ -50,37 +48,68 @@ const emptyState = (): PersistedPOSState => ({
   deliveryAddress: ''
 });
 
+// Draft keranjang kasir disimpan di tabel `pos_cart_drafts` (1 baris) +
+// `pos_cart_items` (tiap barang di keranjang) + `pos_cart_fees` (biaya tambahan).
+// Barang di keranjang cuma menyimpan SKU-nya; data produk lengkapnya diambil
+// dari tabel `products` saat draft dibaca.
 export const readPersistedPOSState = (): PersistedPOSState => {
-  const parsed = getSupabaseCache<Partial<PersistedPOSState>>(POS_CART_STORAGE_KEY, emptyState());
-  const legacyFee = typeof parsed.additionalFee === 'number' && parsed.additionalFee > 0
-    ? [{ name: typeof parsed.additionalFeeName === 'string' ? parsed.additionalFeeName : '', amount: parsed.additionalFee }]
-    : [];
-  const additionalFees = Array.isArray(parsed.additionalFees)
-    ? parsed.additionalFees.filter((fee): fee is AdditionalFee => (
-      typeof fee === 'object' && fee !== null &&
-      typeof fee.name === 'string' && typeof fee.amount === 'number' && fee.amount >= 0
-    ))
-    : legacyFee;
+  const draft = db.posCartDrafts.snapshot()[0];
+  if (!draft) return emptyState();
+  const products = db.products.snapshot();
+  const cart: CartItem[] = draft.cart.flatMap((line) => {
+    const product = products.find((p) => p.sku === line.productSku);
+    if (!product) return []; // produk sudah dihapus dari master -> baris draft dibuang
+    return [{
+      product,
+      quantity: line.quantity,
+      selectedPriceType: line.selectedPriceType,
+      customPrice: line.customPrice,
+      bonus: line.bonus,
+      notes: line.notes ?? '',
+    }];
+  });
+  const additionalFees = draft.additionalFees.filter((fee) => fee.amount >= 0);
+  const method = draft.paymentMethod;
   return {
-    cart: Array.isArray(parsed.cart) ? parsed.cart : [],
-    selectedCustomerId: typeof parsed.selectedCustomerId === 'string' ? parsed.selectedCustomerId : null,
-    discountMode: parsed.discountMode === 'fixed' ? 'fixed' : 'percent',
-    discountValue: typeof parsed.discountValue === 'number' ? parsed.discountValue : 0,
+    cart,
+    selectedCustomerId: draft.selectedCustomerId ?? null,
+    discountMode: draft.discountMode === 'fixed' ? 'fixed' : 'percent',
+    discountValue: draft.discountValue ?? 0,
     additionalFees,
-    additionalFeeName: typeof parsed.additionalFeeName === 'string' ? parsed.additionalFeeName : '',
-    additionalFee: typeof parsed.additionalFee === 'number' && parsed.additionalFee > 0 ? parsed.additionalFee : 0,
-    paymentMethod: parsed.paymentMethod === 'QRIS' || parsed.paymentMethod === 'Transfer' || parsed.paymentMethod === 'Split' || parsed.paymentMethod === 'Deposit' || parsed.paymentMethod === 'Piutang'
-      ? parsed.paymentMethod
+    additionalFeeName: draft.additionalFeeName ?? '',
+    additionalFee: draft.additionalFee ?? 0,
+    paymentMethod: method === 'QRIS' || method === 'Transfer' || method === 'Split' || method === 'Deposit' || method === 'Piutang'
+      ? method
       : 'Cash',
-    fulfillmentMethod: parsed.fulfillmentMethod === 'Delivery' ? 'Delivery' : 'Pickup',
-    deliveryAddress: typeof parsed.deliveryAddress === 'string' ? parsed.deliveryAddress : ''
+    fulfillmentMethod: draft.fulfillmentMethod === 'Delivery' ? 'Delivery' : 'Pickup',
+    deliveryAddress: draft.deliveryAddress ?? '',
   };
 };
 
 export const writePersistedPOSState = (state: PersistedPOSState) => {
-  setSupabaseCache(POS_CART_STORAGE_KEY, state);
+  const draft: PosCartDraft = {
+    id: SINGLETON_ID,
+    selectedCustomerId: state.selectedCustomerId ?? undefined,
+    discountMode: state.discountMode,
+    discountValue: state.discountValue,
+    additionalFeeName: state.additionalFeeName,
+    additionalFee: state.additionalFee,
+    paymentMethod: state.paymentMethod,
+    fulfillmentMethod: state.fulfillmentMethod,
+    deliveryAddress: state.deliveryAddress,
+    cart: state.cart.map((line) => ({
+      productSku: line.product.sku,
+      quantity: line.quantity,
+      selectedPriceType: line.selectedPriceType,
+      customPrice: line.customPrice,
+      bonus: line.bonus,
+      notes: line.notes,
+    })),
+    additionalFees: state.additionalFees,
+  };
+  void db.posCartDrafts.upsert([draft]);
 };
 
 export const clearPersistedPOSState = () => {
-  setSupabaseCache(POS_CART_STORAGE_KEY, emptyState());
+  void db.posCartDrafts.remove([SINGLETON_ID]);
 };

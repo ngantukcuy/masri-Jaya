@@ -16,7 +16,7 @@ import { Customer, Printer, SalesInvoice } from '../../types';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import { motion, AnimatePresence } from 'motion/react';
 import { addMutation } from '../../lib/cashSession';
-import { getSupabaseTableCache } from '../../lib/supabaseCache';
+import { db } from '../../lib/db/repos';
 import { useDialog } from '../../components/shared/DialogProvider';
 import NumberInput from '../../components/shared/NumberInput';
 import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
@@ -428,7 +428,7 @@ export default function DebtsView({
     // paired it in Pengaturan > Printer, so this just names the first
     // registered printer for the toast — it doesn't claim to know live
     // connection state from here.
-    const registeredPrinters = getSupabaseTableCache<Printer>('printers');
+    const registeredPrinters = db.printers.snapshot();
     const connectedPrinterName = registeredPrinters[0]?.name || "printer default";
 
     triggerToast(`Mengirim ke ${connectedPrinterName}...`);

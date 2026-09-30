@@ -16,7 +16,8 @@ import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/table';
 import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
 import { buildDateBuckets, toDateInputValue } from '../../lib/dateBuckets';
-import { getCurrentSession, getSessionHistory } from '../../lib/cashSession';
+import { db } from '../../lib/db/repos';
+import { useRows } from '../../lib/db/react';
 
 interface ReportsViewProps {
   salesInvoices: SalesInvoice[];
@@ -180,7 +181,8 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
   // seluruh mutasi Kas Harian (penjualan, bayar bon supplier, retur, dll),
   // dipindahkan ke sini dari tab Pembayaran Lainnya agar halaman Pembayaran
   // hanya menampilkan pembayaran operasional.
-  const cashJournalEntries = useMemo(() => [...getSessionHistory(), getCurrentSession()].filter(Boolean).flatMap((session) =>
+  const cashSessions = useRows(db.cashSessions);
+  const cashJournalEntries = useMemo(() => cashSessions.flatMap((session) =>
     session!.mutations.map((mutation) => ({
       id: mutation.id,
       date: session!.date,
@@ -191,7 +193,7 @@ export default function ReportsView({ salesInvoices, products, pos = [], expense
       status: 'Approved' as const,
       direction: mutation.type,
     }))
-  ), []);
+  ), [cashSessions]);
   const journalEntries = useMemo(() => [
     ...expenses.filter((expense) => expense.status === 'Approved').map((expense) => ({ ...expense, direction: 'out' as const })),
     ...cashJournalEntries,

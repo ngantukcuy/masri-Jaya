@@ -1,10 +1,8 @@
 // A small IndexedDB-backed queue that holds Supabase writes which failed
 // because the device was offline (or the request otherwise errored out).
-// Used by useSupabaseTable.ts and useSupabaseState.ts as a safety net: both
-// hooks update React state optimistically and fire the Supabase write in
-// the background — previously, if that write failed, the change was
-// silently lost (just a console.error). Now it lands here instead, and
-// offlineSync.ts replays it once the connection comes back.
+// Dipakai lib/db/core.ts sebagai jaring pengaman: setiap tulis ke tabel
+// (upsert/remove) yang gagal karena jaringan masuk ke sini, lalu
+// offlineSync.ts mengirim ulang begitu koneksi kembali.
 //
 // Raw IndexedDB (no added dependency) — the API is verbose but this file
 // is the only place that has to deal with it.
@@ -14,9 +12,8 @@ const DB_VERSION = 1;
 const STORE_NAME = 'pending_ops';
 
 export type PendingOp =
-  | { id?: number; kind: 'table_upsert'; table: string; rows: { key: string; data: unknown }[]; createdAt: number }
-  | { id?: number; kind: 'table_delete'; table: string; keys: string[]; createdAt: number }
-  | { id?: number; kind: 'singleton_upsert'; table: string; value: unknown; createdAt: number };
+  | { id?: number; kind: 'repo_upsert'; table: string; items: unknown[]; createdAt: number }
+  | { id?: number; kind: 'repo_delete'; table: string; keys: string[]; createdAt: number };
 
 // Plain `Omit<PendingOp, 'id'>` collapses the union down to only the
 // fields common to every variant (losing `rows`/`keys`/`value`) because

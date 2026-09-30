@@ -12,8 +12,16 @@ const supabase = createClient(
 );
 const rupiah=(n:number)=>
 `Rp ${Math.round(n||0).toLocaleString("id-ID")}`;
+// Tabel sekarang berkolom sungguhan (snake_case, mis. invoice_number,
+// stock_status). Payload webhook diubah ke camelCase supaya builder di bawah
+// (data.invoiceNumber, newData.stockStatus, dst.) tetap dipakai apa adanya.
+const toCamel=(k:string)=>k.replace(/_([a-z0-9])/g,(_m,c:string)=>c.toUpperCase());
 function getData(record:any){
-    return record?.data??{};
+    const out:Record<string,unknown>={};
+    for(const[k,v]of Object.entries(record??{})){
+        out[toCamel(k)]=v;
+    }
+    return out as any;
 }
 // PENTING — daftar notif sekarang SENGAJA dibatasi (allow-list), bukan
 // "semua tabel dapat notif generik secara default" seperti sebelumnya.
@@ -177,38 +185,26 @@ function rolesForTable(
             ];
     }
 }
-// PENTING: tabel `push_tokens` (lihat backend/supabase/schema.sql) cuma
-// punya kolom `key` dan `data` (jsonb) — TIDAK ada kolom `role` atau
-// `branch_id` sendiri (sama seperti semua tabel entitas lain di project
-// ini). Sebelumnya kode ini melakukan `.select("key,role,branch_id")` yang
-// akan gagal (kolom tidak ada) setiap kali dipanggil. Role & branch device
-// disimpan di dalam `data` (lihat frontend/src/lib/push/pushNotifications.ts),
-// jadi filternya dilakukan di sini terhadap isi `data`.
+// Tabel `push_tokens` punya kolom sungguhan: token, platform, device_label,
+// role, updated_at (lihat backend/supabase/schema.sql). Filter role dilakukan
+// di sini. `branchId` belum punya kolom sendiri, jadi belum difilter.
 async function loadTokens(
     table:string,
-    branchId?:string
+    _branchId?:string
 ){
     const{
         data,
         error
     }=await supabase
     .from("push_tokens")
-    .select("key,data");
+    .select("token,role");
     if(error)
         throw error;
-    
+
     const allowedRoles=rolesForTable(table);
     return(data??[]).filter((row:any)=>{
-        const role=row?.data?.role;
-        if(!role||!allowedRoles.includes(role))
-            return false;
-        if(branchId){
-            const rowBranch=row?.data?.branchId;
-            if(rowBranch&&rowBranch!==branchId)
-                return false;
-        }
-        return true;
-    });
+        return !!row?.role&&allowedRoles.includes(row.role);
+    }).map((row:any)=>({key:row.token as string}));
 }
 async function sendNotification(
     payload:PushPayload,
@@ -260,7 +256,7 @@ async function sendNotification(
         )
         .delete()
         .in(
-            "key",
+            "token",
             stale
         );
     }

@@ -4,23 +4,17 @@
 // app load (in case the tab was already open when connectivity returned),
 // and on a slow periodic timer as a safety net for flaky connections that
 // don't reliably fire 'online'/'offline' events.
-import { supabase } from './supabase';
+import { getRepo } from './db/registry';
 import { getAllOps, removeOp, type PendingOp } from './offlineQueue';
 
 let flushing = false;
 
 async function replayOp(op: PendingOp): Promise<boolean> {
   try {
-    if (op.kind === 'table_upsert') {
-      const { error } = await supabase.from(op.table).upsert(op.rows as never, { onConflict: 'key' });
-      if (error) throw error;
-    } else if (op.kind === 'table_delete') {
-      const { error } = await supabase.from(op.table).delete().in('key', op.keys);
-      if (error) throw error;
-    } else if (op.kind === 'singleton_upsert') {
-      const { error } = await supabase.from(op.table).upsert({ id: 1, value: op.value as never }, { onConflict: 'id' });
-      if (error) throw error;
-    }
+    const repo = getRepo(op.table);
+    if (!repo) throw new Error(`Repo untuk tabel "${op.table}" tidak ditemukan`);
+    if (op.kind === 'repo_upsert') await repo.persistUpsert(op.items);
+    else if (op.kind === 'repo_delete') await repo.persistDelete(op.keys);
     return true;
   } catch (err) {
     console.error('[offlineSync] Gagal mengirim ulang perubahan tersimpan:', op, err);

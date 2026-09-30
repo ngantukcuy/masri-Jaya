@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp, type FirebaseOptions } from 'firebase/app';
 import { getMessaging, getToken, onMessage, isSupported, type Messaging } from 'firebase/messaging';
-import { supabase } from '../supabase';
+import { db } from '../db/repos';
 
 /**
  * Konfigurasi Firebase untuk WEB — BEDA dari `google-services.json` yang
@@ -137,19 +137,13 @@ export async function initWebPush(deviceLabel?: string, role?: string): Promise<
       return;
     }
 
-    const { error } = await supabase.from('push_tokens').upsert({
-      key: token,
-      data: {
-        token,
-        platform: 'web',
-        deviceLabel: deviceLabel || null,
-        // Dibaca oleh backend/supabase/functions/send-push (loadTokens),
-        // sama persis seperti token Android/iOS.
-        role: role || null,
-        updatedAt: new Date().toISOString(),
-      },
-    });
-    if (error) throw error;
+    await db.pushTokens.persistUpsert([{
+      token,
+      platform: 'web',
+      deviceLabel: deviceLabel || undefined,
+      role: role || undefined,
+      updatedAt: new Date().toISOString(),
+    }]);
 
     // Notif masuk saat TAB lagi fokus (foreground). Kalau tab tidak
     // fokus/browser ditutup, yang jalan adalah onBackgroundMessage() di

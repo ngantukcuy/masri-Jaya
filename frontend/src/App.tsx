@@ -6,8 +6,8 @@ import LoginView from './features/auth/LoginView';
 import { LayoutDashboard, ShoppingBag, Boxes, Menu, Receipt, ShieldOff } from 'lucide-react';
 
 import { Product, PO, Customer, Expense, Activity, Branch, Supplier, SalesInvoice, ReturnRecord, DigitalOrder, Banner, SkuLocation, BankAccount } from './types';
-import { useSupabaseState } from './lib/useSupabaseState';
-import { useSupabaseTable } from './lib/useSupabaseTable';
+import { db, patchStoreSettings, startBusinessRepos } from './lib/db/repos';
+import { useRows } from './lib/db/react';
 import { useSupabaseReady } from './lib/useSupabaseReady';
 import { useDialog } from './components/shared/DialogProvider';
 import { CurrentUser, canAccessTab, firstAccessibleTab } from './lib/permissions';
@@ -56,7 +56,7 @@ export default function App() {
   const supabaseReady = useSupabaseReady();
 
   // Wait for anonymous auth before mounting anything that reads/writes
-  // Supabase (see useSupabaseState) — avoids a permission-denied flash
+  // Supabase — avoids a permission-denied flash
   // on first load.
   if (!supabaseReady) {
     return (
@@ -74,7 +74,7 @@ export default function App() {
 
 /**
  * Owns only auth/session state. Crucially, this component does NOT call
- * useSupabaseTable/useSupabaseState for the ~13 ERP data tables — those
+ * useRows(db.<tabel>) for the ERP data tables — those
  * hooks each kick off a REST fetch *and* open a realtime websocket channel
  * as soon as they mount. Keeping them out of this component means none of
  * that network activity happens while the (unauthenticated) login screen
@@ -184,8 +184,16 @@ function Dashboard({
     initPushNotifications(currentUser.name, currentUser.role);
   }, [currentUser.name, currentUser.role]);
 
-  const [registeredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string; address?: string; phone?: string; receiptNote?: string; taxId?: string } | null>('store_owner', null);
-  const [rawProducts, setProducts] = useSupabaseTable<Product>('products', [], (p) => p.sku);
+  // Muat semua tabel bisnis begitu user login (juga tabel yang dibaca lewat
+  // fungsi biasa seperti sesi kas, printer, dan draft keranjang kasir).
+  useEffect(() => { void startBusinessRepos(); }, []);
+
+  // ---- DATA: semuanya dibaca dari tabel database (lib/db/repos.ts) ----
+  // useRows() cuma "mendengarkan" tabelnya (read-only). Menulis dilakukan
+  // lewat db.<tabel>.upsert / remove / save — langsung ke baris tabel.
+  const registeredOwner = useRows(db.storeProfile)[0] ?? null;
+  const settings = useRows(db.storeSettings)[0];
+  const rawProducts = useRows(db.products);
   // Produk eceran selalu tampil dengan nama alias saja (tanpa nama produk induk),
   // termasuk data lama yang tersimpan sebagai "Semen (1 kg)".
   const products = useMemo(
@@ -195,28 +203,38 @@ function Dashboard({
     }),
     [rawProducts]
   );
-  const [pos, setPOs] = useSupabaseTable<PO>('purchase_orders', [], (po) => po.poNumber);
-  const [customers, setCustomers] = useSupabaseTable<Customer>('customers', [], (c) => c.id);
-  const [suppliers, setSuppliers] = useSupabaseTable<Supplier>('suppliers', [], (s) => s.name);
-  const [expenses, setExpenses] = useSupabaseTable<Expense>('expenses', [], (e) => e.id);
-  const [activities, setActivities] = useSupabaseTable<Activity>('activities', [], (a) => a.id);
-  const [branches, setBranches] = useSupabaseTable<Branch>('branches', [], (b) => b.name);
-  const [salesInvoices, setSalesInvoices] = useSupabaseTable<SalesInvoice>('sales_invoices', [], (s) => s.invoiceNumber);
-  const [returns, setReturns] = useSupabaseTable<ReturnRecord>('returns', [], (r) => r.id);
-  const [digitalOrders, setDigitalOrders] = useSupabaseTable<DigitalOrder>('digital_orders', [], (d) => d.id);
-  const [banners, setBanners] = useSupabaseTable<Banner>('banners', [], (b) => b.id);
-  const [skuLocations, setSkuLocations] = useSupabaseTable<SkuLocation>('sku_locations', [], (s) => s.id);
-  // Lifted up from SettingsView so POSView can also read it (needed to show
-  // the store's real QRIS code during checkout — see QRISModal).
-  const [bankAccounts, setBankAccounts] = useSupabaseTable<BankAccount>('bank_accounts', [], (b) => b.id);
-  const [ecommerceUsername, setEcommerceUsername] = useSupabaseState<string>('ecommerce_username', '');
-  // ID pelanggan yang jadi default terpilih tiap buka POS. Disimpan
-  // terpisah dari daftar customers itu sendiri supaya defaultnya tetap
-  // konsisten (dan bisa diganti Owner/Admin lewat Pengaturan) walaupun
-  // ada banyak data pelanggan lain — sebelumnya POS selalu asal ambil
-  // customers[0] (urutan pertama di database), bukan benar-benar "Customer"
-  // (pelanggan umum/walk-in) yang stabil.
-  const [defaultCustomerId, setDefaultCustomerId] = useSupabaseState<string | null>('default_customer_id', null);
+  const pos = useRows(db.purchaseOrders);
+  const customers = useRows(db.customers);
+  const suppliers = useRows(db.suppliers);
+  const expenses = useRows(db.expenses);
+  const activities = useRows(db.activities);
+  const branches = useRows(db.branches);
+  const salesInvoices = useRows(db.salesInvoices);
+  const returns = useRows(db.returns);
+  const digitalOrders = useRows(db.digitalOrders);
+  const banners = useRows(db.banners);
+  const skuLocations = useRows(db.skuLocations);
+  // Dipakai POSView juga (QRIS toko asli saat checkout).
+  const bankAccounts = useRows(db.bankAccounts);
+  const ecommerceUsername = settings?.ecommerceUsername ?? '';
+  // ID pelanggan yang jadi default terpilih tiap buka POS (kolom
+  // store_settings.default_customer_id), diganti Owner/Admin lewat Pengaturan.
+  const defaultCustomerId = settings?.defaultCustomerId ?? null;
+
+  // ---- TULIS: tiap fungsi = perintah ke tabel database ----
+  const setProducts = db.products.save;
+  const setPOs = db.purchaseOrders.save;
+  const setCustomers = db.customers.save;
+  const setSuppliers = db.suppliers.save;
+  const setExpenses = db.expenses.save;
+  const setBranches = db.branches.save;
+  const setReturns = db.returns.save;
+  const setDigitalOrders = db.digitalOrders.save;
+  const setBanners = db.banners.save;
+  const setSkuLocations = db.skuLocations.save;
+  const setBankAccounts = db.bankAccounts.save;
+  const setEcommerceUsername = (value: string) => { void patchStoreSettings({ ecommerceUsername: value }); };
+  const setDefaultCustomerId = (value: string | null) => { void patchStoreSettings({ defaultCustomerId: value ?? undefined }); };
 
   // Dynamic metrics added from POS checkout
 
@@ -242,7 +260,7 @@ function Dashboard({
       type,
       audience
     };
-    setActivities([nextAct, ...activities]);
+    void db.activities.upsert([nextAct]);
   };
 
   // `activities` isn't reliably newest-first: a fresh page load comes back
@@ -259,15 +277,15 @@ function Dashboard({
   });
 
   const handleRecordSale = (invoice: SalesInvoice) => {
-    setSalesInvoices((prev) => [invoice, ...prev]);
+    void db.salesInvoices.upsert([invoice]);
   };
 
   const handleUpdateSalesInvoice = (updatedInvoice: SalesInvoice) => {
-    setSalesInvoices((prev) => prev.map((invoice) => invoice.invoiceNumber === updatedInvoice.invoiceNumber ? updatedInvoice : invoice));
+    void db.salesInvoices.upsert([updatedInvoice]);
   };
 
   const handleDeleteSalesInvoice = (invoiceNumber: string) => {
-    setSalesInvoices((prev) => prev.filter((invoice) => invoice.invoiceNumber !== invoiceNumber));
+    void db.salesInvoices.remove([invoiceNumber]);
   };
 
   const handleTabChange = (tab: string) => {

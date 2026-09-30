@@ -5,7 +5,7 @@ import {
   PushNotificationSchema,
   ActionPerformed,
 } from '@capacitor/push-notifications';
-import { supabase } from '../supabase';
+import { db } from '../db/repos';
 
 let initialized = false;
 
@@ -75,19 +75,13 @@ export async function initPushNotifications(deviceLabel?: string, role?: string)
 
     PushNotifications.addListener('registration', async (token: Token) => {
       try {
-        const { error } = await supabase.from('push_tokens').upsert({
-          key: token.value,
-          data: {
-            token: token.value,
-            platform: Capacitor.getPlatform(),
-            deviceLabel: deviceLabel || null,
-            // Dibaca oleh backend/supabase/functions/send-push (loadTokens)
-            // untuk menentukan siapa yang berhak dapat notif jenis ini.
-            role: role || null,
-            updatedAt: new Date().toISOString(),
-          },
-        });
-        if (error) throw error;
+        await db.pushTokens.persistUpsert([{
+          token: token.value,
+          platform: Capacitor.getPlatform(),
+          deviceLabel: deviceLabel || undefined,
+          role: role || undefined,
+          updatedAt: new Date().toISOString(),
+        }]);
       } catch (err) {
         console.error('[push] Gagal menyimpan token FCM ke Supabase:', err);
       }

@@ -41,7 +41,6 @@ import PiutangDueDateModal from './components/PiutangDueDateModal';
 import { recordSale, getCurrentSession, subscribeCurrentSession } from '../../lib/cashSession';
 import ProfileBadge from '../../components/shared/ProfileBadge';
 import { CurrentUser } from '../../lib/permissions';
-import { getSupabaseTableCache } from '../../lib/supabaseCache';
 import { playBeep, playPrintSound } from './lib/posAudio';
 import { generateReceiptPDF, orderDetailsToSalesInvoice, printInvoiceReceipt } from './lib/receiptPdf';
 import {
@@ -62,7 +61,8 @@ import {
   clearPersistedPOSState
 } from './lib/posCartStorage';
 import { useDialog } from '../../components/shared/DialogProvider';
-import { useSupabaseTable } from '../../lib/useSupabaseTable';
+import { db } from '../../lib/db/repos';
+import { useRows } from '../../lib/db/react';
 import NumberInput from '../../components/shared/NumberInput';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -227,7 +227,7 @@ export default function POSView({
   const [connectingPrinterId, setConnectingPrinterId] = useState<string | null>(null);
   const [livePrinterConnections, setLivePrinterConnections] = useState(() => getPrinterConnections());
   useEffect(() => subscribeToPrinterConnections(setLivePrinterConnections), []);
-  const registeredPrinters = getSupabaseTableCache<Printer>('printers');
+  const registeredPrinters = db.printers.snapshot();
   const anyPrinterConnected = livePrinterConnections.size > 0;
 
   const handleConnectPrinterInline = async (printer: Printer) => {
@@ -282,7 +282,7 @@ export default function POSView({
   const [newProductProjectPrice, setNewProductProjectPrice] = useState(0);
   const [newProductStock, setNewProductStock] = useState(0);
 
-  const [productCategories] = useSupabaseTable<ProductCategory>('product_categories', [], (category) => category.id);
+  const productCategories = useRows(db.productCategories) as ProductCategory[];
   const categoryNames = productCategories
     .slice()
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name))
@@ -906,7 +906,7 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
     // Printers registered at all (Supabase, shared across devices) — used
     // only to decide whether to show the "belum ada printer" alert and for
     // a friendly name, not to decide whether a real connection exists.
-    const registeredPrinters = getSupabaseTableCache<Printer>('printers');
+    const registeredPrinters = db.printers.snapshot();
     const hasRegisteredPrinter = registeredPrinters.length > 0;
 
     if (!hasRegisteredPrinter && !handle) {

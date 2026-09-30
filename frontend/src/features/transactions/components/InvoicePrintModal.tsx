@@ -3,7 +3,7 @@ import { Printer, FileDown, Truck, Store, X, CheckCircle2, ArrowLeft, Square, Ch
 import { motion } from 'motion/react';
 import { SalesInvoice } from '../../../types';
 import { generateInvoiceReceiptPDF, generateDeliveryNotePDF, printInvoiceReceipt, printDeliveryNote } from '../../pos/lib/receiptPdf';
-import { getSupabaseTableCache } from '../../../lib/supabaseCache';
+import { db } from '../../../lib/db/repos';
 import NumberInput from '../../../components/shared/NumberInput';
 import { getPrinterConnections } from '../../../lib/printing/printerConnection';
 import { buildInvoiceReceipt, buildDeliveryReceipt } from '../../../lib/printing/escpos';
@@ -138,7 +138,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
     const connectedPrinterId = [...connections.keys()][0];
     const handle = connectedPrinterId ? connections.get(connectedPrinterId) : undefined;
 
-    const registeredPrinters = getSupabaseTableCache<PrinterLite>('printers');
+    const registeredPrinters = (db.printers.snapshot() as PrinterLite[]);
     const connectedPrinterName =
       registeredPrinters.find((p) => p.id === connectedPrinterId)?.name ||
       registeredPrinters[0]?.name ||

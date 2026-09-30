@@ -1,45 +1,34 @@
-import { supabase } from './supabase';
+import { db } from './db/repos';
+import type { Repo } from './db/core';
 
-// Full table list lives in backend/supabase/schema.sql. `staff_list` and
-// `store_owner` are deliberately EXCLUDED from both lists below — those are
-// login credentials (owner PIN, staff PINs), and wiping them would lock
-// everyone (including whoever clicked the reset button) out of the app.
-//
-// One-row-per-item tables: every row gets deleted.
-const LIST_TABLES_TO_WIPE = [
-  'products',
-  'purchase_orders',
-  'customers',
-  'suppliers',
-  'expenses',
-  'activities',
-  'branches',
-  'sales_invoices',
-  'returns',
-  'digital_orders',
-  'banners',
-  'sku_locations',
-  'bank_accounts',
-  'printers',
-  'opname_submissions',
-  'product_categories',
-  'product_brands',
-  'product_units',
-  'product_bundles',
-] as const;
-
-// Single-row (id = 1) tables: deleting the row is safe. Every reader
-// (useSupabaseState / getSupabaseCache) re-seeds its own default value
-// (0, '', null, []) the next time it loads when no row is found — that's
-// exactly the "reset" behavior we want here.
-const SINGLETON_TABLES_TO_WIPE = [
-  'ecommerce_username',
-  'total_sales',
-  'total_orders_count',
-  'cash_session_current',
-  'cash_session_history',
-  'pos_cart_state',
-] as const;
+// Semua tabel bisnis yang dikosongkan saat reset. `staff_list` dan
+// `store_profile` sengaja TIDAK ikut — itu kredensial login (PIN owner/staf),
+// menghapusnya mengunci semua orang (termasuk yang menekan tombol reset).
+// `push_tokens` juga dibiarkan (bukan data bisnis).
+const TABLES_TO_WIPE: { name: string; repo: Repo<unknown> }[] = [
+  ['products', db.products],
+  ['purchase_orders', db.purchaseOrders],
+  ['customers', db.customers],
+  ['suppliers', db.suppliers],
+  ['expenses', db.expenses],
+  ['activities', db.activities],
+  ['branches', db.branches],
+  ['sales_invoices', db.salesInvoices],
+  ['returns', db.returns],
+  ['digital_orders', db.digitalOrders],
+  ['banners', db.banners],
+  ['sku_locations', db.skuLocations],
+  ['bank_accounts', db.bankAccounts],
+  ['printers', db.printers],
+  ['opname_submissions', db.opnameSubmissions],
+  ['product_categories', db.productCategories],
+  ['product_brands', db.productBrands],
+  ['product_units', db.productUnits],
+  ['product_bundles', db.productBundles],
+  ['cash_sessions', db.cashSessions],
+  ['store_settings', db.storeSettings],
+  ['pos_cart_drafts', db.posCartDrafts],
+].map(([name, repo]) => ({ name: name as string, repo: repo as Repo<unknown> }));
 
 export interface ResetAllDataResult {
   ok: boolean;
@@ -62,35 +51,20 @@ export async function backupAllBusinessData(): Promise<BackupResult> {
   const errors: string[] = [];
   const tables: Record<string, unknown> = {};
 
-  for (const table of LIST_TABLES_TO_WIPE) {
-    const { data, error } = await supabase.from(table).select('key, data');
-    if (error) {
-      errors.push(`${table}: ${error.message}`);
-      continue;
+  for (const { name, repo } of TABLES_TO_WIPE) {
+    try {
+      await repo.reload();
+      tables[name] = repo.snapshot();
+    } catch (err) {
+      errors.push(`${name}: ${(err as Error).message}`);
     }
-    tables[table] = data ?? [];
   }
 
-  for (const table of SINGLETON_TABLES_TO_WIPE) {
-    const { data, error } = await supabase.from(table).select('value').eq('id', 1).maybeSingle();
-    if (error) {
-      errors.push(`${table}: ${error.message}`);
-      continue;
-    }
-    tables[table] = data?.value ?? null;
-  }
-
-  // A backup where every single table errored out isn't worth downloading —
-  // surface it as a hard failure instead of a 0-byte "success".
-  if (errors.length >= LIST_TABLES_TO_WIPE.length + SINGLETON_TABLES_TO_WIPE.length) {
+  if (errors.length >= TABLES_TO_WIPE.length) {
     return { ok: false, errors, json: null };
   }
 
-  const payload = {
-    exportedAt: new Date().toISOString(),
-    tables,
-  };
-
+  const payload = { exportedAt: new Date().toISOString(), tables };
   return { ok: errors.length === 0, errors, json: JSON.stringify(payload, null, 2) };
 }
 
@@ -111,27 +85,22 @@ export function downloadBackupJson(json: string) {
 /**
  * Wipes every business/transactional table (products, customers, sales,
  * expenses, cash sessions, etc.) back to empty. Login credentials
- * (store_owner, staff_list) are intentionally left untouched. Irreversible —
+ * (store_profile, staff_list) are intentionally left untouched. Irreversible —
  * callers are responsible for confirming with the user before calling this.
  */
 export async function resetAllBusinessData(): Promise<ResetAllDataResult> {
   const errors: string[] = [];
 
-  for (const table of LIST_TABLES_TO_WIPE) {
-    const { data, error: selectError } = await supabase.from(table).select('key');
-    if (selectError) {
-      errors.push(`${table}: ${selectError.message}`);
-      continue;
+  for (const { name, repo } of TABLES_TO_WIPE) {
+    try {
+      await repo.reload();
+      const keys = repo.snapshot().map((row) => repo.keyOf(row));
+      if (keys.length === 0) continue;
+      await repo.persistDelete(keys); // tulis langsung ke DB & lempar error kalau gagal
+      await repo.reload();
+    } catch (err) {
+      errors.push(`${name}: ${(err as Error).message}`);
     }
-    const keys = (data ?? []).map((row: { key: string }) => row.key);
-    if (keys.length === 0) continue;
-    const { error: deleteError } = await supabase.from(table).delete().in('key', keys);
-    if (deleteError) errors.push(`${table}: ${deleteError.message}`);
-  }
-
-  for (const table of SINGLETON_TABLES_TO_WIPE) {
-    const { error } = await supabase.from(table).delete().eq('id', 1);
-    if (error) errors.push(`${table}: ${error.message}`);
   }
 
   return { ok: errors.length === 0, errors };

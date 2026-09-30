@@ -22,8 +22,8 @@ import {
 } from 'lucide-react';
 import { Branch, StoreProfile, StaffMember, BankAccount, SkuLocation, Printer, Customer } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { useSupabaseState } from '../../lib/useSupabaseState';
-import { useSupabaseTable } from '../../lib/useSupabaseTable';
+import { db, getStoreProfile, saveStoreProfile } from '../../lib/db/repos';
+import { useRows } from '../../lib/db/react';
 import { uploadProductImage } from '../../lib/uploadProductImage';
 import {
   connectBluetoothPrinter,
@@ -150,7 +150,8 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const [newStaffPin, setNewStaffPin] = useState('');
   const [newStaffRole, setNewStaffRole] = useState<'Owner' | 'Admin' | 'Kasir' | 'Stoker'>('Kasir');
   const [newStaffPermissions, setNewStaffPermissions] = useState<string[]>(ROLE_DEFAULT_PERMISSIONS['Kasir']);
-  const [staffList, setStaffList] = useSupabaseTable<StaffMember>('staff_list', [], (s) => s.id!);
+  const staffList = useRows(db.staff);
+  const setStaffList = db.staff.save;
   // Form staf (tambah & edit) tampil sebagai dialog, hanya saat tombolnya diklik.
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
@@ -162,7 +163,8 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   // Bluetooth/USB device) only makes sense on whichever computer/tablet is
   // physically near the printer, so that part is local-only React state —
   // see printerConnectionsRef below.
-  const [printers, setPrinters] = useSupabaseTable<Printer>('printers', [], (p) => p.id);
+  const printers = useRows(db.printers);
+  const setPrinters = db.printers.save;
   // Read from (and subscribe to) the module-level connection registry
   // instead of keeping the Map in local state — a connection made here must
   // still show as connected (and still be usable) after navigating to Kasir
@@ -176,7 +178,12 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const [newPrinterType, setNewPrinterType] = useState<'bluetooth' | 'usb'>('bluetooth');
 
   // Registered owner record (same Supabase row used by LoginView for first-time registration)
-  const [registeredOwner, setRegisteredOwner] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string; taxId?: string; address?: string; phone?: string; receiptNote?: string } | null>('store_owner', null);
+  const registeredOwner = useRows(db.storeProfile)[0] ?? null;
+  // Update profil toko = UPDATE baris di tabel store_profile.
+  const updateRegisteredOwner = (update: (prev: NonNullable<typeof registeredOwner>) => NonNullable<typeof registeredOwner>) => {
+    const prev = getStoreProfile();
+    if (prev) void saveStoreProfile(update({ ...prev, id: 'main' }));
+  };
 
   // Sync derived profile fields whenever the registered-owner record changes
   useEffect(() => {
@@ -296,7 +303,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     };
     setStoreProfile(nextStoreProfile);
 
-    setRegisteredOwner((prev) => prev ? {
+    updateRegisteredOwner((prev) => ({
       ...prev,
       storeName: companyName,
       email,
@@ -305,7 +312,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
       address: storeProfile.address,
       phone: storeProfile.phone,
       receiptNote: storeProfile.receiptNote
-    } : prev);
+    }));
 
     triggerToast("Profil Bisnis berhasil disimpan ke database!");
     onAddActivity(
@@ -410,7 +417,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
       // PIN Owner disimpan di dua tempat (daftar staf untuk login, dan
       // store_owner untuk kredensial utama) — jaga keduanya tetap sama.
       if (isOwnerEntry && newStaffPin) {
-        setRegisteredOwner((prev) => prev ? { ...prev, pin: newStaffPin } : prev);
+        updateRegisteredOwner((prev) => ({ ...prev, pin: newStaffPin }));
         setOwnerPin(newStaffPin);
       }
       const editingSelf = target.name === currentUser?.name;
@@ -655,7 +662,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const AUDIT_TABLE_OPTIONS = [
     'products', 'purchase_orders', 'customers', 'suppliers', 'expenses',
     'sales_invoices', 'returns', 'digital_orders', 'banners', 'sku_locations',
-    'staff_list', 'bank_accounts', 'printers', 'branches', 'store_owner',
+    'staff_list', 'bank_accounts', 'printers', 'branches', 'store_profile',
   ];
 
   const actionBadgeClass: Record<string, string> = {
@@ -1320,7 +1327,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                         dialog.alert("PIN Owner harus berisi 6 digit angka!");
                         return;
                       }
-                      setRegisteredOwner((prev) => prev ? { ...prev, pin: ownerPin } : prev);
+                      updateRegisteredOwner((prev) => ({ ...prev, pin: ownerPin }));
                       // Halaman login memeriksa PIN dari daftar staf, jadi akun Owner di sana ikut diperbarui.
                       setStaffList(staffList.map((st) => (st.role === 'Owner' ? { ...st, pin: ownerPin } : st)));
                       triggerToast("PIN Utama Owner berhasil dimodifikasi.");

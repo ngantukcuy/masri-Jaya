@@ -49,3 +49,25 @@ export interface Printer {
   name: string;
   connectionType: 'bluetooth' | 'usb';
 }
+
+
+/** Profil toko + akun Owner — satu baris di tabel `store_profile` (id = 'main'). */
+export interface StoreOwner {
+  storeName: string;
+  ownerName: string;
+  email: string;
+  pin: string;
+  address?: string;
+  phone?: string;
+  receiptNote?: string;
+  taxId?: string;
+}
+
+/** Pengaturan toko — satu baris di tabel `store_settings` (id = 'main'). */
+export interface StoreSettings {
+  ecommerceUsername?: string;
+  /** ID pelanggan yang otomatis terpilih tiap buka kasir. */
+  defaultCustomerId?: string;
+  totalSales?: number;
+  totalOrdersCount?: number;
+}

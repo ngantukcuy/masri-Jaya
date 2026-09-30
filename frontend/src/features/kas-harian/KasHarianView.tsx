@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Lock,
   Unlock,
@@ -12,14 +12,13 @@ import {
 } from 'lucide-react';
 import { CashSession, SalesInvoice, ReturnRecord } from '../../types';
 import {
-  getCurrentSession,
-  subscribeCurrentSession,
-  getSessionHistory,
   openSession,
   closeSession,
   addMutation,
   getMutationTotals
 } from '../../lib/cashSession';
+import { db } from '../../lib/db/repos';
+import { useRows } from '../../lib/db/react';
 import { useDialog } from '../../components/shared/DialogProvider';
 import NumberInput from '../../components/shared/NumberInput';
 import KasHarianDetailModal from './KasHarianDetailModal';
@@ -40,8 +39,12 @@ interface KasHarianViewProps {
 
 export default function KasHarianView({ onAddActivity, salesInvoices = [], returns = [], currentUserName }: KasHarianViewProps) {
   const dialog = useDialog();
-  const [session, setSession] = useState<CashSession | null>(null);
-  const [history, setHistory] = useState<CashSession[]>([]);
+  // Sesi kas dibaca langsung dari tabel cash_sessions (+ cash_mutations).
+  const allSessions = useRows(db.cashSessions);
+  const session: CashSession | null = allSessions.find((s) => s.status === 'Open') ?? null;
+  const history: CashSession[] = allSessions
+    .filter((s) => s.status === 'Closed')
+    .sort((a, b) => new Date(b.closedAtISO ?? b.openedAtISO ?? 0).getTime() - new Date(a.closedAtISO ?? a.openedAtISO ?? 0).getTime());
   const [activeTab, setActiveTab] = useState<'kas' | 'laporan'>('kas');
 
   const [openingInput, setOpeningInput] = useState<number>(500000);
@@ -57,16 +60,6 @@ export default function KasHarianView({ onAddActivity, salesInvoices = [], retur
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
   const [detailSession, setDetailSession] = useState<CashSession | null>(null);
 
-  const refresh = () => {
-    setSession(getCurrentSession());
-    setHistory(getSessionHistory());
-  };
-
-  useEffect(() => {
-    refresh();
-    return subscribeCurrentSession(setSession);
-  }, []);
-
   const handleOpenSession = () => {
     if (openingInput < 0) {
       dialog.alert('Jumlah kas awal tidak boleh negatif.');
@@ -79,7 +72,6 @@ export default function KasHarianView({ onAddActivity, salesInvoices = [], retur
       0,
       'quote'
     );
-    setSession(newSession);
   };
 
   const handleSubmitMutation = () => {
@@ -90,7 +82,6 @@ export default function KasHarianView({ onAddActivity, salesInvoices = [], retur
     }
     const updated = addMutation(showMutationModal, mutationCategory, mutationAmount, mutationNote || undefined);
     if (updated) {
-      setSession(updated);
       onAddActivity(
         showMutationModal === 'in' ? 'Kas Masuk Dicatat' : 'Kas Keluar Dicatat',
         `${mutationCategory}: Rp ${mutationAmount.toLocaleString('id-ID')}`,
@@ -116,7 +107,6 @@ export default function KasHarianView({ onAddActivity, salesInvoices = [], retur
     }
     setShowCloseModal(false);
     setActualCashInput(0);
-    refresh();
   };
 
   const totals = session ? getMutationTotals(session) : null;

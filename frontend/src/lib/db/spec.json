@@ -1,0 +1,187 @@
+{
+  "tables": [
+    {
+      "table": "products", "key": "sku",
+      "columns": [
+        ["name","text"],["category","text"],["unit","text"],
+        ["retailPrice","num"],["wholesalePrice","num"],["projectPrice","num"],
+        ["stock","num"],["stockStatus","text"],["lastRestock","text"],["supplier","text"],
+        ["lastRestockQty","num"],["leadTime","text"],["warehouseLocation","text"],["image","text"],
+        ["productType","text"],["alias","text"],["brand","text"],
+        ["category1","text"],["category2","text"],["category3","text"],["barcode","text"],
+        ["costPrice","num"],["minSellPrice","num"],["standardSellPrice","num"],
+        ["showLowStockAlert","bool"],["minStockQty","num"],["showInDeadstock","bool"],["deadstockPeriodMonths","num"],
+        ["skuLocationId","text"],["parentSku","text"],["conversionValue","num"],["allowDecimalQty","bool"]
+      ],
+      "children": [
+        { "field": "sellUnits", "table": "product_sell_units", "columns": [["label","text"],["factor","num"],["price","num"]] }
+      ]
+    },
+    {
+      "table": "purchase_orders", "key": "poNumber",
+      "columns": [
+        ["supplier","text"],["total","num"],["status","text"],["createdDate","text"],["logisticsNote","text"],
+        ["paymentMethod","text"],["deliveryNoteNumber","text"],["taxIncluded","bool"],["totalDiscount","num"],
+        ["additionalCost","num"],["additionalCostName","text"],["receivedAt","text"],["dueDate","text"],
+        ["paidAt","text"],["paidAmount","num"],["paidMethod","text"],
+        ["dropship","bool"],["dropshipNote","text"],["directToCustomer","bool"],["directToCustomerName","text"]
+      ],
+      "children": [
+        { "field": "items", "table": "purchase_order_items", "columns": [
+          ["name","text"],["sku","text"],["quantity","num"],["price","num"],["taxIncluded","bool"],
+          ["discountPerUnit","num"],["totalDiscount","num"],["locationId","text"],["bonus","bool"] ] },
+        { "field": "paymentHistory", "table": "purchase_order_payments", "columns": [
+          ["id","text"],["amount","num"],["method","text"],["date","text"],["proofUrl","text"],["by","text"] ] },
+        { "field": "paidHistory", "table": "purchase_order_paid_history", "columns": [
+          ["date","text"],["amount","num"],["method","text"],["receiptName","text"] ] }
+      ]
+    },
+    {
+      "table": "customers", "key": "id",
+      "columns": [
+        ["name","text"],["loyaltyTier","text"],["points","num"],["currentDebt","num"],["totalPurchases","num"],
+        ["debtStatus","text"],["overdueAmount","num"],["pendingAmount","num"],["logoLetters","text"],
+        ["customerType","text"],["phone","text"],["address","text"],["paymentTerms","text"],["tempoDays","num"],
+        ["creditLimit","num"],["depositBalance","num"],["nextDueDate","text"]
+      ],
+      "children": [
+        { "field": "lastTransactions", "table": "customer_transactions", "columns": [
+          ["orderName","text"],["date","text"],["amount","num"],["createdAt","text"] ] },
+        { "field": "depositHistory", "table": "customer_deposit_transactions", "columns": [
+          ["id","text"],["type","text"],["amount","num"],["method","text"],["date","text"] ] }
+      ]
+    },
+    {
+      "table": "suppliers", "key": "name",
+      "columns": [
+        ["rating","num"],["recentPO","text"],["debt","num"],["leadTimeStability","num"],["logoLetters","text"],
+        ["phone","text"],["npwp","text"],["address","text"],["salesName","text"],["salesPhone","text"],["topDays","num"]
+      ],
+      "children": [
+        { "field": "additionalSales", "table": "supplier_sales_contacts", "columns": [["name","text"],["phone","text"]] }
+      ]
+    },
+    {
+      "table": "expenses", "key": "id",
+      "columns": [
+        ["date","text"],["category","text"],["description","text"],["submittedBy","text"],["amount","num"],
+        ["receiptName","text"],["receiptUrl","text"],["status","text"],["paymentMethod","text"],
+        ["expenseDate","text"],["receiptFile","text"],["approvedBy","text"],["approvedAt","text"]
+      ]
+    },
+    {
+      "table": "activities", "key": "id",
+      "columns": [
+        ["title","text"],["subtitle","text"],["amount","num"],["time","text"],["createdAt","text"],["type","text"],["audience","text"]
+      ]
+    },
+    {
+      "table": "branches", "key": "name",
+      "columns": [
+        ["location","text"],["manager","text"],["managerInitials","text"],["hwOk","num"],["hwError","num"],
+        ["address","text"],["city","text"],["branchCode","text"],["phone","text"],["postalCode","text"],
+        ["receiptNote","text"],["imageUrl","text"],["allowNegativeStock","bool"],["showStockInDigital","bool"],
+        ["useDailyCash","bool"],["openingHours","json"]
+      ]
+    },
+    {
+      "table": "sales_invoices", "key": "invoiceNumber",
+      "columns": [
+        ["customerName","text"],["customerId","text"],["date","text"],["createdAt","text"],["total","num"],
+        ["paymentMethod","text"],["subtotal","num"],["discountAmount","num"],["discountType","text"],["discountValue","num"],
+        ["additionalFeeName","text"],["additionalFee","num"],["fulfillmentMethod","text"],["deliveryAddress","text"],
+        ["driverName","text"],["deletionStatus","text"],["deletionRequestedAt","text"],
+        ["cashReceived","num"],["changeAmount","num"],["splitPaidAmount","num"],["splitRemainingDebt","num"],["splitDueDate","text"],
+        ["payOnDelivery","bool"],["paymentAccountName","text"],["paymentAccountNumber","text"],["paymentAccountHolder","text"]
+      ],
+      "children": [
+        { "field": "items", "table": "sales_invoice_items", "columns": [
+          ["sku","text"],["name","text"],["quantity","num"],["price","num"],["originalPrice","num"],
+          ["unit","text"],["bonus","bool"],["deliveredQuantity","num"] ] },
+        { "field": "additionalFees", "table": "sales_invoice_fees", "columns": [["name","text"],["amount","num"]] }
+      ]
+    },
+    {
+      "table": "returns", "key": "id",
+      "columns": [
+        ["type","text"],["refNumber","text"],["partyName","text"],["discount","num"],["totalRefund","num"],
+        ["refundMethod","text"],["status","text"],["createdAt","text"],["approvedAtISO","text"]
+      ],
+      "children": [
+        { "field": "items", "table": "return_items", "columns": [
+          ["sku","text"],["name","text"],["quantity","num"],["condition","text"],["price","num"] ] }
+      ]
+    },
+    {
+      "table": "digital_orders", "key": "id",
+      "columns": [["buyerName","text"],["phone","text"],["address","text"],["total","num"],["status","text"],["createdAt","text"]],
+      "children": [
+        { "field": "items", "table": "digital_order_items", "columns": [["sku","text"],["name","text"],["quantity","num"],["price","num"]] }
+      ]
+    },
+    { "table": "banners", "key": "id", "columns": [["imageUrl","text"],["title","text"],["active","bool"]] },
+    { "table": "sku_locations", "key": "id", "columns": [["name","text"],["city","text"],["address","text"]] },
+    {
+      "table": "staff_list", "key": "id",
+      "columns": [["name","text"],["phone","text"],["pin","text"],["role","text"],["permissions","text[]"]]
+    },
+    {
+      "table": "bank_accounts", "key": "id",
+      "columns": [["name","text"],["type","text"],["accountNumber","text"],["holderName","text"],["notes","text"],["qrisImageUrl","text"]]
+    },
+    { "table": "printers", "key": "id", "columns": [["name","text"],["connectionType","text"]] },
+    {
+      "table": "opname_submissions", "key": "id",
+      "columns": [
+        ["productSku","text"],["productName","text"],["type","text"],["amount","num"],
+        ["notes","text"],["submittedBy","text"],["date","text"],["status","text"]
+      ]
+    },
+    { "table": "product_categories", "key": "id", "columns": [["name","text"],["level","num"]] },
+    { "table": "product_brands", "key": "id", "columns": [["name","text"]] },
+    { "table": "product_units", "key": "id", "columns": [["name","text"],["level","num"]] },
+    {
+      "table": "product_bundles", "key": "id",
+      "columns": [["name","text"],["bundlePrice","num"]],
+      "children": [
+        { "field": "items", "table": "product_bundle_items", "columns": [["sku","text"],["name","text"],["quantity","num"]] }
+      ]
+    },
+    {
+      "table": "store_profile", "key": "id", "singleton": true,
+      "columns": [["storeName","text"],["ownerName","text"],["email","text"],["pin","text"],["address","text"],["phone","text"],["receiptNote","text"],["taxId","text"]]
+    },
+    {
+      "table": "store_settings", "key": "id", "singleton": true,
+      "columns": [["ecommerceUsername","text"],["defaultCustomerId","text"],["totalSales","num"],["totalOrdersCount","num"]]
+    },
+    {
+      "table": "cash_sessions", "key": "id",
+      "columns": [
+        ["date","text"],["openedAt","text"],["closedAt","text"],["openedAtISO","text"],["closedAtISO","text"],
+        ["cashierName","text"],["status","text"],["openingBalance","num"],
+        ["totalInvoicesCash","num"],["totalStocksSoldCash","num"],["totalInvoicesNonCash","num"],["closingActual","num"]
+      ],
+      "children": [
+        { "field": "mutations", "table": "cash_mutations", "columns": [
+          ["id","text"],["type","text"],["category","text"],["amount","num"],["note","text"],["time","text"] ] }
+      ]
+    },
+    {
+      "table": "pos_cart_drafts", "key": "id", "singleton": true,
+      "columns": [
+        ["selectedCustomerId","text"],["discountMode","text"],["discountValue","num"],["additionalFeeName","text"],
+        ["additionalFee","num"],["paymentMethod","text"],["fulfillmentMethod","text"],["deliveryAddress","text"]
+      ],
+      "children": [
+        { "field": "cart", "table": "pos_cart_items", "columns": [
+          ["productSku","text"],["quantity","num"],["selectedPriceType","text"],["customPrice","num"],["bonus","bool"],["notes","text"] ] },
+        { "field": "additionalFees", "table": "pos_cart_fees", "columns": [["name","text"],["amount","num"]] }
+      ]
+    },
+    {
+      "table": "push_tokens", "key": "token",
+      "columns": [["platform","text"],["deviceLabel","text"],["role","text"],["updatedAt","text"]]
+    }
+  ]
+}

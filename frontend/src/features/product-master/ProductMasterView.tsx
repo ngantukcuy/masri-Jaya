@@ -18,7 +18,9 @@ import {
 } from 'lucide-react';
 import { Product, Bundle, BundleItem, SkuLocation, Supplier, SellUnit } from '../../types';
 import SellUnitsField, { cleanSellUnits } from '../../components/shared/SellUnitsField';
-import { useSupabaseTable } from '../../lib/useSupabaseTable';
+import { db } from '../../lib/db/repos';
+import { useRows } from '../../lib/db/react';
+import type { Repo } from '../../lib/db/core';
 import { uploadProductImage } from '../../lib/uploadProductImage';
 import BarcodeScannerModal from '../../components/shared/BarcodeScannerModal';
 import SearchableSelect from '../../components/shared/SearchableSelect';
@@ -56,9 +58,10 @@ interface ProductMasterViewProps {
   currentUser?: CurrentUser;
 }
 
-function useLocalList<T extends { id: string }>(table: string, defaults: T[]) {
-  const [list, setList] = useSupabaseTable<T>(table, defaults, (item) => item.id);
-  return { list, persist: setList };
+// Baca isi sebuah tabel master + fungsi simpan (samakan tabel dengan daftar baru).
+function useTableList<T>(repo: Repo<T>) {
+  const list = useRows(repo);
+  return { list, persist: repo.save };
 }
 
 // Class dasar buat NumberInput (komponen kustom, bukan bawaan shadcn) supaya
@@ -74,10 +77,10 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     if (initialTab) setActiveTab(initialTab);
   }, [initialTab]);
 
-  const { list: categories, persist: persistCategories } = useLocalList<CategoryEntry>('product_categories', []);
-  const { list: brands, persist: persistBrands } = useLocalList<SimpleEntry>('product_brands', []);
-  const { list: units, persist: persistUnits } = useLocalList<SimpleEntry>('product_units', []);
-  const { list: bundles, persist: persistBundles } = useLocalList<Bundle>('product_bundles', []);
+  const { list: categories, persist: persistCategories } = useTableList<CategoryEntry>(db.productCategories as unknown as Repo<CategoryEntry>);
+  const { list: brands, persist: persistBrands } = useTableList<SimpleEntry>(db.productBrands);
+  const { list: units, persist: persistUnits } = useTableList<SimpleEntry>(db.productUnits as unknown as Repo<SimpleEntry>);
+  const { list: bundles, persist: persistBundles } = useTableList<Bundle>(db.productBundles);
 
   // Category form
   const [newCategoryName, setNewCategoryName] = useState('');

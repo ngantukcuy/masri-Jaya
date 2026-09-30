@@ -50,16 +50,16 @@ grant select, insert on public.audit_log to service_role;
 grant usage, select on sequence public.audit_log_id_seq to authenticated, service_role;
 
 -- -----------------------------------------------------------------------------
--- 2) Helper: samarkan field `pin` di dalam kolom data/value bersarang
+-- 2) Helper: samarkan kolom `pin` (staff_list & store_profile punya kolom pin)
 -- -----------------------------------------------------------------------------
-create or replace function public.audit_redact_pin(row_json jsonb, col text)
+create or replace function public.audit_redact_pin(row_json jsonb)
 returns jsonb
 language sql
 immutable
 as $$
   select case
     when row_json is null then null
-    when row_json -> col ? 'pin' then jsonb_set(row_json, array[col, 'pin'], '"[REDACTED]"'::jsonb)
+    when row_json ? 'pin' and row_json ->> 'pin' is not null then jsonb_set(row_json, '{pin}', '"[REDACTED]"'::jsonb)
     else row_json
   end;
 $$;
@@ -78,6 +78,7 @@ declare
   new_json jsonb;
   old_json jsonb;
   key_val text;
+  pk_col text;
 begin
   -- Nama staf yang lagi login, dikirim browser lewat header X-Actor-Name.
   -- PostgREST mengekspos semua header request masuk lewat GUC
@@ -94,20 +95,20 @@ begin
   old_json := case when TG_OP in ('UPDATE', 'DELETE') then to_jsonb(old) else null end;
 
   -- Jangan pernah simpan PIN asli ke log — staff_list & store_owner nyimpen
-  -- PIN di dalam kolom `data`/`value`.
-  if TG_TABLE_NAME = 'staff_list' then
-    new_json := public.audit_redact_pin(new_json, 'data');
-    old_json := public.audit_redact_pin(old_json, 'data');
-  elsif TG_TABLE_NAME = 'store_owner' then
-    new_json := public.audit_redact_pin(new_json, 'value');
-    old_json := public.audit_redact_pin(old_json, 'value');
+  -- PIN di kolom `pin`.
+  if TG_TABLE_NAME in ('staff_list', 'store_profile') then
+    new_json := public.audit_redact_pin(new_json);
+    old_json := public.audit_redact_pin(old_json);
   end if;
 
-  -- Tabel per-entitas pakai kolom `key` (text), tabel singleton pakai `id`
-  -- (smallint). Diambil lewat representasi JSON-nya (bukan NEW.key/NEW.id
-  -- langsung) supaya satu fungsi ini aman dipasang ke tabel manapun tanpa
-  -- peduli kolom PK-nya apa.
-  key_val := coalesce(new_json ->> 'key', new_json ->> 'id', old_json ->> 'key', old_json ->> 'id');
+  -- Nama kolom primary key tiap tabel beda-beda (sku, po_number, invoice_number,
+  -- id, name, token) — dicari dari katalog Postgres.
+  select a.attname into pk_col
+  from pg_index i
+  join pg_attribute a on a.attrelid = i.indrelid and a.attnum = any (i.indkey)
+  where i.indrelid = TG_RELID and i.indisprimary
+  limit 1;
+  key_val := coalesce(new_json ->> pk_col, old_json ->> pk_col);
 
   insert into public.audit_log (table_name, row_key, action, old_data, new_data, actor_name)
   values (TG_TABLE_NAME, key_val, TG_OP, old_json, new_json, actor);
@@ -126,16 +127,12 @@ do $$
 declare
   t text;
   all_tables text[] := array[
-    -- Tabel per-entitas
     'products', 'purchase_orders', 'customers', 'suppliers', 'expenses',
     'activities', 'branches', 'sales_invoices', 'returns', 'digital_orders',
     'banners', 'sku_locations', 'staff_list', 'bank_accounts', 'printers',
     'opname_submissions', 'product_categories', 'product_brands',
-    'product_units', 'product_bundles', 'push_tokens',
-    -- Tabel singleton
-    'store_owner', 'ecommerce_username', 'total_sales', 'total_orders_count',
-    'cash_session_current', 'cash_session_history', 'pos_cart_state',
-    'default_customer_id'
+    'product_units', 'product_bundles', 'store_profile', 'store_settings',
+    'cash_sessions'
   ];
 begin
   foreach t in array all_tables loop

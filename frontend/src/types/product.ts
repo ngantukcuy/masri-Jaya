@@ -74,3 +74,34 @@ export interface Bundle {
   items: BundleItem[];
   bundlePrice: number;
 }
+
+// ---- Master data sederhana (tabel product_categories / product_brands / product_units) ----
+export interface ProductCategory {
+  id: string;
+  name: string;
+  level: 1 | 2 | 3;
+}
+
+export interface ProductBrand {
+  id: string;
+  name: string;
+}
+
+export interface ProductUnit {
+  id: string;
+  name: string;
+  level: 1 | 2 | 3;
+}
+
+// ---- Pengajuan Stock Opname (tabel opname_submissions) ----
+export interface OpnameSubmission {
+  id: string;
+  productSku: string;
+  productName: string;
+  type: 'add' | 'remove';
+  amount: number;
+  notes: string;
+  submittedBy: string;
+  date: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+}

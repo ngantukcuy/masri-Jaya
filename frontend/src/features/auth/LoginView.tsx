@@ -12,8 +12,8 @@ import {
   Users,
   ShieldAlert
 } from 'lucide-react';
-import { useSupabaseState } from '../../lib/useSupabaseState';
-import { useSupabaseTable } from '../../lib/useSupabaseTable';
+import { db, saveStoreProfile } from '../../lib/db/repos';
+import { useRows, useRepoReady } from '../../lib/db/react';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { StaffMember } from '../../types';
 import { ROLE_DEFAULT_PERMISSIONS, CurrentUser } from '../../lib/permissions';
@@ -27,8 +27,11 @@ interface LoginViewProps {
 
 export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   const dialog = useDialog();
-  const [registeredOwner, setRegisteredOwner, ownerReady] = useSupabaseState<{ storeName: string; ownerName: string; email: string; pin: string } | null>('store_owner', null);
-  const [staffList, setStaffList, staffListReady] = useSupabaseTable<StaffMember>('staff_list', [], (s) => s.id);
+  // Profil toko (tabel store_profile) & akun staf (tabel staff_list) — cuma dua tabel ini yang dibaca di layar login.
+  const registeredOwner = useRows(db.storeProfile)[0] ?? null;
+  const ownerReady = useRepoReady(db.storeProfile);
+  const staffList = useRows(db.staff);
+  const staffListReady = useRepoReady(db.staff);
 
   const [isRegistered, setIsRegistered] = useState(false);
   const [storeName, setStoreName] = useState('');
@@ -171,8 +174,8 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
       { title: 'Reset Registrasi Toko', confirmLabel: 'Ya, Reset', danger: true }
     );
     if (conf) {
-      setRegisteredOwner(null);
-      setStaffList([]);
+      void saveStoreProfile(null);
+      void db.staff.save([]);
       setIsRegistered(false);
       setStoreName('');
       setOwnerName('');
@@ -203,7 +206,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
         const initialList: StaffMember[] = [
           { id: 'owner-01', name: registeredOwner.ownerName + ' (Owner)', pin: registeredOwner.pin, role: 'Owner', permissions: ROLE_DEFAULT_PERMISSIONS.Owner }
         ];
-        setStaffList(initialList);
+        void db.staff.save(initialList);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -234,8 +237,8 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
       }
     ];
 
-    setRegisteredOwner(ownerData);
-    setStaffList(initialList);
+    void saveStoreProfile(ownerData);
+    void db.staff.save(initialList);
     
     setIsRegistered(true);
     dialog.alert("Registrasi Toko Berhasil! Silakan pilih akun dan masukkan PIN Anda.");
