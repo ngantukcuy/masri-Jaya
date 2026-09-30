@@ -1,300 +1,75 @@
 /// <reference path="./editor-env.d.ts" />
 // Supabase Edge Function: send-push
-// Tokku POS Notification System v2
+// Tokku POS Notification System v3
+//
+// Semua logika "kapan & apa isi notifikasi" sekarang ada di DATABASE
+// (trigger di backend/supabase/security_notifications.sql yang menulis satu baris
+// ke tabel `notification_events`). Function ini cuma:
+//   1. menerima Database Webhook INSERT dari tabel `notification_events`,
+//   2. mengambil token device (tabel `push_tokens`) yang role-nya termasuk
+//      `record.roles`,
+//   3. mengirimnya lewat FCM.
+// Jadi cukup SATU webhook (tabel notification_events, event INSERT).
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { createFcmSender, PushPayload } from "./fcm.ts";
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const FCM_SERVICE_ACCOUNT_JSON = Deno.env.get("FCM_SERVICE_ACCOUNT_JSON")!;
-const supabase = createClient(
-  SUPABASE_URL,
-  SERVICE_ROLE_KEY
-);
-const rupiah=(n:number)=>
-`Rp ${Math.round(n||0).toLocaleString("id-ID")}`;
-// Tabel sekarang berkolom sungguhan (snake_case, mis. invoice_number,
-// stock_status). Payload webhook diubah ke camelCase supaya builder di bawah
-// (data.invoiceNumber, newData.stockStatus, dst.) tetap dipakai apa adanya.
-const toCamel=(k:string)=>k.replace(/_([a-z0-9])/g,(_m,c:string)=>c.toUpperCase());
-function getData(record:any){
-    const out:Record<string,unknown>={};
-    for(const[k,v]of Object.entries(record??{})){
-        out[toCamel(k)]=v;
-    }
-    return out as any;
-}
-// PENTING — daftar notif sekarang SENGAJA dibatasi (allow-list), bukan
-// "semua tabel dapat notif generik secara default" seperti sebelumnya.
-// Alasannya: kalau ada Database Webhook lain yang (sengaja/tidak sengaja)
-// dipasang di tabel selain sales_invoices/products, tabel itu akan jatuh
-// ke fallback generik "✏️/➕/🗑️ ... berhasil diperbarui/ditambahkan/
-// dihapus" — pesan yang nggak informatif dan gampang numpuk saat satu
-// transaksi POS menyentuh banyak baris (customers, products per item
-// keranjang, dst). Sekarang HANYA 2 jenis event yang benar-benar push:
-//   1) sales_invoices INSERT -> "Transaksi Baru"
-//   2) products UPDATE -> stok jadi "Low Stock" / "Out of Stock"
-// Semua INSERT/UPDATE/DELETE lain (termasuk customers, suppliers,
-// purchase_orders, expenses, dll) TIDAK lagi memicu push — tetap kelihatan
-// normal di halaman Aktivitas dalam app, cuma nggak nongol sebagai notif
-// yang muncul walau app ditutup. Mau tambah notif penting yang baru?
-// Tambahkan cabang khusus di buildInsert/buildUpdate di bawah (jangan
-// pakai fallback generik lagi).
-function buildInsert(
-    table:string,
-    data:any
-):PushPayload|null{
-    if(table==="sales_invoices"){
-        return{
-            title:"💰 Transaksi Baru",
-            body:
-`${data.invoiceNumber}
-${data.customerName}
-${rupiah(data.total)}`,
-            data:{
-                table,
-                action:"INSERT"
-            }
-        };
-    }
-    return null;
-}
-function buildUpdate(
-    table:string,
-    oldData:any,
-    newData:any
-):PushPayload|null{
-    if(table==="products"){
-        if(
-            oldData.stockStatus!==
-            newData.stockStatus
-        ){
-            if(
-                newData.stockStatus==="Low Stock"
-            ){
-                return{
-                    title:"⚠️ Stok Menipis",
-                    body:
-`${newData.name}
-Sisa ${newData.stock} ${newData.unit}`,
-                    data:{
-                        table,
-                        action:"LOW_STOCK"
-                    }
-                };
-            }
-            if(
-                newData.stockStatus==="Out of Stock"
-            ){
-                return{
-                    title:"❌ Stok Habis",
-                    body:newData.name,
-                    data:{
-                        table,
-                        action:"OUT_OF_STOCK"
-                    }
-                };
-            }
-        }
-    }
-    // Semua UPDATE lain (customers, harga produk, dst) sengaja tidak
-    // memicu push lagi — lihat catatan besar di atas buildInsert().
-    return null;
-}
-// DELETE juga sengaja tidak memicu push lagi (bukan event mendesak yang
-// perlu nongol sebagai notif interupsi) — konsisten dengan allow-list di
-// buildInsert()/buildUpdate() di atas.
-function buildDelete(
-    _table:string,
-    _data:any
-):PushPayload|null{
-    return null;
-}
-function buildNotificationPayload(
-    webhook:any
-):PushPayload|null{
-    const table=webhook.table;
-    const action=webhook.type;
-    const record=getData(webhook.record);
-    const oldRecord=getData(webhook.old_record);
-    switch(action){
-        case "INSERT":
-            return buildInsert(
-                table,
-                record
-            );
-        case "UPDATE":
-            return buildUpdate(
-                table,
-                oldRecord,
-                record
-            );
-        case "DELETE":
-            return buildDelete(
-                table,
-                oldRecord
-            );
-        default:
-            return null;
-    }
-}
-// PENTING: nilai-nilai ini harus PERSIS sama dengan `StaffRole` di
-// frontend/src/lib/permissions.ts ('Owner' | 'Admin' | 'Kasir' | 'Stoker').
-// Sebelumnya di sini dipakai 'owner'/'admin'/'warehouse' (huruf kecil, dan
-// 'warehouse' bukan role yang pernah ada) sehingga tidak akan PERNAH cocok
-// dengan role asli staff — akibatnya query token selalu kosong dan push
-// notification tidak pernah terkirim ke siapa pun.
-function rolesForTable(
-    table:string
-):string[]{
-    switch(table){
-        case "sales_invoices":
-            return[
-                "Owner",
-                "Admin"
-            ];
-        case "products":
-            return[
-                "Owner",
-                "Admin",
-                "Stoker"
-            ];
-        case "purchase_orders":
-            return[
-                "Owner",
-                "Admin",
-                "Stoker"
-            ];
-        case "suppliers":
-            return[
-                "Owner",
-                "Admin"
-            ];
-        case "customers":
-            return[
-                "Owner",
-                "Admin"
-            ];
-        case "expenses":
-            return[
-                "Owner",
-                "Admin"
-            ];
-        default:
-            return[
-                "Owner"
-            ];
-    }
-}
-// Tabel `push_tokens` punya kolom sungguhan: token, platform, device_label,
-// role, updated_at (lihat backend/supabase/schema.sql). Filter role dilakukan
-// di sini. `branchId` belum punya kolom sendiri, jadi belum difilter.
-async function loadTokens(
-    table:string,
-    _branchId?:string
-){
-    const{
-        data,
-        error
-    }=await supabase
-    .from("push_tokens")
-    .select("token,role");
-    if(error)
-        throw error;
+const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-    const allowedRoles=rolesForTable(table);
-    return(data??[]).filter((row:any)=>{
-        return !!row?.role&&allowedRoles.includes(row.role);
-    }).map((row:any)=>({key:row.token as string}));
+// Nilai role harus PERSIS sama dengan `StaffRole` di
+// frontend/src/lib/permissions.ts ('Owner' | 'Admin' | 'Kasir' | 'Stoker').
+async function loadTokens(roles: string[]) {
+  const { data, error } = await supabase.from("push_tokens").select("token,role");
+  if (error) throw error;
+  return (data ?? [])
+    .filter((row: any) => !!row?.role && roles.includes(row.role))
+    .map((row: any) => row.token as string);
 }
-async function sendNotification(
-    payload:PushPayload,
-    table:string,
-    branchId?:string
-){
-    const rows=
-    await loadTokens(
-        table,
-        branchId
-    );
-    if(rows.length===0){
-        return{
-            sent:0,
-            removed:0
-        };
-    }
-    const sender=
-    await createFcmSender(
-        FCM_SERVICE_ACCOUNT_JSON
-    );
-    let sent=0;
-    const stale:string[]=[];
-    for(
-        const token
-        of rows
-    ){
-        const result=
-        await sender.send(
-            token.key,
-            payload
-        );
-        if(result.ok)
-            sent++;
-        if(
-            result.shouldRemoveToken
-        ){
-            stale.push(
-                token.key
-            );
-        }
-    }
-    if(
-        stale.length>0
-    ){
-        await supabase
-        .from(
-            "push_tokens"
-        )
-        .delete()
-        .in(
-            "token",
-            stale
-        );
-    }
-    return{
-        sent,
-        removed:
-        stale.length
-    };
+
+async function sendToRoles(payload: PushPayload, roles: string[]) {
+  const tokens = await loadTokens(roles);
+  if (tokens.length === 0) return { sent: 0, removed: 0 };
+
+  const sender = await createFcmSender(FCM_SERVICE_ACCOUNT_JSON);
+  let sent = 0;
+  const stale: string[] = [];
+  for (const token of tokens) {
+    const result = await sender.send(token, payload);
+    if (result.ok) sent++;
+    if (result.shouldRemoveToken) stale.push(token);
+  }
+  if (stale.length > 0) {
+    await supabase.from("push_tokens").delete().in("token", stale);
+  }
+  return { sent, removed: stale.length };
 }
-// PENTING: bug utama yang bikin push notification tidak pernah terkirim —
-// seluruh file di atas ini cuma mendefinisikan fungsi, tapi tidak ada satu
-// pun yang benar-benar menjalankan server HTTP. Supabase Edge Function
-// TIDAK akan merespons request apa pun (termasuk dari Database Webhook)
-// tanpa `Deno.serve(...)` di bawah ini. Tanpa baris ini, function-nya
-// "ada" (berhasil dideploy) tapi diam saja setiap kali dipanggil.
+
+// PENTING: tanpa Deno.serve(...) function-nya "ada" tapi tidak pernah
+// merespons request (termasuk dari Database Webhook).
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
   try {
     const webhook = await req.json();
-    const payload = buildNotificationPayload(webhook);
-    if (!payload) {
-      // Event yang tidak kita kenali (mis. tipe webhook lain) — bukan
-      // error, cuma tidak ada notif yang perlu dikirim.
-      return new Response(
-        JSON.stringify({ skipped: true }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      );
+    const record = webhook?.record;
+    if (webhook?.type !== "INSERT" || webhook?.table !== "notification_events" || !record?.title) {
+      return new Response(JSON.stringify({ skipped: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
-    const table = webhook.table as string;
-    const record = getData(webhook.record);
-    const oldRecord = getData(webhook.old_record);
-    // branchId bersifat opsional — dipakai kalau nanti staff sudah
-    // diasosiasikan ke cabang tertentu; kalau tidak ada, notif dikirim ke
-    // semua device dengan role yang sesuai (lihat rolesForTable/loadTokens).
-    const branchId = record.branchId ?? oldRecord.branchId ?? undefined;
-    const result = await sendNotification(payload, table, branchId);
+    const roles: string[] = Array.isArray(record.roles) && record.roles.length > 0 ? record.roles : ["Owner"];
+    const result = await sendToRoles(
+      {
+        title: String(record.title),
+        body: String(record.body ?? ""),
+        data: { kind: String(record.kind ?? ""), eventId: String(record.id ?? "") },
+      },
+      roles
+    );
     return new Response(JSON.stringify(result), {
       status: 200,
       headers: { "Content-Type": "application/json" },
@@ -307,4 +82,3 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
-

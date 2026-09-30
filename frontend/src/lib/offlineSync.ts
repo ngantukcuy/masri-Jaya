@@ -4,21 +4,63 @@
 // app load (in case the tab was already open when connectivity returned),
 // and on a slow periodic timer as a safety net for flaky connections that
 // don't reliably fire 'online'/'offline' events.
+import './db/repos'; // pastikan semua repo terdaftar sebelum antrian dikirim ulang
 import { getRepo } from './db/registry';
 import { getAllOps, removeOp, type PendingOp } from './offlineQueue';
 
 let flushing = false;
 
-async function replayOp(op: PendingOp): Promise<boolean> {
+// Nama tabel versi lama -> nama tabel sekarang.
+const LEGACY_TABLE_NAMES: Record<string, string> = { store_owner: 'store_profile' };
+
+type ReplayResult = 'done' | 'retry';
+
+/**
+ * Kirim satu perubahan tersimpan.
+ *  - 'done'  : sudah terkirim ATAU tidak mungkin dikirim (mis. ditolak database,
+ *              format lama yang tak relevan) — op dibuang supaya tidak
+ *              memblokir antrian selamanya.
+ *  - 'retry' : gangguan jaringan/sementara — biarkan di antrian, coba lagi nanti.
+ */
+async function replayOp(op: PendingOp): Promise<ReplayResult> {
   try {
-    const repo = getRepo(op.table);
-    if (!repo) throw new Error(`Repo untuk tabel "${op.table}" tidak ditemukan`);
-    if (op.kind === 'repo_upsert') await repo.persistUpsert(op.items);
-    else if (op.kind === 'repo_delete') await repo.persistDelete(op.keys);
-    return true;
+    const table = LEGACY_TABLE_NAMES[op.table] ?? op.table;
+    const repo = getRepo(table);
+    if (!repo) {
+      console.warn(`[offlineSync] Tabel "${op.table}" tidak dikenal lagi — perubahan tersimpan dibuang.`, op);
+      return 'done';
+    }
+    switch (op.kind) {
+      case 'repo_upsert':
+        await repo.persistUpsert(op.items);
+        break;
+      case 'repo_delete':
+      case 'table_delete':
+        await repo.persistDelete(op.keys);
+        break;
+      case 'table_upsert':
+        // Format lama: tiap baris = { key, data(JSON objek) }. Kolom yang tidak
+        // ada lagi (mis. `pin`) otomatis diabaikan saat dipetakan ke tabel baru.
+        await repo.persistUpsert(op.rows.map((r) => r.data));
+        break;
+      case 'singleton_upsert':
+        if (table === 'store_profile' && op.value && typeof op.value === 'object') {
+          await repo.persistUpsert([{ ...(op.value as object), id: 'main' }]);
+        } else {
+          console.warn(`[offlineSync] Data tunggal lama "${op.table}" dibuang (sekarang disimpan per kolom).`);
+        }
+        break;
+    }
+    return 'done';
   } catch (err) {
-    console.error('[offlineSync] Gagal mengirim ulang perubahan tersimpan:', op, err);
-    return false;
+    // Error dari Postgres/PostgREST selalu punya `code`; gangguan jaringan tidak.
+    const code = (err as { code?: string } | null)?.code;
+    if (code) {
+      console.error('[offlineSync] Database menolak perubahan tersimpan — dibuang supaya antrian tidak macet:', op, err);
+      return 'done';
+    }
+    console.error('[offlineSync] Gagal mengirim ulang perubahan tersimpan (akan dicoba lagi):', op, err);
+    return 'retry';
   }
 }
 
@@ -40,8 +82,8 @@ export async function flushOfflineQueue(): Promise<void> {
     ops.sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
 
     for (const op of ops) {
-      const ok = await replayOp(op);
-      if (!ok) break; // leave this and everything after it queued; try again next flush
+      const result = await replayOp(op);
+      if (result === 'retry') break; // leave this and everything after it queued; try again next flush
       if (op.id !== undefined) await removeOp(op.id);
     }
   } finally {

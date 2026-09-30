@@ -228,8 +228,8 @@ for (const t of legacyMigrated) {
 // singleton lama -> tabel baru
 mig += `  -- store_owner -> store_profile
   if to_regclass('public.legacy_store_owner') is not null then
-    insert into public.store_profile (id, store_name, owner_name, email, pin, address, phone, receipt_note, tax_id)
-    select 'main', value->>'storeName', value->>'ownerName', value->>'email', value->>'pin',
+    insert into public.store_profile (id, store_name, owner_name, email, address, phone, receipt_note, tax_id)
+    select 'main', value->>'storeName', value->>'ownerName', value->>'email',
            value->>'address', value->>'phone', value->>'receiptNote', value->>'taxId'
     from public.legacy_store_owner where jsonb_typeof(value) = 'object'
     on conflict (id) do nothing;

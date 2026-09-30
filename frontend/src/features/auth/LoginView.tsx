@@ -10,9 +10,12 @@ import {
   X, 
   Store,
   Users,
-  ShieldAlert
+  ShieldAlert,
+  Lock
 } from 'lucide-react';
 import { db, saveStoreProfile } from '../../lib/db/repos';
+import { supabase } from '../../lib/supabase';
+import { verifyLogin, setPin, getLockedStaff, sendOwnerPinResetEmail, resetOwnerPinViaEmail, maskEmail } from '../../lib/pinAuth';
 import { useRows, useRepoReady } from '../../lib/db/react';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { StaffMember } from '../../types';
@@ -44,93 +47,70 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState(false);
 
-  // Brute-force throttle: after MAX_ATTEMPTS wrong PINs in a row for a given
-  // staff account, lock that account out for LOCKOUT_MS. Persisted to
-  // localStorage (keyed per staff id) so it survives switching accounts,
-  // reloading the page, or trying again after closing the tab — a 6-digit
-  // PIN is otherwise trivially brute-forceable by someone with physical
-  // access to the device.
-  const MAX_ATTEMPTS = 5;
-  const LOCKOUT_MS = 60_000;
-  const lockoutKey = (staffId: string) => `tokku_pin_lockout_${staffId}`;
-  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
-  const [nowTick, setNowTick] = useState(() => Date.now());
+  // Kunci login SEPENUHNYA di database (lib/pinAuth.ts): 5x PIN salah berturut-turut
+  // -> akun terkunci PERMANEN, tanpa hitungan mundur. Hanya Owner yang bisa
+  // membukanya (Pengaturan > Staf), dan akun Owner sendiri lewat link reset di email.
+  const [lockedIds, setLockedIds] = useState<string[]>([]);
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
+  const [checkingPin, setCheckingPin] = useState(false);
+  const [resetMailState, setResetMailState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [resetMailError, setResetMailError] = useState('');
+  const refreshLocked = () => { void getLockedStaff().then(setLockedIds); };
+  useEffect(() => { refreshLocked(); }, [staffListReady]);
+  const isLockedOut = !!selectedStaff && lockedIds.includes(selectedStaff.id || '');
 
-  const readLockout = (staffId: string): { attempts: number; lockedUntil: number | null } => {
-    try {
-      const raw = localStorage.getItem(lockoutKey(staffId));
-      if (!raw) return { attempts: 0, lockedUntil: null };
-      const parsed = JSON.parse(raw);
-      return { attempts: parsed.attempts || 0, lockedUntil: parsed.lockedUntil || null };
-    } catch {
-      return { attempts: 0, lockedUntil: null };
-    }
+  const handleSendResetMail = async () => {
+    if (!registeredOwner?.email) return;
+    setResetMailState('sending');
+    const res = await sendOwnerPinResetEmail(registeredOwner.email);
+    setResetMailState(res.ok ? 'sent' : 'error');
+    setResetMailError(res.message || '');
   };
 
-  const writeLockout = (staffId: string, attempts: number, until: number | null) => {
-    try {
-      if (attempts === 0 && !until) {
-        localStorage.removeItem(lockoutKey(staffId));
-      } else {
-        localStorage.setItem(lockoutKey(staffId), JSON.stringify({ attempts, lockedUntil: until }));
-      }
-    } catch {
-      // Ignore storage failures — worst case the throttle just doesn't persist.
+  // ---- Atur PIN baru setelah Owner klik link reset di email ----
+  const [resetPinMode, setResetPinMode] = useState(false);
+  const [newPinA, setNewPinA] = useState('');
+  const [newPinB, setNewPinB] = useState('');
+  const [newPinMsg, setNewPinMsg] = useState('');
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('reset-pin')) return;
+    void supabase.auth.getSession().then(({ data }) => {
+      const user = data.session?.user;
+      if (user?.email && !user.is_anonymous) setResetPinMode(true);
+    });
+  }, []);
+  const handleSetNewOwnerPin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPinA.length !== 6 || newPinA !== newPinB) {
+      setNewPinMsg('PIN harus 6 digit dan kedua isian harus sama.');
+      return;
+    }
+    const res = await resetOwnerPinViaEmail(newPinA);
+    if (res.status === 'ok') {
+      await supabase.auth.signOut();
+      await dialog.alert('PIN Owner berhasil diganti dan akun dibuka. Silakan login dengan PIN baru.');
+      window.location.replace(window.location.pathname);
+    } else if (res.status === 'forbidden') {
+      setNewPinMsg('Link ini tidak valid untuk email Owner toko. Minta link baru.');
+    } else {
+      setNewPinMsg('Gagal mengganti PIN. Coba minta link baru.');
     }
   };
-
-  // Live countdown while locked out
-  useEffect(() => {
-    if (!lockedUntil) return;
-    const interval = setInterval(() => setNowTick(Date.now()), 1000);
-    return () => clearInterval(interval);
-  }, [lockedUntil]);
-
-  const secondsLeft = lockedUntil ? Math.max(0, Math.ceil((lockedUntil - nowTick) / 1000)) : 0;
-  const isLockedOut = !!lockedUntil && secondsLeft > 0;
-
-  // Lockout naturally expires once its countdown hits zero
-  useEffect(() => {
-    if (lockedUntil && secondsLeft === 0 && selectedStaff) {
-      setLockedUntil(null);
-      writeLockout(selectedStaff.id || selectedStaff.name, 0, null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [secondsLeft]);
 
   // ---- Reset Registrasi Toko: dilindungi PIN Owner ----
   // Tombol reset terlihat di halaman awal (sebelum login), jadi siapa pun yang
   // memegang perangkat bisa menekannya. Karena itu reset hanya jalan setelah
-  // PIN Owner yang benar dimasukkan. Percobaan salah dibatasi seperti login
-  // (MAX_ATTEMPTS kali, lalu terkunci LOCKOUT_MS) dan disimpan di localStorage.
-  const RESET_LOCK_KEY = '__reset_registration__';
+  // PIN Owner yang benar dimasukkan — diperiksa di database dan memakai
+  // penghitung kegagalan yang sama dengan login Owner (5x salah = terkunci).
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetPinInput, setResetPinInput] = useState('');
   const [resetPinError, setResetPinError] = useState(false);
-  const [resetLockedUntil, setResetLockedUntil] = useState<number | null>(null);
-  const resetSecondsLeft = resetLockedUntil ? Math.max(0, Math.ceil((resetLockedUntil - nowTick) / 1000)) : 0;
-  const isResetLocked = !!resetLockedUntil && resetSecondsLeft > 0;
-
-  useEffect(() => {
-    if (!resetLockedUntil) return;
-    const interval = setInterval(() => setNowTick(Date.now()), 1000);
-    return () => clearInterval(interval);
-  }, [resetLockedUntil]);
-
-  useEffect(() => {
-    if (resetLockedUntil && resetSecondsLeft === 0) {
-      setResetLockedUntil(null);
-      writeLockout(RESET_LOCK_KEY, 0, null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetSecondsLeft]);
+  const [resetLocked, setResetLocked] = useState(false);
 
   const openResetModal = () => {
-    const { lockedUntil: storedUntil } = readLockout(RESET_LOCK_KEY);
-    setResetLockedUntil(storedUntil && storedUntil > Date.now() ? storedUntil : null);
-    setNowTick(Date.now());
     setResetPinInput('');
     setResetPinError(false);
+    setResetLocked(false);
     setShowResetModal(true);
   };
 
@@ -142,32 +122,24 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
 
   const handleVerifyResetPin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isResetLocked || resetPinInput.length !== 6) return;
+    if (resetLocked || resetPinInput.length !== 6) return;
 
-    // PIN Owner tersimpan di store_owner dan di akun Owner pada daftar staf
-    const ownerPins = [
-      registeredOwner?.pin,
-      ...staffList.filter((s) => s.role === 'Owner').map((s) => s.pin),
-    ].filter(Boolean);
-
-    if (!ownerPins.includes(resetPinInput)) {
-      const { attempts } = readLockout(RESET_LOCK_KEY);
-      const nextAttempts = attempts + 1;
-      if (nextAttempts >= MAX_ATTEMPTS) {
-        const until = Date.now() + LOCKOUT_MS;
-        writeLockout(RESET_LOCK_KEY, nextAttempts, until);
-        setResetLockedUntil(until);
-        setNowTick(Date.now());
-      } else {
-        writeLockout(RESET_LOCK_KEY, nextAttempts, null);
-      }
+    const ownerStaff = staffList.find((st) => st.role === 'Owner');
+    const res = ownerStaff?.id ? await verifyLogin(ownerStaff.id, resetPinInput) : { status: 'unknown' as const };
+    if (res.status === 'locked') {
+      setResetLocked(true);
+      refreshLocked();
+      setResetPinInput('');
+      return;
+    }
+    if (res.status !== 'ok') {
       setResetPinError(true);
       setResetPinInput('');
+      refreshLocked();
       if (navigator.vibrate) navigator.vibrate(100);
       return;
     }
 
-    writeLockout(RESET_LOCK_KEY, 0, null);
     closeResetModal();
     const conf = await dialog.confirm(
       "Apakah Anda yakin ingin mereset data registrasi toko? Ini akan menghapus semua kredensial (Owner dan seluruh akun staf).",
@@ -204,7 +176,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
       if (staffListReady && ownerReady && staffList.length === 0) {
         // Genuinely registered but no staff yet — seed owner as first staff
         const initialList: StaffMember[] = [
-          { id: 'owner-01', name: registeredOwner.ownerName + ' (Owner)', pin: registeredOwner.pin, role: 'Owner', permissions: ROLE_DEFAULT_PERMISSIONS.Owner }
+          { id: 'owner-01', name: registeredOwner.ownerName + ' (Owner)', role: 'Owner', permissions: ROLE_DEFAULT_PERMISSIONS.Owner }
         ];
         void db.staff.save(initialList);
       }
@@ -223,65 +195,65 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
     const ownerData = {
       storeName,
       ownerName,
-      email,
-      pin: ownerPin
+      email
     };
 
     const initialList: StaffMember[] = [
       {
         id: 'owner-01',
         name: ownerName + ' (Owner)',
-        pin: ownerPin,
         role: 'Owner',
         permissions: ROLE_DEFAULT_PERMISSIONS.Owner,
       }
     ];
 
-    void saveStoreProfile(ownerData);
-    void db.staff.save(initialList);
-    
-    setIsRegistered(true);
-    dialog.alert("Registrasi Toko Berhasil! Silakan pilih akun dan masukkan PIN Anda.");
+    // Simpan profil & akun Owner dulu, baru pasang PIN-nya (di-hash di database).
+    void (async () => {
+      await saveStoreProfile(ownerData);
+      await db.staff.save(initialList);
+      const res = await setPin(null, 'owner-01', ownerPin);
+      if (res.status !== 'ok') {
+        dialog.alert("Toko terdaftar, tapi PIN gagal disimpan. Cek koneksi lalu coba daftar ulang.");
+        return;
+      }
+      setIsRegistered(true);
+      dialog.alert("Registrasi Toko Berhasil! Silakan pilih akun dan masukkan PIN Anda.");
+    })();
   };
 
   // PIN keyboard digit handler
   const handlePinDigit = (digit: string) => {
-    if (isLockedOut) return;
+    if (isLockedOut || checkingPin) return;
     if (pinInput.length < 6) {
       const nextPin = pinInput + digit;
       setPinInput(nextPin);
       setPinError(false);
 
-      if (nextPin.length === 6 && selectedStaff) {
-        if (nextPin === selectedStaff.pin) {
-          // Success login — reset this account's throttle, and carry the
-          // staff's saved permissions (or the role's default set, for
-          // older records saved before per-staff permissions existed) so
-          // the rest of the app can gate menus and actions accordingly.
-          writeLockout(selectedStaff.id || selectedStaff.name, 0, null);
-          const role = selectedStaff.role;
-          const permissions = selectedStaff.permissions && selectedStaff.permissions.length > 0
-            ? selectedStaff.permissions
-            : (ROLE_DEFAULT_PERMISSIONS[role] || []);
-          onLoginSuccess({ name: selectedStaff.name, role, permissions });
-        } else {
-          // Wrong PIN — count the attempt and lock the account out once
-          // MAX_ATTEMPTS is hit.
-          const { attempts } = readLockout(selectedStaff.id || selectedStaff.name);
-          const nextAttempts = attempts + 1;
-          if (nextAttempts >= MAX_ATTEMPTS) {
-            const until = Date.now() + LOCKOUT_MS;
-            writeLockout(selectedStaff.id || selectedStaff.name, nextAttempts, until);
-            setLockedUntil(until);
-            setNowTick(Date.now());
-          } else {
-            writeLockout(selectedStaff.id || selectedStaff.name, nextAttempts, null);
+      if (nextPin.length === 6 && selectedStaff?.id) {
+        setCheckingPin(true);
+        void verifyLogin(selectedStaff.id, nextPin).then((res) => {
+          setCheckingPin(false);
+          if (res.status === 'ok') {
+            // Login berhasil — bawa izin tersimpan staf (atau izin default
+            // role, untuk data lama) supaya menu & aksi bisa dibatasi.
+            const role = selectedStaff.role;
+            const permissions = selectedStaff.permissions && selectedStaff.permissions.length > 0
+              ? selectedStaff.permissions
+              : (ROLE_DEFAULT_PERMISSIONS[role] || []);
+            onLoginSuccess({ name: selectedStaff.name, role, permissions });
+            return;
           }
-          setPinError(true);
           setPinInput('');
-          // Play a small rumble vibration
+          if (res.status === 'locked') {
+            setAttemptsLeft(0);
+            setPinError(false);
+            refreshLocked();
+          } else {
+            setAttemptsLeft(typeof res.attemptsLeft === 'number' ? res.attemptsLeft : null);
+            setPinError(true);
+          }
           if (navigator.vibrate) navigator.vibrate(100);
-        }
+        });
       }
     }
   };
@@ -316,6 +288,27 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStaff, pinInput]);
 
+
+  if (resetPinMode) {
+    return (
+      <main className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4 font-sans">
+        <form onSubmit={handleSetNewOwnerPin} className="w-full max-w-sm bg-white rounded-2xl p-6 shadow-2xl border border-slate-200 space-y-4">
+          <div>
+            <h2 className="text-sm font-black text-gray-900 uppercase tracking-wide">Atur PIN Owner Baru</h2>
+            <p className="text-xs text-gray-600 mt-1">Email Anda sudah terverifikasi. Buat PIN 6 digit baru untuk akun Owner.</p>
+          </div>
+          <Input type="password" inputMode="numeric" maxLength={6} autoFocus value={newPinA}
+            onChange={(e) => { setNewPinA(e.target.value.replace(/\D/g, '').slice(0, 6)); setNewPinMsg(''); }}
+            placeholder="PIN baru 6 digit" className="h-11 font-mono text-center text-lg tracking-widest" />
+          <Input type="password" inputMode="numeric" maxLength={6} value={newPinB}
+            onChange={(e) => { setNewPinB(e.target.value.replace(/\D/g, '').slice(0, 6)); setNewPinMsg(''); }}
+            placeholder="Ulangi PIN baru" className="h-11 font-mono text-center text-lg tracking-widest" />
+          {newPinMsg && <p className="text-[11px] font-bold text-red-700 text-center">{newPinMsg}</p>}
+          <Button type="submit" className="w-full">Simpan PIN Baru</Button>
+        </form>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4 font-sans select-none">
@@ -445,10 +438,9 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                           setSelectedStaff(staff);
                           setPinInput('');
                           setPinError(false);
-                          const { lockedUntil: storedUntil } = readLockout(staff.id || staff.name);
-                          const stillLocked = storedUntil && storedUntil > Date.now();
-                          setLockedUntil(stillLocked ? storedUntil : null);
-                          setNowTick(Date.now());
+                          setAttemptsLeft(null);
+                          setResetMailState('idle');
+                          refreshLocked();
                         }}
                         className="w-full flex items-center justify-between p-4 rounded-2xl border border-slate-200 bg-white hover:border-blue-600 hover:bg-blue-50/30 text-left group cursor-pointer transition-colors"
                       >
@@ -461,7 +453,11 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                             <p className="text-[10px] text-gray-600 uppercase tracking-wider mt-0.5">{staff.role === 'Owner' ? 'Pemilik Toko' : 'Kasir / Staf Toko'}</p>
                           </div>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-blue-600 transition-transform group-hover:translate-x-1" />
+                        {lockedIds.includes(staff.id || '') ? (
+                          <span className="flex items-center gap-1 text-[10px] font-extrabold text-red-700 uppercase tracking-wider"><Lock className="w-3.5 h-3.5" /> Terkunci</span>
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-blue-600 transition-transform group-hover:translate-x-1" />
+                        )}
                       </button>
                     ))}
                   </div>
@@ -526,7 +522,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                         animate={{ opacity: 1, y: 0 }}
                         className="text-[10px] font-extrabold text-red-700 uppercase tracking-wider flex items-center justify-center gap-1.5"
                       >
-                        <ShieldAlert className="w-4 h-4" /> PIN Salah! Silakan coba lagi.
+                        <ShieldAlert className="w-4 h-4" /> PIN salah!{attemptsLeft !== null ? ` Sisa ${attemptsLeft} percobaan sebelum akun terkunci.` : ' Silakan coba lagi.'}
                       </motion.div>
                     )}
 
@@ -534,9 +530,25 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
                       <motion.div 
                         initial={{ opacity: 0, y: -5 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="text-[10px] font-extrabold text-red-700 uppercase tracking-wider flex items-center justify-center gap-1.5"
+                        className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-3 text-left normal-case"
                       >
-                        <ShieldAlert className="w-4 h-4" /> Terlalu banyak percobaan. Coba lagi dalam {secondsLeft} detik.
+                        <p className="text-xs font-extrabold text-red-700 flex items-center gap-1.5"><Lock className="w-4 h-4" /> Akun ini terkunci</p>
+                        <p className="text-[11px] text-red-800 font-medium">
+                          PIN salah 5 kali berturut-turut. Demi keamanan, akun tidak bisa dicoba lagi sampai dibuka oleh Owner.
+                          {registeredOwner?.email ? <> Hubungi Owner di <b>{maskEmail(registeredOwner.email)}</b>.</> : ' Hubungi Owner toko.'}
+                        </p>
+                        {selectedStaff?.role === 'Owner' && registeredOwner?.email && (
+                          <div className="pt-1">
+                            {resetMailState === 'sent' ? (
+                              <p className="text-[11px] font-bold text-green-700">Link reset sudah dikirim ke {maskEmail(registeredOwner.email)}. Buka emailnya di perangkat ini.</p>
+                            ) : (
+                              <Button type="button" size="sm" disabled={resetMailState === 'sending'} onClick={handleSendResetMail} className="w-full">
+                                {resetMailState === 'sending' ? 'Mengirim...' : 'Lupa PIN? Kirim link reset ke email Owner'}
+                              </Button>
+                            )}
+                            {resetMailState === 'error' && <p className="text-[11px] text-red-700 mt-1">Gagal mengirim email{resetMailError ? `: ${resetMailError}` : ''}.</p>}
+                          </div>
+                        )}
                       </motion.div>
                     )}
                   </div>
@@ -612,7 +624,7 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
               autoFocus
               maxLength={6}
               value={resetPinInput}
-              disabled={isResetLocked}
+              disabled={resetLocked}
               onChange={(e) => {
                 setResetPinInput(e.target.value.replace(/\D/g, '').slice(0, 6));
                 setResetPinError(false);
@@ -621,16 +633,16 @@ export default function LoginView({ onLoginSuccess }: LoginViewProps) {
               className="h-11 font-mono text-center text-lg tracking-widest"
             />
 
-            {resetPinError && !isResetLocked && (
+            {resetPinError && !resetLocked && (
               <p className="text-[10px] font-extrabold text-red-700 uppercase tracking-wider text-center">PIN salah. Reset dibatalkan.</p>
             )}
-            {isResetLocked && (
-              <p className="text-[10px] font-extrabold text-red-700 uppercase tracking-wider text-center">Terlalu banyak percobaan. Coba lagi dalam {resetSecondsLeft} detik.</p>
+            {resetLocked && (
+              <p className="text-[10px] font-extrabold text-red-700 uppercase tracking-wider text-center">Akun Owner terkunci. Gunakan "Lupa PIN" di halaman login Owner untuk membukanya lewat email.</p>
             )}
 
             <div className="flex justify-end gap-2 pt-1">
               <Button type="button" variant="outline" size="sm" onClick={closeResetModal}>Batal</Button>
-              <Button type="submit" size="sm" disabled={isResetLocked || resetPinInput.length !== 6} className="bg-red-600 hover:bg-red-700">Lanjutkan</Button>
+              <Button type="submit" size="sm" disabled={resetLocked || resetPinInput.length !== 6} className="bg-red-600 hover:bg-red-700">Lanjutkan</Button>
             </div>
           </form>
         </div>

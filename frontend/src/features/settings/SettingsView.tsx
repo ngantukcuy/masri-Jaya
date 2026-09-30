@@ -24,6 +24,7 @@ import { Branch, StoreProfile, StaffMember, BankAccount, SkuLocation, Printer, C
 import { motion, AnimatePresence } from 'motion/react';
 import { db, getStoreProfile, saveStoreProfile } from '../../lib/db/repos';
 import { useRows } from '../../lib/db/react';
+import { setPin, unlockLogin, getLockedStaff } from '../../lib/pinAuth';
 import { uploadProductImage } from '../../lib/uploadProductImage';
 import {
   connectBluetoothPrinter,
@@ -144,7 +145,36 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const [email, setEmail] = useState('');
 
   // Security & Staff states
+  // PIN baru Owner yang sedang diketik (PIN lama TIDAK pernah dibaca — disimpan sebagai hash di database).
   const [ownerPin, setOwnerPin] = useState('');
+  const [lockedIds, setLockedIds] = useState<string[]>([]);
+  const refreshLocked = () => { void getLockedStaff().then(setLockedIds); };
+  useEffect(() => { refreshLocked(); }, []);
+
+  // Minta PIN Owner (isian tersamar) lalu jalankan aksi yang butuh konfirmasi Owner.
+  const askOwnerPin = (message: string) =>
+    dialog.prompt(message, '', { title: 'Konfirmasi PIN Owner', secret: true, confirmLabel: 'Konfirmasi' });
+  const explainPinResult = (res: { status: string; attemptsLeft?: number }) => {
+    if (res.status === 'wrong') dialog.alert(`PIN Owner salah. Sisa ${res.attemptsLeft ?? 0} percobaan sebelum akun Owner terkunci.`);
+    else if (res.status === 'locked') dialog.alert('Akun Owner terkunci karena PIN salah 5 kali. Buka lewat "Lupa PIN" di halaman login (link dikirim ke email Owner).');
+    else if (res.status === 'invalid_pin') dialog.alert('PIN harus 6 digit angka.');
+    else dialog.alert('Gagal menyimpan PIN. Cek koneksi lalu coba lagi.');
+  };
+  const applyPin = async (staffId: string, newPin: string): Promise<boolean> => {
+    const ownerPinInput = await askOwnerPin('Masukkan PIN Owner untuk menyimpan PIN ini.');
+    if (!ownerPinInput) return false;
+    const res = await setPin(ownerPinInput, staffId, newPin);
+    if (res.status !== 'ok') { explainPinResult(res); return false; }
+    return true;
+  };
+  const handleUnlockStaff = async (staffId: string, name: string) => {
+    const ownerPinInput = await askOwnerPin(`Masukkan PIN Owner untuk membuka kunci akun ${name}.`);
+    if (!ownerPinInput) return;
+    const res = await unlockLogin(ownerPinInput, staffId);
+    if (res.status !== 'ok') { explainPinResult(res); return; }
+    refreshLocked();
+    triggerToast(`Akun ${name} sudah dibuka.`);
+  };
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffPhone, setNewStaffPhone] = useState('');
   const [newStaffPin, setNewStaffPin] = useState('');
@@ -190,10 +220,9 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     if (registeredOwner) {
       if (registeredOwner.storeName) {
         setCompanyName(registeredOwner.storeName);
-        setStoreProfile((prev) => ({ ...prev, storeName: registeredOwner.storeName, ownerName: registeredOwner.ownerName || prev.ownerName, email: registeredOwner.email || prev.email, pin: registeredOwner.pin || prev.pin }));
+        setStoreProfile((prev) => ({ ...prev, storeName: registeredOwner.storeName, ownerName: registeredOwner.ownerName || prev.ownerName, email: registeredOwner.email || prev.email }));
       }
       if (registeredOwner.email) setEmail(registeredOwner.email);
-      if (registeredOwner.pin) setOwnerPin(registeredOwner.pin);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registeredOwner]);
@@ -297,7 +326,6 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
       ...storeProfile,
       storeName: companyName,
       email,
-      pin: ownerPin,
       taxId,
       ownerName: storeProfile.ownerName || 'Owner'
     };
@@ -307,7 +335,6 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
       ...prev,
       storeName: companyName,
       email,
-      pin: ownerPin,
       taxId,
       address: storeProfile.address,
       phone: storeProfile.phone,
@@ -367,7 +394,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     resetStaffForm();
   };
 
-  const handleSaveStaff = (e: React.FormEvent) => {
+  const handleSaveStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = newStaffName.trim();
     const target = editingStaffId ? staffList.find((s) => s.id === editingStaffId) : null;
@@ -409,16 +436,18 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
         ...target,
         name,
         phone: newStaffPhone.trim(),
-        pin: newStaffPin || target.pin,
         role: isOwnerEntry ? 'Owner' : newStaffRole,
         permissions: isOwnerEntry ? target.permissions : newStaffPermissions,
       };
-      setStaffList(staffList.map((s) => (s.id === target.id ? updatedStaff : s)));
-      // PIN Owner disimpan di dua tempat (daftar staf untuk login, dan
-      // store_owner untuk kredensial utama) — jaga keduanya tetap sama.
-      if (isOwnerEntry && newStaffPin) {
-        updateRegisteredOwner((prev) => ({ ...prev, pin: newStaffPin }));
-        setOwnerPin(newStaffPin);
+      await setStaffList(staffList.map((s) => (s.id === target.id ? updatedStaff : s)));
+      // PIN diganti lewat database (di-hash) dan wajib konfirmasi PIN Owner.
+      if (newStaffPin && target.id) {
+        const pinOk = await applyPin(target.id, newStaffPin);
+        if (!pinOk) {
+          triggerToast(`Data "${name}" tersimpan, tapi PIN TIDAK diganti.`);
+          closeStaffModal();
+          return;
+        }
       }
       const editingSelf = target.name === currentUser?.name;
       triggerToast(`Akun Staf "${name}" berhasil diperbarui!${editingSelf ? ' Perubahan akses akun Anda berlaku setelah login ulang.' : ''}`);
@@ -429,8 +458,14 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
         'quote'
       );
     } else {
-      const updated = [...staffList, { id: `staff-${Date.now()}`, name, phone: newStaffPhone.trim(), pin: newStaffPin, role: newStaffRole, permissions: newStaffPermissions }];
-      setStaffList(updated);
+      const newId = `staff-${Date.now()}`;
+      const updated = [...staffList, { id: newId, name, phone: newStaffPhone.trim(), role: newStaffRole, permissions: newStaffPermissions }];
+      await setStaffList(updated);
+      if (!(await applyPin(newId, newStaffPin))) {
+        // Tanpa PIN akun tidak bisa dipakai login — batalkan pendaftarannya.
+        await setStaffList(staffList);
+        return;
+      }
       triggerToast(`Akun Staf "${name}" berhasil didaftarkan!`);
       onAddActivity(
         "Pendaftaran Staf Baru",
@@ -1317,20 +1352,22 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                       const val = e.target.value.replace(/\D/g, '').slice(0, 6);
                       setOwnerPin(val);
                     }}
-                    placeholder="882100"
+                    placeholder="PIN baru"
                     className="w-20 h-9 text-center font-mono"
                   />
                   <Button
                     size="sm"
-                    onClick={() => {
+                    onClick={async () => {
                       if (ownerPin.length !== 6) {
                         dialog.alert("PIN Owner harus berisi 6 digit angka!");
                         return;
                       }
-                      updateRegisteredOwner((prev) => ({ ...prev, pin: ownerPin }));
-                      // Halaman login memeriksa PIN dari daftar staf, jadi akun Owner di sana ikut diperbarui.
-                      setStaffList(staffList.map((st) => (st.role === 'Owner' ? { ...st, pin: ownerPin } : st)));
-                      triggerToast("PIN Utama Owner berhasil dimodifikasi.");
+                      const ownerStaff = staffList.find((st) => st.role === 'Owner');
+                      if (!ownerStaff?.id) { dialog.alert('Akun Owner tidak ditemukan.'); return; }
+                      if (await applyPin(ownerStaff.id, ownerPin)) {
+                        setOwnerPin('');
+                        triggerToast("PIN Utama Owner berhasil dimodifikasi.");
+                      }
                     }}
                     className="text-[10px]"
                   >
@@ -1502,6 +1539,20 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                       </div>
 
                       <div className="flex items-center gap-1">
+                        {st.id && lockedIds.includes(st.id) && (
+                          <span className="text-[9px] font-extrabold uppercase text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">Terkunci</span>
+                        )}
+                        {st.id && lockedIds.includes(st.id) && st.role !== 'Owner' && can('manage_user_update') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); void handleUnlockStaff(st.id!, st.name); }}
+                            className="h-7 text-[10px]"
+                            title="Buka kunci akun (butuh PIN Owner)"
+                          >
+                            Buka Kunci
+                          </Button>
+                        )}
                         {canEditStaff(st) && (
                           <Button
                             variant="ghost"

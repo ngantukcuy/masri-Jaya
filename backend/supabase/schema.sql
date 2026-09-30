@@ -666,7 +666,6 @@ create table if not exists public."staff_list" (
   "id" text primary key,
   "name" text,
   "phone" text,
-  "pin" text,
   "role" text,
   "permissions" text[],
   db_created_at timestamptz not null default now(),
@@ -674,7 +673,6 @@ create table if not exists public."staff_list" (
 );
 alter table public."staff_list" add column if not exists "name" text;
 alter table public."staff_list" add column if not exists "phone" text;
-alter table public."staff_list" add column if not exists "pin" text;
 alter table public."staff_list" add column if not exists "role" text;
 alter table public."staff_list" add column if not exists "permissions" text[];
 drop trigger if exists trg_staff_list_db_updated on public."staff_list";
@@ -808,7 +806,6 @@ create table if not exists public."store_profile" (
   "store_name" text,
   "owner_name" text,
   "email" text,
-  "pin" text,
   "address" text,
   "phone" text,
   "receipt_note" text,
@@ -819,7 +816,6 @@ create table if not exists public."store_profile" (
 alter table public."store_profile" add column if not exists "store_name" text;
 alter table public."store_profile" add column if not exists "owner_name" text;
 alter table public."store_profile" add column if not exists "email" text;
-alter table public."store_profile" add column if not exists "pin" text;
 alter table public."store_profile" add column if not exists "address" text;
 alter table public."store_profile" add column if not exists "phone" text;
 alter table public."store_profile" add column if not exists "receipt_note" text;

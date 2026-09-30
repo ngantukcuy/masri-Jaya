@@ -155,8 +155,8 @@ begin
   end if;
 
   if to_regclass('public.legacy_staff_list') is not null then
-    insert into public."staff_list" ("id", "name", "phone", "pin", "role", "permissions", db_created_at, db_updated_at)
-    select l.key, (l.data -> 'name' #>> '{}'), (l.data -> 'phone' #>> '{}'), (l.data -> 'pin' #>> '{}'), (l.data -> 'role' #>> '{}'), case when jsonb_typeof(l.data -> 'permissions') = 'array' then array(select jsonb_array_elements_text(l.data -> 'permissions')) end, l.created_at, l.updated_at from public.legacy_staff_list l
+    insert into public."staff_list" ("id", "name", "phone", "role", "permissions", db_created_at, db_updated_at)
+    select l.key, (l.data -> 'name' #>> '{}'), (l.data -> 'phone' #>> '{}'), (l.data -> 'role' #>> '{}'), case when jsonb_typeof(l.data -> 'permissions') = 'array' then array(select jsonb_array_elements_text(l.data -> 'permissions')) end, l.created_at, l.updated_at from public.legacy_staff_list l
     on conflict ("id") do nothing;
   end if;
 
@@ -217,8 +217,8 @@ begin
 
   -- store_owner -> store_profile
   if to_regclass('public.legacy_store_owner') is not null then
-    insert into public.store_profile (id, store_name, owner_name, email, pin, address, phone, receipt_note, tax_id)
-    select 'main', value->>'storeName', value->>'ownerName', value->>'email', value->>'pin',
+    insert into public.store_profile (id, store_name, owner_name, email, address, phone, receipt_note, tax_id)
+    select 'main', value->>'storeName', value->>'ownerName', value->>'email',
            value->>'address', value->>'phone', value->>'receiptNote', value->>'taxId'
     from public.legacy_store_owner where jsonb_typeof(value) = 'object'
     on conflict (id) do nothing;

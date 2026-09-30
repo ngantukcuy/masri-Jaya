@@ -13,7 +13,12 @@ const STORE_NAME = 'pending_ops';
 
 export type PendingOp =
   | { id?: number; kind: 'repo_upsert'; table: string; items: unknown[]; createdAt: number }
-  | { id?: number; kind: 'repo_delete'; table: string; keys: string[]; createdAt: number };
+  | { id?: number; kind: 'repo_delete'; table: string; keys: string[]; createdAt: number }
+  // Format antrian versi lama (tabel key/data JSON). Tidak lagi dibuat, tapi
+  // mungkin masih tersisa di browser — offlineSync.ts mengonversinya.
+  | { id?: number; kind: 'table_upsert'; table: string; rows: { key: string; data: unknown }[]; createdAt: number }
+  | { id?: number; kind: 'table_delete'; table: string; keys: string[]; createdAt: number }
+  | { id?: number; kind: 'singleton_upsert'; table: string; value: unknown; createdAt: number };
 
 // Plain `Omit<PendingOp, 'id'>` collapses the union down to only the
 // fields common to every variant (losing `rows`/`keys`/`value`) because

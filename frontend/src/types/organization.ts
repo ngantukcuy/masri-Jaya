@@ -35,7 +35,6 @@ export interface StaffMember {
   id?: string;
   name: string;
   phone?: string;
-  pin: string;
   role: 'Owner' | 'Admin' | 'Kasir' | 'Stoker';
   permissions: string[];
 }
@@ -56,7 +55,6 @@ export interface StoreOwner {
   storeName: string;
   ownerName: string;
   email: string;
-  pin: string;
   address?: string;
   phone?: string;
   receiptNote?: string;

@@ -28,6 +28,8 @@ type PromptRequest = {
   defaultValue?: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** true = isian disamarkan (untuk PIN/kata sandi). */
+  secret?: boolean;
   resolve: (value: string | null) => void;
 };
 
@@ -40,7 +42,7 @@ interface DialogContextValue {
   prompt: (
     message: string,
     defaultValue?: string,
-    opts?: { title?: string; confirmLabel?: string; cancelLabel?: string }
+    opts?: { title?: string; confirmLabel?: string; cancelLabel?: string; secret?: boolean }
   ) => Promise<string | null>;
 }
 
@@ -89,7 +91,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
     (
       message: string,
       defaultValue?: string,
-      opts?: { title?: string; confirmLabel?: string; cancelLabel?: string }
+      opts?: { title?: string; confirmLabel?: string; cancelLabel?: string; secret?: boolean }
     ): Promise<string | null> => {
       setPromptValue(defaultValue ?? '');
       return new Promise((resolve) => {
@@ -198,6 +200,9 @@ export function DialogProvider({ children }: { children: ReactNode }) {
                 <input
                   ref={promptInputRef}
                   autoFocus
+                  type={promptReq.secret ? 'password' : 'text'}
+                  inputMode={promptReq.secret ? 'numeric' : undefined}
+                  autoComplete="off"
                   value={promptValue}
                   onChange={(e) => setPromptValue(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 bg-white/80 px-3 py-2 text-sm text-gray-900 mb-5 focus:outline-none focus:ring-2 focus:ring-blue-500"
