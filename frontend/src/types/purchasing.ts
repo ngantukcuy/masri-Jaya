@@ -15,6 +15,7 @@ export interface POItem {
   sku: string;
   quantity: number;
   price: number;
+  unit?: string;
   taxIncluded?: boolean;
   discountPerUnit?: number;
   totalDiscount?: number;

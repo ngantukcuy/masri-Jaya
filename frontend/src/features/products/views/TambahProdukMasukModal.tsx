@@ -10,6 +10,7 @@ import { Label } from '../../../components/ui/label';
 import { Checkbox } from '../../../components/ui/checkbox';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog';
+import { generateSkuCode } from '../../../lib/generateSku';
 import type { IncomingProductForm } from '../ProductsView';
 
 interface TambahProdukMasukModalProps {
@@ -98,6 +99,14 @@ export default function TambahProdukMasukModal({
   incomingAdditionalCost,
   incomingTotal,
 }: TambahProdukMasukModalProps) {
+  const generateUniqueIncomingSku = () => {
+    let sku = generateSkuCode();
+    while (products.some((product) => product.sku === sku) || incomingItems.some((item) => item.productSku === sku)) {
+      sku = generateSkuCode();
+    }
+    return sku;
+  };
+
   return (
     <Dialog open={showIncomingModal} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -124,6 +133,7 @@ export default function TambahProdukMasukModal({
               <div className="space-y-3">
                 {incomingItems.map((item, index) => {
                   const product = products.find((candidate) => candidate.sku === item.productSku);
+                  const matchingProducts = products.filter((candidate) => `${candidate.name} ${candidate.sku}`.toLowerCase().includes(incomingProductSearch.toLowerCase()));
                   const itemDiscount = getItemDiscount(item);
                   const discountedUnitPrice = Math.max(0, item.price - itemDiscount);
                   const itemTotal = item.bonus ? 0 : discountedUnitPrice * item.quantity;
@@ -132,15 +142,74 @@ export default function TambahProdukMasukModal({
                       <div className="flex items-center justify-between"><p className="font-extrabold text-xs">Produk {index + 1}</p><div className="flex items-center gap-1"><Button type="button" variant="ghost" size="icon" title="Tambah diskon atau biaya tambahan" onClick={() => setOpenItemMenu(openItemMenu === index ? null : index)} className="h-7 w-7"><Plus className="w-4 h-4" /></Button><Button type="button" variant="ghost" size="icon" title="Menu produk" onClick={() => setOpenItemMenu(openItemMenu === index ? null : index)} className="h-7 w-7"><MoreVertical className="w-4 h-4" /></Button>{incomingItems.length > 1 && <Button type="button" variant="ghost" size="icon" title="Hapus produk" onClick={() => setIncomingItems((items) => items.filter((_, itemIndex) => itemIndex !== index))} className="h-7 w-7 text-red-600"><Trash2 className="w-3.5 h-3.5" /></Button>}</div></div>
                       {openItemMenu === index && <div className="flex flex-wrap gap-2 rounded-lg bg-muted/50 p-2"><Button type="button" size="sm" variant="outline" onClick={() => { updateIncomingItem(index, { discounts: [...item.discounts, { type: 'amount', value: 0 }] }); setOpenItemMenu(null); }}><Percent className="w-3 h-3" /> Tambah/Ubah Diskon</Button><Button type="button" size="sm" variant="outline" onClick={() => { setIncomingAdditionalCosts((costs) => [...costs, { name: '', amount: 0 }]); setOpenItemMenu(null); }}><Plus className="w-3 h-3" /> Tambah/Ubah Biaya Tambahan</Button></div>}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="relative"><Label>Nama Produk</Label><Input value={activeProductSearchIndex === index ? incomingProductSearch : product?.name || ''} placeholder="Cari nama atau SKU produk..." onFocus={() => { setActiveProductSearchIndex(index); setIncomingProductSearch(product?.name || ''); }} onChange={(event) => { setActiveProductSearchIndex(index); setIncomingProductSearch(event.target.value); }} />{activeProductSearchIndex === index && incomingProductSearch && <div className="absolute z-20 top-full left-0 right-0 mt-1 max-h-44 overflow-y-auto rounded-lg border border-border bg-background shadow-lg">{products.filter((candidate) => `${candidate.name} ${candidate.sku}`.toLowerCase().includes(incomingProductSearch.toLowerCase())).map((productItem) => <button type="button" key={productItem.sku} className="block w-full px-3 py-2 text-left text-xs hover:bg-muted" onClick={() => { updateIncomingItem(index, { productSku: productItem.sku, price: productItem.costPrice ?? productItem.retailPrice ?? 0 }); setIncomingProductSearch(''); setActiveProductSearchIndex(null); }}><span className="font-bold">{productItem.name}</span><span className="block text-[10px] text-muted-foreground">{productItem.sku}</span></button>)}</div>}</div>
+                        <div className="relative">
+                          <Label>Nama Produk</Label>
+                          <Input
+                            value={activeProductSearchIndex === index ? incomingProductSearch : product?.name || item.productName || ''}
+                            placeholder="Cari produk atau ketik nama barang baru..."
+                            onFocus={() => {
+                              setActiveProductSearchIndex(index);
+                              setIncomingProductSearch(product?.name || item.productName || '');
+                            }}
+                            onChange={(event) => {
+                              setActiveProductSearchIndex(index);
+                              setIncomingProductSearch(event.target.value);
+                              updateIncomingItem(index, { productSku: '', productName: event.target.value, unit: '' });
+                            }}
+                          />
+                          {activeProductSearchIndex === index && incomingProductSearch.trim() && (
+                            <div className="absolute z-20 top-full left-0 right-0 mt-1 max-h-52 overflow-y-auto rounded-lg border border-border bg-background shadow-lg">
+                              {matchingProducts.map((productItem) => (
+                                <button
+                                  type="button"
+                                  key={productItem.sku}
+                                  className="block w-full px-3 py-2 text-left text-xs hover:bg-muted"
+                                  onClick={() => {
+                                    updateIncomingItem(index, {
+                                      productSku: productItem.sku,
+                                      productName: productItem.name,
+                                      unit: productItem.unit,
+                                      price: productItem.costPrice ?? productItem.retailPrice ?? 0,
+                                    });
+                                    setIncomingProductSearch('');
+                                    setActiveProductSearchIndex(null);
+                                  }}
+                                >
+                                  <span className="font-bold">{productItem.name}</span>
+                                  <span className="block text-[10px] text-muted-foreground">{productItem.sku}</span>
+                                </button>
+                              ))}
+                              {matchingProducts.length === 0 && (
+                                <button
+                                  type="button"
+                                  className="block w-full px-3 py-2 text-left text-xs font-semibold text-primary hover:bg-muted"
+                                  onClick={() => {
+                                    updateIncomingItem(index, {
+                                      productSku: generateUniqueIncomingSku(),
+                                      productName: incomingProductSearch.trim(),
+                                      unit: '',
+                                    });
+                                    setIncomingProductSearch('');
+                                    setActiveProductSearchIndex(null);
+                                  }}
+                                >
+                                  <Plus className="mr-1 inline h-3 w-3" />
+                                  Tambahkan "{incomingProductSearch.trim()}" sebagai produk baru
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         <div><Label>Qty</Label><NumberInput allowDecimal min={0.001} value={item.quantity} onChange={(value) => setIncomingItems((items) => items.map((current, itemIndex) => itemIndex === index ? { ...current, quantity: value } : current))} /></div>
                         <div><Label>Harga Modal (Rp)</Label><NumberInput min={0} value={item.price} disabled={item.bonus} onChange={(value) => updateIncomingItem(index, { price: value })} /></div>
                         <div className="sm:col-span-2"><Label>Diskon Satuan</Label>{item.discounts.map((discount, discountIndex) => <div key={discountIndex} className="flex gap-2 mt-1"><Select value={discount.type} onValueChange={(value) => updateIncomingDiscount(index, discountIndex, { type: value as 'percent' | 'amount' })}><SelectTrigger className="w-28"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percent">Persen (%)</SelectItem><SelectItem value="amount">Rupiah (Rp)</SelectItem></SelectContent></Select><NumberInput min={0} max={discount.type === 'percent' ? 100 : undefined} value={discount.value} onChange={(value) => updateIncomingDiscount(index, discountIndex, { value })} /><Button type="button" variant="ghost" size="icon" onClick={() => updateIncomingItem(index, { discounts: item.discounts.filter((_, currentIndex) => currentIndex !== discountIndex) })} className="text-red-600"><Trash2 className="w-3.5 h-3.5" /></Button></div>)}<Button type="button" variant="outline" size="sm" onClick={() => updateIncomingItem(index, { discounts: [...item.discounts, { type: 'amount', value: 0 }] })} className="mt-1"><Plus className="w-3 h-3" /> Tambah Diskon</Button></div>
                         <div><Label>Pilih Lokasi SKU</Label><Select value={item.locationId} onValueChange={(value) => updateIncomingItem(index, { locationId: value })}><SelectTrigger><SelectValue placeholder="Pilih lokasi" /></SelectTrigger><SelectContent>{skuLocations.map((location) => <SelectItem key={location.id} value={location.id}>{location.name}</SelectItem>)}</SelectContent></Select></div>
+                        {!product && item.productSku && item.productName && <div><Label>Satuan Produk Baru</Label><Input value={item.unit || ''} onChange={(event) => updateIncomingItem(index, { unit: event.target.value })} placeholder="Contoh: Sak, Batang, Pcs" required /></div>}
                         <div className="flex items-end"><label className="flex items-center gap-2 h-10 cursor-pointer"><Checkbox checked={item.taxIncluded} onCheckedChange={(checked) => updateIncomingItem(index, { taxIncluded: checked === true })} /><span className="font-bold">Sudah PPN</span></label><label className="flex items-center gap-2 h-10 ml-4 cursor-pointer"><Checkbox checked={item.bonus} onCheckedChange={(checked) => updateIncomingItem(index, { bonus: checked === true })} /><span className="font-bold text-amber-700">Bonus (Rp 0)</span></label></div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-border pt-2 text-[10px]"><div><span className="text-muted-foreground">Total Diskon</span><p className="font-black text-red-600">Rp {(itemDiscount * item.quantity).toLocaleString('id-ID')}</p></div><div><span className="text-muted-foreground">Harga Setelah Diskon</span><p className="font-black">Rp {item.bonus ? '0' : discountedUnitPrice.toLocaleString('id-ID')} / unit</p></div><div className="text-right"><span className="text-muted-foreground">Total Rp</span><p className="font-black text-primary">Rp {itemTotal.toLocaleString('id-ID')}</p></div></div>
-                      {!product && <p className="text-[10px] text-red-500">Produk belum dipilih.</p>}
+                      {!product && !item.productSku && <p className="text-[10px] text-red-500">Pilih produk terdaftar atau tambahkan sebagai produk baru.</p>}
+                      {!product && item.productSku && <p className="text-[10px] text-amber-700">Produk baru akan dibuat saat bon berstatus diterima.</p>}
                     </div>
                   );
                 })}

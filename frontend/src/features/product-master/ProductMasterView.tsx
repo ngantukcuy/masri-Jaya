@@ -111,7 +111,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     supplier: '',
     brand: '',
     alias: '',
-    unit: units[0]?.name || '',
+    unit: '',
     allowDecimalQty: false,
     sellUnits: [] as SellUnit[],
     showLowStockAlert: false,
@@ -125,7 +125,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     costPrice: 0,
     minSellPrice: 0,
     standardSellPrice: 0,
-    skuLocationId: skuLocations[0]?.id || '',
+    skuLocationId: '',
   };
   const [skuForm, setSkuForm] = useState({ ...emptySkuForm });
 
@@ -133,7 +133,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     sku: generateSkuCode(),
     parentSku: '',
     conversionValue: 1,
-    unit: units[0]?.name || '',
+    unit: '',
     alias: '',
     /** Optional — kalau kosong, produk eceran ikut pakai foto produk induknya
      * (lihat handleSubmitEceran). */
@@ -146,7 +146,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     costPrice: 0,
     minSellPrice: 0,
     standardSellPrice: 0,
-    skuLocationId: skuLocations[0]?.id || '',
+    skuLocationId: '',
   };
   const [eceranForm, setEceranForm] = useState({ ...emptyEceranForm });
 
@@ -222,6 +222,10 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
       dialog.alert('Nama produk tidak boleh kosong.');
       return;
     }
+    if (!skuForm.unit.trim()) {
+      dialog.alert('Pilih satuan produk terlebih dahulu.');
+      return;
+    }
     if (!onUpdateProducts) return;
 
     const sku = skuForm.sku || generateSkuCode();
@@ -263,12 +267,16 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
     onUpdateProducts([newProduct, ...products]);
     onAddActivity('Produk Induk Baru', `${newProduct.name} (${sku})`, 0, 'quote');
-    setSkuForm({ ...emptySkuForm, sku: generateSkuCode(), unit: units[0]?.name || '', skuLocationId: skuLocations[0]?.id || '' });
+    setSkuForm({ ...emptySkuForm, sku: generateSkuCode() });
     dialog.alert(`Produk induk "${newProduct.name}" berhasil disimpan dengan SKU ${sku}.`);
   };
 
   const handleSubmitEceran = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!eceranForm.unit.trim()) {
+      dialog.alert('Pilih satuan produk eceran terlebih dahulu.');
+      return;
+    }
     const parent = products.find(p => p.sku === eceranForm.parentSku);
     if (!parent) {
       dialog.alert('Pilih produk induk terlebih dahulu.');
@@ -332,7 +340,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     };
     onUpdateProducts([newProduct, ...products.map(p => (p.sku === parent.sku ? updatedParent : p))]);
     onAddActivity('Produk Eceran Baru', `${newProduct.name} - konversi 1 : ${eceranForm.conversionValue} ${eceranForm.unit}. Stok ${parent.name} ${parent.stock} → ${parentNextStock} ${parent.unit}`, 0, 'quote');
-    setEceranForm({ ...emptyEceranForm, sku: generateSkuCode(), unit: units[0]?.name || '', skuLocationId: skuLocations[0]?.id || '' });
+    setEceranForm({ ...emptyEceranForm, sku: generateSkuCode() });
     dialog.alert(`Produk eceran "${newProduct.name}" berhasil disimpan dengan SKU ${sku}. Stok awal ${eceranStock} ${eceranForm.unit}, stok ${parent.name} berkurang 1 ${parent.unit} (sisa ${parentNextStock}).`);
   };
 
@@ -577,7 +585,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                 </div>
 
               <div>
-                <Label>Pilih Satuan</Label>
+                <Label>Pilih Satuan <span className="text-red-500">*</span></Label>
                 <SearchableSelect
                   value={skuForm.unit}
                   onChange={(v) => setSkuForm({ ...skuForm, unit: v })}

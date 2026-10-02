@@ -68,7 +68,7 @@ export default function PiutangDueDateModal({ onClose, onConfirm, totalAmount, c
             className="mt-0.5 h-4 w-4"
           />
           <span className="min-w-0">
-            <span className="block text-xs font-black text-foreground">Bayar setelah barang diantar</span>
+            <span className="block text-xs font-black text-foreground">Bayar Ditempat</span>
             <span className="block text-[10px] text-muted-foreground">Pelanggan bayar saat barang sampai. Dicatat sebagai piutang jatuh tempo hari ini — tutup di Utang &amp; Piutang begitu uangnya diterima.</span>
           </span>
         </label>

@@ -41,7 +41,7 @@ export default function IncomingStockView({
           <p className="text-xs text-muted-foreground">Kelola produk masuk, harga eceran, dan stok aktual. Klik salah satu bon untuk melihat isinya.</p>
         </div>
         {incomingTab === 'masuk' && (
-          <Button onClick={onTambahProdukMasuk} disabled={products.length === 0}>
+          <Button onClick={onTambahProdukMasuk}>
             <Plus className="w-4 h-4" /> Tambah Produk Masuk
           </Button>
         )}

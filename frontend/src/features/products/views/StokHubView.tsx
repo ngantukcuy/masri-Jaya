@@ -248,7 +248,7 @@ export default function StokHubView(props: StokHubViewProps) {
                     <TabsTrigger value="eceran">Produk Eceran</TabsTrigger>
                   </TabsList>
                   {incomingTab === 'masuk' && (
-                    <Button size="sm" onClick={openIncomingModal} disabled={products.length === 0}>
+                    <Button size="sm" onClick={openIncomingModal}>
                       <Plus className="w-3.5 h-3.5" /> Tambah Produk Masuk
                     </Button>
                   )}

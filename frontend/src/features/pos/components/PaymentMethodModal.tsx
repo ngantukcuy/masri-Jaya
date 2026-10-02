@@ -54,7 +54,7 @@ export default function PaymentMethodModal({ onClose, onSelect, totalAmount, cus
     },
     {
       method: 'Piutang',
-      label: 'Piutang / Bayar Setelah Diantar',
+      label: 'Piutang / Bayar Ditempat',
       desc: isGenericCustomer 
         ? 'Pilih pelanggan asli dulu — "Customer" umum tidak bisa punya piutang' 
         : 'Bayar nanti / setelah barang diantar — dicatat sebagai piutang pelanggan',

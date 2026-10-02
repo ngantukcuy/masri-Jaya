@@ -38,6 +38,7 @@ import StokPemasokView from './views/StokPemasokView';
 import StockOpnameModal from './views/StockOpnameModal';
 import CreateProductModal from './views/CreateProductModal';
 import EditProductModal from './views/EditProductModal';
+import { applyReceivedPOToProducts } from './applyReceivedPO';
 
 interface ProductCategory {
   id: string;
@@ -67,6 +68,8 @@ interface ProductsViewProps {
 
 export interface IncomingProductForm {
   productSku: string;
+  productName?: string;
+  unit?: string;
   quantity: number;
   price: number;
   taxIncluded: boolean;
@@ -301,8 +304,11 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
 
   const handleSaveIncoming = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!incomingDate || !incomingPoNumber.trim() || !incomingSupplier || incomingItems.length === 0 || incomingItems.some((item) => !item.productSku || item.quantity <= 0)) {
-      dialog.alert('Lengkapi tanggal, nomor PO, pemasok, dan minimal satu produk masuk.');
+    if (!incomingDate || !incomingPoNumber.trim() || !incomingSupplier || incomingItems.length === 0 || incomingItems.some((item) => {
+      const productExists = products.some((product) => product.sku === item.productSku);
+      return !item.productSku || item.quantity <= 0 || (!productExists && (!item.productName?.trim() || !item.unit?.trim()));
+    })) {
+      dialog.alert('Lengkapi tanggal, nomor PO, pemasok, dan detail setiap produk masuk (nama serta satuan untuk produk baru).');
       return;
     }
 
@@ -310,9 +316,10 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       const product = products.find((candidate) => candidate.sku === item.productSku);
       return {
         sku: item.productSku,
-        name: product?.name || item.productSku,
+        name: product?.name || item.productName?.trim() || item.productSku,
         quantity: item.quantity,
         price: item.price,
+        unit: product?.unit || item.unit,
         discountPerUnit: getItemDiscount(item),
         totalDiscount: getItemDiscount(item) * item.quantity,
         taxIncluded: item.taxIncluded,
@@ -340,22 +347,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
 
     onUpdatePOs([newPO, ...pos.filter((po) => po.poNumber !== newPO.poNumber)]);
     if (incomingStatus === 'Received') {
-      const updatedProducts = products.map((product) => {
-        const productItems = incomingItems.filter((item) => item.productSku === product.sku);
-        if (productItems.length === 0) return product;
-        const addedQuantity = productItems.reduce((sum, item) => sum + item.quantity, 0);
-        const selectedLocation = productItems.map((item) => skuLocations.find((location) => location.id === item.locationId)?.name).find(Boolean);
-        const nextStock = product.stock + addedQuantity;
-        return {
-          ...product,
-          stock: nextStock,
-          stockStatus: nextStock > 15 ? 'Healthy' as const : 'Low Stock' as const,
-          lastRestock: new Date().toISOString(),
-          lastRestockQty: addedQuantity,
-          ...(selectedLocation ? { warehouseLocation: selectedLocation } : {}),
-        };
-      });
-      onUpdateProducts(updatedProducts);
+      onUpdateProducts(applyReceivedPOToProducts(products, newPO, skuLocations));
     }
     onAddActivity(`Produk Masuk: ${newPO.poNumber}`, `${poItems.length} jenis produk dari ${incomingSupplier}`, incomingTotal, 'arrival');
     setShowIncomingModal(false);
@@ -428,20 +420,7 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
       dialog.alert(`Penerimaan PO ${po.poNumber} berhasil! Barang langsung diantar ke customer. Stok toko tidak bertambah, tagihan supplier telah dicatat.`);
     } else {
       // Normal PO: Update product stock and supplier debt
-      const updatedProducts = [...products];
-      po.items.forEach((item) => {
-        const match = updatedProducts.find(
-          (p) => p.name.toLowerCase().includes(item.name.toLowerCase()) || 
-                 item.name.toLowerCase().includes(p.name.toLowerCase())
-        );
-        if (match) {
-          match.stock += item.quantity;
-          match.stockStatus = match.stock > 15 ? 'Healthy' : 'Low Stock';
-          match.lastRestock = new Date().toISOString();
-          match.lastRestockQty = item.quantity;
-        }
-      });
-      onUpdateProducts(updatedProducts);
+      onUpdateProducts(applyReceivedPOToProducts(products, po, skuLocations));
 
       if (onUpdateSuppliers && suppliers) {
         const updatedSuppliers = suppliers.map((s) =>

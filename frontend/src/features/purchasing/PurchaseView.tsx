@@ -16,6 +16,7 @@ import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
 import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
 import SearchableSelect from '../../components/shared/SearchableSelect';
+import { applyReceivedPOToProducts } from '../products/applyReceivedPO';
 
 interface PurchaseViewProps {
   pos: PO[];
@@ -98,23 +99,7 @@ export default function PurchaseView({
     // tetap tercatat sebagai hutang ke supplier (lihat update debt di bawah)
     // dan baru jadi pengeluaran nyata saat dibayar lewat Pembayaran > Supplier.
     if (!po.dropship) {
-      // Dynamic stock adjustment
-      const updatedProducts = [...products];
-      po.items.forEach((item) => {
-        // Find matching product
-        const match = updatedProducts.find(
-          (p) => p.name.toLowerCase().includes(item.name.toLowerCase()) || 
-                 item.name.toLowerCase().includes(p.name.toLowerCase())
-        );
-        if (match) {
-          match.stock += item.quantity;
-          match.stockStatus = match.stock > 15 ? 'Healthy' : 'Low Stock';
-          // Tandai sebagai stok baru masuk — muncul di kartu "Stok Baru Masuk" halaman Stok.
-          match.lastRestock = new Date().toISOString();
-          match.lastRestockQty = item.quantity;
-        }
-      });
-      onUpdateProducts(updatedProducts);
+      onUpdateProducts(applyReceivedPOToProducts(products, po));
     }
 
     // Update supplier's outstanding debt (payable) and latest PO reference
