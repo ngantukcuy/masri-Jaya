@@ -9,7 +9,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   Coins,
-  FileText
+  FileText,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 import { Expense, PO, POPayment, SalesInvoice } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -88,6 +90,8 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   const [payAmountInput, setPayAmountInput] = useState(0);
   const [payProofFile, setPayProofFile] = useState<File | null>(null);
   const [isPaySubmitting, setIsPaySubmitting] = useState(false);
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  const [paymentDateInput, setPaymentDateInput] = useState('');
 
   // Translate categories
   const categoryTranslationMap: Record<string, string> = {
@@ -250,21 +254,102 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
     setPayMethod('Tunai Kas');
     setPayAmountInput(poRemaining(po));
     setPayProofFile(null);
-    setPayingPO(po);
+    setEditingPaymentId(null);
+    const paymentHistory = po.paymentHistory?.length
+      ? po.paymentHistory
+      : (po.paidHistory || []).map((payment, index): POPayment => ({
+        id: `LEGACY-${po.poNumber}-${index}`,
+        amount: payment.amount,
+        method: payment.method === 'Tunai Kas' || payment.method === 'Tunai Luar' ||
+          payment.method === 'Transfer' || payment.method === 'Giro' || payment.method === 'Tunai'
+          ? payment.method
+          : 'Tunai',
+        date: payment.date,
+      }));
+    setPayingPO({ ...po, paymentHistory });
+  };
+
+  const updateSupplierPO = (po: PO, paymentHistory: POPayment[], paidAmount: number, paidHistory: PO['paidHistory']) => {
+    const nextPO: PO = {
+      ...po,
+      paidAmount: Math.max(0, paidAmount),
+      paidAt: paidAmount >= po.total ? (po.paidAt || new Date().toISOString()) : undefined,
+      paidHistory,
+      paymentHistory,
+    };
+    onUpdatePOs?.(pos.map((item) => item.poNumber === po.poNumber ? nextPO : item));
+    setPayingPO(nextPO);
+  };
+
+  const updateLegacyPaidHistory = (
+    po: PO,
+    oldPayment: POPayment | null,
+    nextPayment: POPayment | null
+  ): PO['paidHistory'] => {
+    const history = [...(po.paidHistory || [])];
+    const matchingIndex = oldPayment
+      ? history.findIndex((item) =>
+        item.amount === oldPayment.amount &&
+        item.method === oldPayment.method &&
+        item.date === oldPayment.date
+      )
+      : -1;
+    if (matchingIndex >= 0) {
+      if (nextPayment) {
+        history[matchingIndex] = {
+          ...history[matchingIndex],
+          amount: nextPayment.amount,
+          method: nextPayment.method,
+          date: nextPayment.date,
+        };
+      } else {
+        history.splice(matchingIndex, 1);
+      }
+    } else if (!oldPayment && nextPayment) {
+      history.push({ date: nextPayment.date, amount: nextPayment.amount, method: nextPayment.method });
+    }
+    return history;
+  };
+
+  const adjustCashForPaymentChange = (po: PO, oldPayment: POPayment | null, nextPayment: POPayment | null) => {
+    let missingCashSession = false;
+    const unchanged = oldPayment && nextPayment &&
+      oldPayment.method === nextPayment.method && oldPayment.amount === nextPayment.amount;
+    if (unchanged) return false;
+    if (oldPayment?.method === 'Tunai Kas') {
+      missingCashSession = !addMutation(
+        'in',
+        'Koreksi Pembayaran Hutang',
+        oldPayment.amount,
+        `Koreksi bon ${po.poNumber} - ${po.supplier}`
+      ) || missingCashSession;
+    }
+    if (nextPayment?.method === 'Tunai Kas') {
+      missingCashSession = !addMutation(
+        'out',
+        'Pembayaran Hutang',
+        nextPayment.amount,
+        `Bon ${po.poNumber} - ${po.supplier}`
+      ) || missingCashSession;
+    }
+    return missingCashSession;
   };
 
   const handlePaySupplierBon = async () => {
     if (!payingPO || !onUpdatePOs) return;
     const po = payingPO;
-    const remaining = poRemaining(po);
     const amount = payAmountInput;
+    const pendingAdditions = (po.paymentHistory || [])
+      .filter((payment) => payment.requestStatus === 'Pending' && payment.requestAction === 'add')
+      .reduce((sum, payment) => sum + payment.amount, 0);
+    const availableAmount = Math.max(0, poRemaining(po) - pendingAdditions);
 
     if (!amount || amount <= 0) {
       dialog.alert('Masukkan nominal pembayaran yang valid!');
       return;
     }
-    if (amount > remaining) {
-      dialog.alert(`Nominal pembayaran melebihi sisa bon (${rupiah(remaining)})!`);
+    if (amount > availableAmount) {
+      dialog.alert(`Nominal melebihi sisa bon yang belum diajukan (${rupiah(availableAmount)})!`);
       return;
     }
 
@@ -275,8 +360,6 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
         proofUrl = await uploadProductImage(payProofFile, 'bukti-bayar-supplier');
       }
 
-      const newPaidAmount = (po.paidAmount || 0) + amount;
-      const isFullyPaid = newPaidAmount >= po.total;
       const paymentEntry: POPayment = {
         id: `PAY-${Date.now()}`,
         amount,
@@ -284,49 +367,250 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
         date: new Date().toISOString(),
         proofUrl,
         by: currentUser?.name,
+        ...(!isOwner ? {
+          requestStatus: 'Pending' as const,
+          requestAction: 'add' as const,
+          requestedBy: currentUser?.name,
+        } : {}),
       };
-      const paidHistoryEntry = {
-        date: new Date().toISOString(),
+
+      if (!isOwner) {
+        const updatedPO = {
+          ...po,
+          paymentHistory: [...(po.paymentHistory || []), paymentEntry],
+        };
+        onUpdatePOs(pos.map((item) => item.poNumber === po.poNumber ? updatedPO : item));
+        setPayingPO(updatedPO);
+        onAddActivity(
+          `Persetujuan Pembayaran Supplier: ${po.poNumber}`,
+          `${currentUser?.name || 'Staf'} mengajukan pembayaran ${rupiah(amount)} ke ${po.supplier}`,
+          amount,
+          'overdue',
+          'approvers'
+        );
+        setPayAmountInput(0);
+        setPayProofFile(null);
+        dialog.alert('Pengajuan pembayaran tersimpan dan menunggu persetujuan Owner. Bon belum dianggap dibayar.');
+        return;
+      }
+
+      const newPaidAmount = (po.paidAmount || 0) + amount;
+      const paymentHistory = [...(po.paymentHistory || []), paymentEntry];
+      const paidHistory = [...(po.paidHistory || []), {
+        date: paymentEntry.date,
         amount,
         method: payMethod,
         receiptName: payProofFile ? payProofFile.name : undefined,
-      };
+      }];
+      updateSupplierPO(po, paymentHistory, newPaidAmount, paidHistory);
 
-      onUpdatePOs(pos.map((item) => item.poNumber === po.poNumber
-        ? {
-          ...item,
-          paidAmount: newPaidAmount,
-          paidAt: isFullyPaid ? new Date().toISOString() : item.paidAt,
-          paidMethod: payMethod,
-          paymentHistory: [...(item.paymentHistory || []), paymentEntry],
-          paidHistory: [...(item.paidHistory || []), paidHistoryEntry],
-        }
-        : item));
-
-      if (payMethod === 'Tunai Kas') {
-        const session = addMutation('out', 'Pembayaran Hutang', amount, `${isFullyPaid ? 'Lunas' : 'Cicilan'} bon ${po.poNumber} - ${po.supplier}`);
-        if (!session) {
-          dialog.alert('Pembayaran dicatat, tapi Kas Harian belum dibuka sehingga uang keluar tunai belum tercatat di kas.');
-        }
+      if (payMethod === 'Tunai Kas' && !addMutation('out', 'Pembayaran Hutang', amount, `Bon ${po.poNumber} - ${po.supplier}`)) {
+        dialog.alert('Pembayaran dicatat, tapi Kas Harian belum dibuka sehingga uang keluar tunai belum tercatat di kas.');
       }
       onAddActivity(
-        isFullyPaid ? `Bon Supplier Lunas: ${po.poNumber}` : `Cicilan Bon Supplier: ${po.poNumber}`,
+        `Pembayaran Bon Supplier: ${po.poNumber}`,
         `Pembayaran ${payMethod.toLowerCase()} ${rupiah(amount)} ke ${po.supplier}`,
         amount,
         'overdue'
       );
-
-      setPayingPO(isFullyPaid ? null : { ...po, paidAmount: newPaidAmount, paymentHistory: [...(po.paymentHistory || []), paymentEntry] });
-      setPayAmountInput(isFullyPaid ? 0 : Math.max(0, remaining - amount));
+      setPayAmountInput(Math.max(0, availableAmount - amount));
       setPayProofFile(null);
-      dialog.alert(isFullyPaid
-        ? `Bon ${po.poNumber} sebesar ${rupiah(po.total)} berhasil dilunasi.`
-        : `Cicilan ${rupiah(amount)} untuk bon ${po.poNumber} berhasil dicatat. Sisa: ${rupiah(Math.max(0, remaining - amount))}.`);
+      dialog.alert(`Pembayaran ${rupiah(amount)} untuk bon ${po.poNumber} berhasil dicatat.`);
     } catch (err) {
       dialog.alert(err instanceof Error ? err.message : 'Gagal menyimpan pembayaran, silakan coba lagi.');
     } finally {
       setIsPaySubmitting(false);
     }
+  };
+
+  const openEditPayment = (payment: POPayment) => {
+    setEditingPaymentId(payment.id);
+    setPayAmountInput(payment.amount);
+    setPayMethod(payment.method === 'Tunai' ? 'Tunai Kas' : payment.method);
+    setPaymentDateInput(payment.date.slice(0, 10));
+  };
+
+  const handleSavePaymentEdit = () => {
+    if (!payingPO || !editingPaymentId || !onUpdatePOs) return;
+    const po = payingPO;
+    const payment = (po.paymentHistory || []).find((item) => item.id === editingPaymentId);
+    if (!payment || !paymentDateInput || payAmountInput <= 0) {
+      dialog.alert('Lengkapi tanggal dan nominal pembayaran dengan nilai yang valid.');
+      return;
+    }
+    const nextDate = new Date(`${paymentDateInput}T12:00:00.000Z`).toISOString();
+    const updatedPayment: POPayment = {
+      ...payment,
+      amount: payAmountInput,
+      method: payMethod,
+      date: nextDate,
+      requestStatus: undefined,
+      requestAction: undefined,
+      requestedAmount: undefined,
+      requestedMethod: undefined,
+      requestedDate: undefined,
+      requestedBy: undefined,
+    };
+
+    if (!isOwner) {
+      const pendingPayment: POPayment = {
+        ...payment,
+        requestStatus: 'Pending',
+        requestAction: 'edit',
+        requestedAmount: payAmountInput,
+        requestedMethod: payMethod,
+        requestedDate: nextDate,
+        requestedBy: currentUser?.name,
+      };
+      const paymentHistory = (po.paymentHistory || []).map((item) => item.id === payment.id ? pendingPayment : item);
+      const updatedPO = { ...po, paymentHistory };
+      onUpdatePOs(pos.map((item) => item.poNumber === po.poNumber ? updatedPO : item));
+      setPayingPO(updatedPO);
+      onAddActivity(
+        `Persetujuan Perubahan Pembayaran: ${po.poNumber}`,
+        `${currentUser?.name || 'Staf'} meminta perubahan pembayaran ${payment.id} untuk ${po.supplier}`,
+        payAmountInput,
+        'overdue',
+        'approvers'
+      );
+      setEditingPaymentId(null);
+      dialog.alert('Permintaan perubahan pembayaran dikirim dan menunggu persetujuan Owner.');
+      return;
+    }
+
+    const nextPaidAmount = (po.paidAmount || 0) + payAmountInput - payment.amount;
+    if (nextPaidAmount > po.total) {
+      dialog.alert(`Pembayaran ini membuat total melebihi nilai bon (${rupiah(po.total)}).`);
+      return;
+    }
+    const paymentHistory = (po.paymentHistory || []).map((item) => item.id === payment.id ? updatedPayment : item);
+    const paidHistory = updateLegacyPaidHistory(po, payment, updatedPayment);
+    const missingCashSession = adjustCashForPaymentChange(po, payment, updatedPayment);
+    updateSupplierPO(po, paymentHistory, nextPaidAmount, paidHistory);
+    setEditingPaymentId(null);
+    dialog.alert(missingCashSession
+      ? 'Perubahan tersimpan, tetapi Kas Harian belum dibuka sehingga koreksi tunai belum tercatat.'
+      : 'Perubahan pembayaran berhasil disimpan.');
+  };
+
+  const handleDeletePayment = async (payment: POPayment) => {
+    if (!payingPO || !onUpdatePOs) return;
+    const po = payingPO;
+    if (payment.requestStatus === 'Pending') {
+      dialog.alert('Selesaikan atau tolak permintaan yang masih menunggu sebelum mengubah pembayaran ini.');
+      return;
+    }
+    if (!await dialog.confirm(isOwner
+      ? `Hapus pembayaran ${rupiah(payment.amount)} dari bon ${po.poNumber}?`
+      : `Ajukan penghapusan pembayaran ${rupiah(payment.amount)} ke Owner?`
+    )) return;
+
+    if (isOwner && payment.requestAction === 'add' && payment.requestStatus === 'Rejected') {
+      const paymentHistory = (po.paymentHistory || []).filter((item) => item.id !== payment.id);
+      const updatedPO = { ...po, paymentHistory };
+      onUpdatePOs(pos.map((item) => item.poNumber === po.poNumber ? updatedPO : item));
+      setPayingPO(updatedPO);
+      return;
+    }
+
+    if (!isOwner) {
+      const paymentHistory = (po.paymentHistory || []).map((item) => item.id === payment.id
+        ? { ...item, requestStatus: 'Pending' as const, requestAction: 'delete' as const, requestedBy: currentUser?.name }
+        : item);
+      const updatedPO = { ...po, paymentHistory };
+      onUpdatePOs(pos.map((item) => item.poNumber === po.poNumber ? updatedPO : item));
+      setPayingPO(updatedPO);
+      onAddActivity(
+        `Persetujuan Penghapusan Pembayaran: ${po.poNumber}`,
+        `${currentUser?.name || 'Staf'} meminta penghapusan pembayaran ${payment.id} untuk ${po.supplier}`,
+        payment.amount,
+        'overdue',
+        'approvers'
+      );
+      return;
+    }
+
+    const paymentHistory = (po.paymentHistory || []).filter((item) => item.id !== payment.id);
+    const paidHistory = updateLegacyPaidHistory(po, payment, null);
+    const missingCashSession = adjustCashForPaymentChange(po, payment, null);
+    updateSupplierPO(po, paymentHistory, (po.paidAmount || 0) - payment.amount, paidHistory);
+    dialog.alert(missingCashSession
+      ? 'Pembayaran dihapus, tetapi Kas Harian belum dibuka sehingga koreksi tunai belum tercatat.'
+      : 'Pembayaran berhasil dihapus.');
+  };
+
+  const handleReviewPaymentRequest = (payment: POPayment, approve: boolean) => {
+    if (!isOwner || !payingPO || !onUpdatePOs) {
+      dialog.alert('Hanya Owner yang dapat menyetujui atau menolak pengajuan pembayaran.');
+      return;
+    }
+    const po = payingPO;
+    if (payment.requestStatus !== 'Pending' || !payment.requestAction) return;
+    if (!approve) {
+      const paymentHistory = (po.paymentHistory || []).map((item) => item.id === payment.id
+        ? { ...item, requestStatus: 'Rejected' as const }
+        : item);
+      const updatedPO = { ...po, paymentHistory };
+      onUpdatePOs(pos.map((item) => item.poNumber === po.poNumber ? updatedPO : item));
+      setPayingPO(updatedPO);
+      dialog.alert('Pengajuan perubahan pembayaran ditolak.');
+      return;
+    }
+
+    let paymentHistory: POPayment[];
+    let paidHistory = po.paidHistory;
+    let nextPaidAmount = po.paidAmount || 0;
+    let oldAppliedPayment: POPayment | null = null;
+    let nextAppliedPayment: POPayment | null = null;
+    if (payment.requestAction === 'add') {
+      if (payment.amount > poRemaining(po)) {
+        dialog.alert(`Pengajuan melebihi sisa bon saat ini (${rupiah(poRemaining(po))}).`);
+        return;
+      }
+      nextAppliedPayment = {
+        ...payment,
+        requestStatus: undefined,
+        requestAction: undefined,
+        requestedBy: undefined,
+      };
+      paymentHistory = (po.paymentHistory || []).map((item) => item.id === payment.id ? nextAppliedPayment! : item);
+      nextPaidAmount += payment.amount;
+      paidHistory = updateLegacyPaidHistory(po, null, nextAppliedPayment);
+    } else if (payment.requestAction === 'edit') {
+      const newAmount = payment.requestedAmount;
+      const newMethod = payment.requestedMethod;
+      const newDate = payment.requestedDate;
+      if (!newAmount || newAmount <= 0 || !newMethod || !newDate || nextPaidAmount - payment.amount + newAmount > po.total) {
+        dialog.alert('Perubahan ditolak: nominal baru tidak valid atau melebihi nilai bon.');
+        return;
+      }
+      oldAppliedPayment = payment;
+      nextAppliedPayment = {
+        ...payment,
+        amount: newAmount,
+        method: newMethod,
+        date: newDate,
+        requestStatus: undefined,
+        requestAction: undefined,
+        requestedAmount: undefined,
+        requestedMethod: undefined,
+        requestedDate: undefined,
+        requestedBy: undefined,
+      };
+      paymentHistory = (po.paymentHistory || []).map((item) => item.id === payment.id ? nextAppliedPayment! : item);
+      nextPaidAmount += newAmount - payment.amount;
+      paidHistory = updateLegacyPaidHistory(po, payment, nextAppliedPayment);
+    } else {
+      oldAppliedPayment = payment;
+      paymentHistory = (po.paymentHistory || []).filter((item) => item.id !== payment.id);
+      nextPaidAmount -= payment.amount;
+      paidHistory = updateLegacyPaidHistory(po, payment, null);
+    }
+    const missingCashSession = adjustCashForPaymentChange(po, oldAppliedPayment, nextAppliedPayment);
+    updateSupplierPO(po, paymentHistory, nextPaidAmount, paidHistory);
+    dialog.alert(missingCashSession
+      ? 'Pengajuan disetujui, tetapi Kas Harian belum dibuka sehingga koreksi tunai belum tercatat.'
+      : 'Pengajuan pembayaran berhasil disetujui.');
   };
 
   const approvedExpenses = expenses.filter((e) => e.status === 'Approved');
@@ -519,6 +803,18 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                               >
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                 <span>Cicil / Lunas</span>
+                              </Button>
+                            )}
+                            {((po.paymentHistory?.length || 0) > 0 || (po.paidHistory?.length || 0) > 0) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => { e.stopPropagation(); openPayDialog(po); }}
+                                className="text-[10px]"
+                                title="Lihat dan kelola riwayat pembayaran"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>Riwayat</span>
                               </Button>
                             )}
                             {paid && po.paidAt && <span className="text-[10px] text-gray-400">Lunas {fmtDate(po.paidAt)}</span>}
@@ -737,12 +1033,12 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
       <PODetailDialog po={previewPO} onClose={() => setPreviewPO(null)} />
 
       {/* Konfirmasi pembayaran bon supplier — bisa cicil atau lunas, dengan riwayat & bukti bayar */}
-      <Dialog open={!!payingPO} onOpenChange={(open) => { if (!open) { setPayingPO(null); setPayProofFile(null); } }}>
+      <Dialog open={!!payingPO} onOpenChange={(open) => { if (!open) { setPayingPO(null); setPayProofFile(null); setEditingPaymentId(null); } }}>
         <DialogContent className="max-w-sm">
           {payingPO && (
             <>
               <DialogHeader>
-                <DialogTitle>Bayar Bon {payingPO.poNumber}</DialogTitle>
+                <DialogTitle>{editingPaymentId ? 'Ubah Pembayaran' : 'Pembayaran Bon'} {payingPO.poNumber}</DialogTitle>
                 <DialogDescription>{payingPO.supplier}</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 text-xs max-h-[70vh] overflow-y-auto pr-1">
@@ -761,44 +1057,76 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                   <span className="text-base font-black text-amber-700">{rupiah(poRemaining(payingPO))}</span>
                 </div>
 
-                <div>
-                  <Label>Nominal Dibayar Sekarang (bisa dicicil)</Label>
-                  <div className="flex gap-2 items-center">
-                    <NumberInput
-                      value={payAmountInput}
-                      onChange={setPayAmountInput}
-                      min={1}
-                      className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm font-black outline-none"
-                    />
-                    <Button type="button" size="sm" variant="outline" onClick={() => setPayAmountInput(poRemaining(payingPO))}>
-                      Bayar Lunas
-                    </Button>
+                {editingPaymentId ? (
+                  <div className="space-y-3 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                    <div>
+                      <Label>Tanggal Pembayaran</Label>
+                      <Input type="date" value={paymentDateInput} onChange={(event) => setPaymentDateInput(event.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Nominal</Label>
+                      <NumberInput
+                        value={payAmountInput}
+                        onChange={setPayAmountInput}
+                        min={1}
+                        className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm font-black outline-none"
+                      />
+                    </div>
+                    <div>
+                      <Label>Metode Pembayaran</Label>
+                      <Select value={payMethod} onValueChange={(value) => setPayMethod(value as PayMethod)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Tunai Kas">Tunai — dari Kas Toko</SelectItem>
+                          <SelectItem value="Tunai Luar">Tunai — bukan dari Kas Toko</SelectItem>
+                          <SelectItem value="Transfer">Transfer</SelectItem>
+                          <SelectItem value="Giro">Giro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                </div>
+                ) : poRemaining(payingPO) > 0 ? (
+                  <>
+                    <div>
+                      <Label>Nominal Dibayar Sekarang (bisa dicicil)</Label>
+                      <div className="flex gap-2 items-center">
+                        <NumberInput
+                          value={payAmountInput}
+                          onChange={setPayAmountInput}
+                          min={1}
+                          className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm font-black outline-none"
+                        />
+                        <Button type="button" size="sm" variant="outline" onClick={() => setPayAmountInput(poRemaining(payingPO))}>
+                          Bayar Lunas
+                        </Button>
+                      </div>
+                    </div>
 
-                <div>
-                  <Label>Metode Pembayaran</Label>
-                  <Select value={payMethod} onValueChange={(value) => setPayMethod(value as PayMethod)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Tunai Kas">Tunai — dari Kas Toko (mempengaruhi Kas Harian)</SelectItem>
-                      <SelectItem value="Tunai Luar">Tunai — Bukan dari Kas Toko (tidak mempengaruhi Kas Harian)</SelectItem>
-                      <SelectItem value="Transfer">Transfer</SelectItem>
-                      <SelectItem value="Giro">Giro</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                    <div>
+                      <Label>Metode Pembayaran</Label>
+                      <Select value={payMethod} onValueChange={(value) => setPayMethod(value as PayMethod)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Tunai Kas">Tunai — dari Kas Toko (mempengaruhi Kas Harian)</SelectItem>
+                          <SelectItem value="Tunai Luar">Tunai — Bukan dari Kas Toko (tidak mempengaruhi Kas Harian)</SelectItem>
+                          <SelectItem value="Transfer">Transfer</SelectItem>
+                          <SelectItem value="Giro">Giro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                <div>
-                  <Label>Upload Bukti Bayar (opsional)</Label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setPayProofFile(e.target.files?.[0] || null)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 font-medium text-gray-750 outline-none file:mr-2 file:px-2.5 file:py-1 file:rounded-md file:border-0 file:bg-blue-600 file:text-white file:font-bold file:cursor-pointer cursor-pointer"
-                  />
-                  {payProofFile && <p className="text-[10px] text-emerald-600 font-bold mt-1">{payProofFile.name} siap diupload.</p>}
-                </div>
+                    <div>
+                      <Label>Upload Bukti Bayar (opsional)</Label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setPayProofFile(e.target.files?.[0] || null)}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg p-2 font-medium text-gray-750 outline-none file:mr-2 file:px-2.5 file:py-1 file:rounded-md file:border-0 file:bg-blue-600 file:text-white file:font-bold file:cursor-pointer cursor-pointer"
+                      />
+                      {payProofFile && <p className="text-[10px] text-emerald-600 font-bold mt-1">{payProofFile.name} siap diupload.</p>}
+                    </div>
+                  </>
+                ) : null}
 
                 {(payingPO.paymentHistory && payingPO.paymentHistory.length > 0) && (
                   <div>
@@ -810,10 +1138,43 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                             <span className="font-bold text-gray-800">{rupiah(p.amount)}</span>
                             <span className="text-gray-400 ml-1">({p.method})</span>
                             <span className="block text-[9px] text-gray-400">{fmtDate(p.date)}{p.by ? ` • ${p.by}` : ''}</span>
+                            {p.requestStatus && (
+                              <span className={`mt-1 inline-block rounded px-1.5 py-0.5 text-[9px] font-bold ${p.requestStatus === 'Pending' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-700'}`}>
+                                {p.requestStatus === 'Pending' ? `Menunggu persetujuan${p.requestedBy ? ` • ${p.requestedBy}` : ''}` : 'Permintaan ditolak'}
+                              </span>
+                            )}
+                            {p.requestStatus === 'Pending' && p.requestAction === 'edit' && (
+                              <span className="block text-[9px] text-amber-800">
+                                Diusulkan: {rupiah(p.requestedAmount || 0)} • {p.requestedMethod} • {fmtDate(p.requestedDate)}
+                              </span>
+                            )}
                           </div>
-                          {p.proofUrl && (
-                            <a href={p.proofUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold underline underline-offset-2">Bukti</a>
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            {p.proofUrl && (
+                              <a href={p.proofUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold underline underline-offset-2">Bukti</a>
+                            )}
+                            {p.requestStatus === 'Pending' && isOwner ? (
+                              <>
+                                <Button type="button" size="icon" variant="outline" title="Tolak pengajuan" onClick={() => handleReviewPaymentRequest(p, false)}>
+                                  <X className="w-3.5 h-3.5 text-red-600" />
+                                </Button>
+                                <Button type="button" size="icon" title="Setujui pengajuan" onClick={() => handleReviewPaymentRequest(p, true)}>
+                                  <Check className="w-3.5 h-3.5" />
+                                </Button>
+                              </>
+                            ) : p.requestStatus !== 'Pending' && !(p.requestAction === 'add' && p.requestStatus === 'Rejected' && !isOwner) ? (
+                              <>
+                                {!(p.requestAction === 'add' && p.requestStatus === 'Rejected') && (
+                                  <Button type="button" size="icon" variant="outline" title={isOwner ? 'Ubah pembayaran' : 'Ajukan perubahan'} onClick={() => openEditPayment(p)}>
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </Button>
+                                )}
+                                <Button type="button" size="icon" variant="outline" title={isOwner ? 'Hapus pembayaran' : 'Ajukan penghapusan'} onClick={() => void handleDeletePayment(p)}>
+                                  <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                                </Button>
+                              </>
+                            ) : null}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -821,10 +1182,23 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                 )}
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" className="flex-1" onClick={() => { setPayingPO(null); setPayProofFile(null); }}>Batal</Button>
-                <Button type="button" className="flex-1" disabled={isPaySubmitting} onClick={handlePaySupplierBon}>
-                  {isPaySubmitting ? 'Menyimpan...' : 'Simpan Pembayaran'}
-                </Button>
+                {editingPaymentId ? (
+                  <>
+                    <Button type="button" variant="outline" className="flex-1" onClick={() => setEditingPaymentId(null)}>Batal</Button>
+                    <Button type="button" className="flex-1" onClick={handleSavePaymentEdit}>
+                      {isOwner ? 'Simpan Perubahan' : 'Ajukan Perubahan'}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button type="button" variant="outline" className="flex-1" onClick={() => { setPayingPO(null); setPayProofFile(null); }}>Tutup</Button>
+                    {poRemaining(payingPO) > 0 && (
+                      <Button type="button" className="flex-1" disabled={isPaySubmitting} onClick={handlePaySupplierBon}>
+                        {isPaySubmitting ? 'Menyimpan...' : isOwner ? 'Simpan Pembayaran' : 'Ajukan Pembayaran'}
+                      </Button>
+                    )}
+                  </>
+                )}
               </DialogFooter>
             </>
           )}

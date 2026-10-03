@@ -22,7 +22,8 @@ import {
   Bluetooth,
   Usb,
   Wifi,
-  WifiOff
+  WifiOff,
+  ShoppingCart
 } from 'lucide-react';
 import { Product, Customer, SalesInvoice, Printer, BankAccount } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -59,7 +60,6 @@ import {
   PersistedPOSState,
   readPersistedPOSState,
   writePersistedPOSState,
-  clearPersistedPOSState
 } from './lib/posCartStorage';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { useSupabaseTable } from '../../lib/useSupabaseTable';
@@ -315,7 +315,7 @@ export default function POSView({
     };
 
     onUpdateCustomers([newC, ...customers]);
-    setSelectedCustomer(newC);
+    handleSelectCustomer(newC);
     setShowAddCustomerModal(false);
 
     onAddActivity(
@@ -608,31 +608,44 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
     ));
   };
 
+  const restoreCustomerCart = (customerId: string) => {
+    const state = readPersistedPOSState(customerId);
+    setCart(state.cart);
+    setDiscountMode(state.discountMode);
+    setDiscountValue(state.discountValue);
+    setAdditionalFees(state.additionalFees.length > 0 ? state.additionalFees : [emptyAdditionalFee()]);
+    setPaymentMethod(state.paymentMethod);
+    setFulfillmentMethod(state.fulfillmentMethod);
+    setDeliveryAddress(state.deliveryAddress);
+  };
+
+  const saveCurrentCustomerCart = (customer: Customer) => {
+    writePersistedPOSState({
+      cart,
+      selectedCustomerId: customer.id,
+      discountMode,
+      discountValue,
+      additionalFees,
+      additionalFeeName: additionalFees[0]?.name || '',
+      additionalFee: additionalFees.reduce((total, fee) => total + Math.max(0, fee.amount), 0),
+      paymentMethod,
+      fulfillmentMethod,
+      deliveryAddress,
+    });
+  };
+
   const handleToggleCartPersistence = () => {
     const nextState = !isCartPersistenceEnabled;
-
-    if (nextState) {
-      const persistedState = readPersistedPOSState();
-      if (persistedState.cart.length > 0 || persistedState.selectedCustomerId || persistedState.discountValue > 0 || persistedState.additionalFees.length > 0 || persistedState.paymentMethod !== 'Cash') {
-        setCart(persistedState.cart);
-        const restoredCustomer = persistedState.selectedCustomerId
-          ? customers.find((customer) => customer.id === persistedState.selectedCustomerId)
-          : null;
-        if (restoredCustomer) {
-          setSelectedCustomer(restoredCustomer);
-        }
-        setDiscountMode(persistedState.discountMode);
-        setDiscountValue(persistedState.discountValue);
-        setAdditionalFees(persistedState.additionalFees.length > 0 ? persistedState.additionalFees : [emptyAdditionalFee()]);
-        setPaymentMethod(persistedState.paymentMethod);
-        setFulfillmentMethod(persistedState.fulfillmentMethod);
-        setDeliveryAddress(persistedState.deliveryAddress);
-      }
-    } else {
-      clearPersistedPOSState();
-    }
-
+    if (nextState) restoreCustomerCart(selectedCustomer.id);
     setIsCartPersistenceEnabled(nextState);
+  };
+
+  const handleSelectCustomer = (customer: Customer) => {
+    if (isCartPersistenceEnabled) {
+      saveCurrentCustomerCart(selectedCustomer);
+      restoreCustomerCart(customer.id);
+    }
+    setSelectedCustomer(customer);
   };
 
   // Cart Calculations
@@ -1235,11 +1248,13 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
 
             <Button
               variant={isCartPersistenceEnabled ? 'default' : 'outline'}
-              size="sm"
+              size="icon"
               onClick={handleToggleCartPersistence}
               className={isCartPersistenceEnabled ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+              title={isCartPersistenceEnabled ? 'Simpan keranjang pelanggan aktif' : 'Aktifkan simpan keranjang'}
+              aria-label={isCartPersistenceEnabled ? 'Simpan keranjang pelanggan aktif' : 'Aktifkan simpan keranjang'}
             >
-              {isCartPersistenceEnabled ? 'Simpan Keranjang Aktif' : 'Aktifkan Simpan Keranjang'}
+              <ShoppingCart className="w-4 h-4" />
             </Button>
 
             <Button
@@ -1879,7 +1894,7 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
             genericCustomer={genericWalkInCustomer()}
             onClose={() => setShowSelectCustomerModal(false)}
             onSelect={(c) => {
-              setSelectedCustomer(c);
+              handleSelectCustomer(c);
               setShowSelectCustomerModal(false);
             }}
             onAddNew={() => {

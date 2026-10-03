@@ -173,8 +173,11 @@ export default function DashboardView({
     // Pembayaran bon supplier: tiap pembayaran/cicilan dihitung pada tanggalnya sendiri.
     const paidByPO = new Map<string, number>();
     pos.forEach((po) => {
-      const payments = po.paymentHistory && po.paymentHistory.length > 0
-        ? po.paymentHistory.map((p) => ({ date: p.date, amount: p.amount }))
+      const recordedPayments = (po.paymentHistory || []).filter((payment) =>
+        !(payment.requestAction === 'add' && payment.requestStatus)
+      );
+      const payments = recordedPayments.length > 0
+        ? recordedPayments.map((p) => ({ date: p.date, amount: p.amount }))
         : (po.paidHistory || []).map((p) => ({ date: p.date, amount: p.amount }));
       const label = `${po.supplier} · ${po.poNumber}`;
       if (payments.length > 0) {

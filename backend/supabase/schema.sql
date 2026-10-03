@@ -223,6 +223,12 @@ alter table public."purchase_order_payments" add column if not exists "method" t
 alter table public."purchase_order_payments" add column if not exists "date" text;
 alter table public."purchase_order_payments" add column if not exists "proof_url" text;
 alter table public."purchase_order_payments" add column if not exists "by" text;
+alter table public."purchase_order_payments" add column if not exists "request_status" text;
+alter table public."purchase_order_payments" add column if not exists "request_action" text;
+alter table public."purchase_order_payments" add column if not exists "requested_amount" numeric;
+alter table public."purchase_order_payments" add column if not exists "requested_method" text;
+alter table public."purchase_order_payments" add column if not exists "requested_date" text;
+alter table public."purchase_order_payments" add column if not exists "requested_by" text;
 create index if not exists purchase_order_payments_parent_idx on public."purchase_order_payments" (parent_key, position);
 
 create table if not exists public."purchase_order_paid_history" (
@@ -894,7 +900,7 @@ create index if not exists cash_mutations_parent_idx on public."cash_mutations" 
 
 -- pos_cart_drafts
 create table if not exists public."pos_cart_drafts" (
-  "id" text primary key check ("id" = 'main'),
+  "id" text primary key,
   "selected_customer_id" text,
   "discount_mode" text,
   "discount_value" numeric,
@@ -906,6 +912,7 @@ create table if not exists public."pos_cart_drafts" (
   db_created_at timestamptz not null default now(),
   db_updated_at timestamptz not null default now()
 );
+alter table public."pos_cart_drafts" drop constraint if exists pos_cart_drafts_id_check;
 alter table public."pos_cart_drafts" add column if not exists "selected_customer_id" text;
 alter table public."pos_cart_drafts" add column if not exists "discount_mode" text;
 alter table public."pos_cart_drafts" add column if not exists "discount_value" numeric;

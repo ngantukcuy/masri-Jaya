@@ -120,7 +120,10 @@ export default function DebtsView({
                           c.id.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'Semua' || (statusFilter === 'Overdue' ? isEffectivelyOverdue(c) : c.debtStatus === statusFilter);
     return matchesSearch && matchesStatus;
-  }).sort((a, b) => (latestDebtTime.get(b.id) ?? 0) - (latestDebtTime.get(a.id) ?? 0));
+  }).sort((a, b) => {
+    const activeDebtOrder = Number(b.currentDebt > 0) - Number(a.currentDebt > 0);
+    return activeDebtOrder || (latestDebtTime.get(b.id) ?? 0) - (latestDebtTime.get(a.id) ?? 0);
+  });
   const pageCount = Math.ceil(filteredCustomers.length / PAGE_SIZE);
   const safePage = Math.min(currentPage, Math.max(1, pageCount));
   const paginatedCustomers = filteredCustomers.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);

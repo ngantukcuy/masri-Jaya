@@ -309,6 +309,30 @@
             [
               "by",
               "text"
+            ],
+            [
+              "requestStatus",
+              "text"
+            ],
+            [
+              "requestAction",
+              "text"
+            ],
+            [
+              "requestedAmount",
+              "num"
+            ],
+            [
+              "requestedMethod",
+              "text"
+            ],
+            [
+              "requestedDate",
+              "text"
+            ],
+            [
+              "requestedBy",
+              "text"
             ]
           ]
         },
@@ -1335,7 +1359,7 @@
     {
       "table": "pos_cart_drafts",
       "key": "id",
-      "singleton": true,
+      "singleton": false,
       "columns": [
         [
           "selectedCustomerId",

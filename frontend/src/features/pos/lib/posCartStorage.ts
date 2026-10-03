@@ -48,12 +48,16 @@ const emptyState = (): PersistedPOSState => ({
   deliveryAddress: ''
 });
 
-// Draft keranjang kasir disimpan di tabel `pos_cart_drafts` (1 baris) +
+// Draft keranjang kasir disimpan di tabel `pos_cart_drafts` (1 baris per pelanggan) +
 // `pos_cart_items` (tiap barang di keranjang) + `pos_cart_fees` (biaya tambahan).
 // Barang di keranjang cuma menyimpan SKU-nya; data produk lengkapnya diambil
 // dari tabel `products` saat draft dibaca.
-export const readPersistedPOSState = (): PersistedPOSState => {
-  const draft = db.posCartDrafts.snapshot()[0];
+const draftIdForCustomer = (customerId: string) => `cart:${customerId}`;
+
+export const readPersistedPOSState = (customerId: string): PersistedPOSState => {
+  const drafts = db.posCartDrafts.snapshot();
+  const draft = drafts.find((item) => item.id === draftIdForCustomer(customerId))
+    ?? drafts.find((item) => item.id === SINGLETON_ID && item.selectedCustomerId === customerId);
   if (!draft) return emptyState();
   const products = db.products.snapshot();
   const cart: CartItem[] = draft.cart.flatMap((line) => {
@@ -87,8 +91,9 @@ export const readPersistedPOSState = (): PersistedPOSState => {
 };
 
 export const writePersistedPOSState = (state: PersistedPOSState) => {
+  if (!state.selectedCustomerId) return;
   const draft: PosCartDraft = {
-    id: SINGLETON_ID,
+    id: draftIdForCustomer(state.selectedCustomerId),
     selectedCustomerId: state.selectedCustomerId ?? undefined,
     discountMode: state.discountMode,
     discountValue: state.discountValue,
@@ -108,8 +113,4 @@ export const writePersistedPOSState = (state: PersistedPOSState) => {
     additionalFees: state.additionalFees,
   };
   void db.posCartDrafts.upsert([draft]);
-};
-
-export const clearPersistedPOSState = () => {
-  void db.posCartDrafts.remove([SINGLETON_ID]);
 };

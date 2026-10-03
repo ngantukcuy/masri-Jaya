@@ -8,6 +8,12 @@ export interface POPayment {
   /** URL bukti bayar (foto struk/transfer) yang diupload ke Supabase Storage. */
   proofUrl?: string;
   by?: string;
+  requestStatus?: 'Pending' | 'Rejected';
+  requestAction?: 'add' | 'edit' | 'delete';
+  requestedAmount?: number;
+  requestedMethod?: 'Tunai Kas' | 'Tunai Luar' | 'Transfer' | 'Giro' | 'Tunai';
+  requestedDate?: string;
+  requestedBy?: string;
 }
 
 export interface POItem {
