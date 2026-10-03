@@ -23,7 +23,8 @@ import {
   Usb,
   Wifi,
   WifiOff,
-  ShoppingCart
+  ShoppingCart,
+  RotateCcw
 } from 'lucide-react';
 import { Product, Customer, SalesInvoice, Printer, BankAccount } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -60,8 +61,10 @@ import {
   PersistedPOSState,
   readPersistedPOSState,
   writePersistedPOSState,
+  clearPersistedPOSState,
 } from './lib/posCartStorage';
 import { useDialog } from '../../components/shared/DialogProvider';
+import { db, type PosCartDraft } from '../../lib/db/repos';
 import { useSupabaseTable } from '../../lib/useSupabaseTable';
 import NumberInput from '../../components/shared/NumberInput';
 import { Button } from '../../components/ui/button';
@@ -70,6 +73,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Badge } from '../../components/ui/badge';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 
 interface ProductCategory {
   id: string;
@@ -204,7 +208,8 @@ export default function POSView({
   const [fulfillmentMethod, setFulfillmentMethod] = useState<'Pickup' | 'Delivery'>('Pickup');
   const [deliveryAddress, setDeliveryAddress] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' | 'Piutang'>('Cash');
-  const [isCartPersistenceEnabled, setIsCartPersistenceEnabled] = useState(false);
+  const [showSavedCartsDialog, setShowSavedCartsDialog] = useState(false);
+  const [savedCartDrafts, setSavedCartDrafts] = useState<PosCartDraft[]>(() => db.posCartDrafts.snapshot());
   const [showCheckoutReceipt, setShowCheckoutReceipt] = useState(false);
   const [lastOrderDetails, setLastOrderDetails] = useState<any>(null);
   const [showQRISModal, setShowQRISModal] = useState(false);
@@ -608,6 +613,13 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
     ));
   };
 
+  useEffect(() => {
+    void db.posCartDrafts.start();
+    const updateDrafts = () => setSavedCartDrafts(db.posCartDrafts.snapshot());
+    updateDrafts();
+    return db.posCartDrafts.subscribe(updateDrafts);
+  }, []);
+
   const restoreCustomerCart = (customerId: string) => {
     const state = readPersistedPOSState(customerId);
     setCart(state.cart);
@@ -634,16 +646,47 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
     });
   };
 
-  const handleToggleCartPersistence = () => {
-    const nextState = !isCartPersistenceEnabled;
-    if (nextState) restoreCustomerCart(selectedCustomer.id);
-    setIsCartPersistenceEnabled(nextState);
+  const resetActiveCart = () => {
+    setCart([]);
+    setDiscountMode('percent');
+    setDiscountValue(0);
+    setAdditionalFees([emptyAdditionalFee()]);
+    setPaymentMethod('Cash');
+    setFulfillmentMethod('Pickup');
+    setDeliveryAddress('');
+  };
+
+  const handleOpenSavedCarts = () => {
+    if (cart.length > 0) {
+      saveCurrentCustomerCart(selectedCustomer);
+      resetActiveCart();
+    }
+    setShowSavedCartsDialog(true);
+  };
+
+  const handleLoadSavedCart = (customerId: string) => {
+    const customer = customers.find((item) => item.id === customerId)
+      ?? (customerId === GENERIC_CUSTOMER_ID ? genericWalkInCustomer() : null);
+    if (!customer) {
+      dialog.alert('Customer pemilik keranjang ini sudah tidak ditemukan.');
+      return;
+    }
+    restoreCustomerCart(customerId);
+    setSelectedCustomer(customer);
+    setShowSavedCartsDialog(false);
   };
 
   const handleSelectCustomer = (customer: Customer) => {
-    if (isCartPersistenceEnabled) {
-      saveCurrentCustomerCart(selectedCustomer);
-      restoreCustomerCart(customer.id);
+    if (customer.id !== selectedCustomer.id) {
+      if (cart.length > 0) {
+        saveCurrentCustomerCart(selectedCustomer);
+      }
+      const savedCart = readPersistedPOSState(customer.id);
+      if (savedCart.cart.length > 0) {
+        restoreCustomerCart(customer.id);
+      } else {
+        resetActiveCart();
+      }
     }
     setSelectedCustomer(customer);
   };
@@ -891,6 +934,7 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
     );
 
     // Clear cart
+    clearPersistedPOSState(selectedCustomer.id);
     setCart([]);
     setDiscountMode('percent');
     setDiscountValue(0);
@@ -1065,25 +1109,6 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
     };
   }, [cameraReady, handleBarcodeScan, showScannerModal]);
 
-  useEffect(() => {
-    if (!isCartPersistenceEnabled) return;
-
-    const payload: PersistedPOSState = {
-      cart,
-      selectedCustomerId: selectedCustomer.id,
-      discountMode,
-      discountValue,
-      additionalFees,
-      additionalFeeName: additionalFees[0]?.name || '',
-      additionalFee,
-      paymentMethod,
-      fulfillmentMethod,
-      deliveryAddress
-    };
-
-    writePersistedPOSState(payload);
-  }, [cart, discountMode, discountValue, additionalFees, additionalFee, isCartPersistenceEnabled, paymentMethod, fulfillmentMethod, deliveryAddress, selectedCustomer.id]);
-
   return (
     <div className="flex flex-col gap-4 h-screen p-4 md:p-6 relative">
       {/* Slim top bar replacing the app header/sidebar while in full-screen POS mode */}
@@ -1247,14 +1272,19 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
             </Button>
 
             <Button
-              variant={isCartPersistenceEnabled ? 'default' : 'outline'}
+              variant="outline"
               size="icon"
-              onClick={handleToggleCartPersistence}
-              className={isCartPersistenceEnabled ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
-              title={isCartPersistenceEnabled ? 'Simpan keranjang pelanggan aktif' : 'Aktifkan simpan keranjang'}
-              aria-label={isCartPersistenceEnabled ? 'Simpan keranjang pelanggan aktif' : 'Aktifkan simpan keranjang'}
+              onClick={handleOpenSavedCarts}
+              className="relative"
+              title="Simpan dan lihat keranjang customer"
+              aria-label="Simpan dan lihat keranjang customer"
             >
               <ShoppingCart className="w-4 h-4" />
+              {savedCartDrafts.some((draft) => draft.cart.length > 0) && (
+                <span className="absolute -right-1 -top-1 min-w-4 h-4 rounded-full bg-emerald-600 px-1 text-[9px] font-black leading-4 text-white">
+                  {savedCartDrafts.filter((draft) => draft.cart.length > 0).length}
+                </span>
+              )}
             </Button>
 
             <Button
@@ -1904,6 +1934,77 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
           />
         )}
       </AnimatePresence>
+
+      <Dialog open={showSavedCartsDialog} onOpenChange={setShowSavedCartsDialog}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Keranjang Customer</DialogTitle>
+            <DialogDescription>
+              Keranjang aktif sudah disimpan dan panel kasir dikosongkan. Pilih customer untuk melihat dan memuat keranjangnya.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+            {savedCartDrafts
+              .filter((draft) => draft.selectedCustomerId && draft.cart.length > 0)
+              .filter((draft) => draft.id !== 'main' || !savedCartDrafts.some((item) =>
+                item.id === `cart:${draft.selectedCustomerId}`
+              ))
+              .map((draft) => {
+                const customerId = draft.selectedCustomerId!;
+                const customer = customers.find((item) => item.id === customerId)
+                  ?? (customerId === GENERIC_CUSTOMER_ID ? genericWalkInCustomer() : null);
+                const savedState = readPersistedPOSState(customerId);
+                const itemCount = savedState.cart.reduce((count, item) => count + item.quantity, 0);
+                const cartTotal = savedState.cart.reduce(
+                  (total, item) => total + lineAmount(getCartItemPrice(item), item.quantity),
+                  0
+                );
+
+                return (
+                  <div key={draft.id} className="rounded-xl border border-gray-200 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="font-extrabold text-gray-900">{customer?.name || customerId}</h3>
+                        <p className="mt-0.5 text-[11px] text-gray-500">
+                          {savedState.cart.length} jenis barang · {formatQty(itemCount)} total barang
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleLoadSavedCart(customerId)}
+                        className="shrink-0"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        Buka keranjang
+                      </Button>
+                    </div>
+                    <div className="mt-2 space-y-1 border-t border-dashed border-gray-200 pt-2">
+                      {savedState.cart.map((item) => (
+                        <div key={item.product.sku} className="flex justify-between gap-3 text-xs">
+                          <span className="min-w-0 truncate text-gray-700">
+                            {item.product.name} <span className="text-gray-400">× {formatQty(item.quantity)}</span>
+                          </span>
+                          <span className="shrink-0 font-bold text-gray-800">
+                            Rp {lineAmount(getCartItemPrice(item), item.quantity).toLocaleString('id-ID')}
+                          </span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between border-t border-gray-100 pt-1 text-xs font-black">
+                        <span>Subtotal barang</span>
+                        <span>Rp {cartTotal.toLocaleString('id-ID')}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            {savedCartDrafts.every((draft) => draft.cart.length === 0) && (
+              <div className="rounded-xl border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500">
+                Belum ada keranjang tersimpan. Pilih customer, masukkan barang, lalu tekan ikon keranjang untuk menyimpan.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

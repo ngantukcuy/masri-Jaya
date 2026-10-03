@@ -114,3 +114,13 @@ export const writePersistedPOSState = (state: PersistedPOSState) => {
   };
   void db.posCartDrafts.upsert([draft]);
 };
+
+export const clearPersistedPOSState = (customerId: string) => {
+  const legacyDraft = db.posCartDrafts.snapshot().find(
+    (draft) => draft.id === SINGLETON_ID && draft.selectedCustomerId === customerId
+  );
+  void db.posCartDrafts.remove([
+    draftIdForCustomer(customerId),
+    ...(legacyDraft ? [SINGLETON_ID] : []),
+  ]);
+};
