@@ -24,6 +24,11 @@ Urutan menjalankan di Supabase Dashboard → SQL Editor:
 4. `supabase/audit_log.sql` — jejak perubahan.
 5. Deploy ulang edge function: `supabase functions deploy send-push`.
 
+Jika penyimpanan keranjang POS gagal dengan constraint
+`pos_cart_drafts_id_check`, jalankan `supabase/migrate_pos_cart_draft_id_constraint.sql`
+di SQL Editor. Migrasi ini menghapus batasan ID lama yang hanya mengizinkan
+draft tunggal; data keranjang tidak dihapus.
+
 Mau nambah/ubah kolom? Edit `frontend/src/lib/db/spec.json`, lalu:
 
 ```
