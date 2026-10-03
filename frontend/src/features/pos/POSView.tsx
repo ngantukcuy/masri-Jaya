@@ -1742,21 +1742,24 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
 
       {/* Floating Bottom Cart Bar for mobile - ONLY shown when on 'products' tab and cart has items */}
       {cart.length > 0 && mobileActiveSubTab === 'products' && (
-        <div className="fixed bottom-[74px] left-4 right-4 z-[90] md:hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3.5 rounded-2xl flex items-center justify-between shadow-xl shadow-blue-900/30 border border-blue-500/30 animate-in fade-in slide-in-from-bottom-5 duration-200">
-          <div className="flex flex-col">
-            <span className="text-[9px] text-blue-100 font-extrabold uppercase tracking-widest">
+        <div
+          className="fixed left-3 right-3 z-[90] md:hidden flex items-center gap-3 rounded-2xl border border-blue-500/30 bg-gradient-to-r from-blue-600 to-indigo-600 p-3 text-white shadow-xl shadow-blue-900/30 animate-in fade-in slide-in-from-bottom-5 duration-200"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}
+        >
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-[10px] leading-tight text-blue-100 font-extrabold uppercase tracking-wide">
               {formatQty(cart.reduce((acc, item) => acc + item.quantity, 0))} Barang di Keranjang
             </span>
-            <span className="text-sm font-black">
+            <span className="truncate text-sm font-black">
               Rp {totalAmount.toLocaleString('id-ID')}
             </span>
           </div>
           <Button
             onClick={() => setMobileActiveSubTab('cart')}
-            className="bg-white hover:bg-slate-50 text-primary px-4 py-2.5 h-auto rounded-xl text-xs font-black uppercase tracking-wider shadow-sm"
+            className="h-11 shrink-0 whitespace-nowrap rounded-xl bg-white px-3 text-[11px] font-black uppercase tracking-wide text-primary shadow-sm hover:bg-slate-50"
           >
+            <ShoppingCart className="h-4 w-4" />
             <span>Buka Keranjang</span>
-            <span className="text-sm font-bold">→</span>
           </Button>
         </div>
       )}
