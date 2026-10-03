@@ -100,9 +100,10 @@ export default function SelectCustomerModal({
           <div className="flex-1 relative">
             <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
             <Input
-              type="text"
+              type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onClear={() => setSearch('')}
               placeholder="Cari nama pembeli"
               className="pl-8"
             />

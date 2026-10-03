@@ -145,8 +145,13 @@ export default function TambahProdukMasukModal({
                         <div className="relative">
                           <Label>Nama Produk</Label>
                           <Input
+                            type="search"
                             value={activeProductSearchIndex === index ? incomingProductSearch : product?.name || item.productName || ''}
                             placeholder="Cari produk atau ketik nama barang baru..."
+                            onClear={() => {
+                              setIncomingProductSearch('');
+                              updateIncomingItem(index, { productSku: '', productName: '', unit: '' });
+                            }}
                             onFocus={() => {
                               setActiveProductSearchIndex(index);
                               setIncomingProductSearch(product?.name || item.productName || '');

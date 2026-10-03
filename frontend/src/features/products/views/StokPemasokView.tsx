@@ -18,6 +18,7 @@ import PODetailDialog from '../../../components/shared/PODetailDialog';
 import NumberInput from '../../../components/shared/NumberInput';
 import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/ui/card';
+import { Input } from '../../../components/ui/input';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../../components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog';
 
@@ -227,12 +228,13 @@ export default function StokPemasokView({
           <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
+              <Input
+                type="search"
                 placeholder="Cari nomor PO, supplier, barang, atau customer..."
                 value={searchPOQuery}
                 onChange={(e) => setSearchPOQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-muted/40 border border-border rounded-lg text-xs font-medium outline-none focus:border-primary focus:bg-background"
+                onClear={() => setSearchPOQuery('')}
+                className="h-auto rounded-lg border-border bg-muted/40 py-2 pl-9 text-xs font-medium focus:bg-background"
               />
             </div>
             <div className="flex flex-wrap gap-2 items-center">

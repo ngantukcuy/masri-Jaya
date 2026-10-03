@@ -228,9 +228,10 @@ export default function PemasokView({ suppliers, pos = [], onUpdateSuppliers, on
         <div className="relative w-full sm:max-w-xs group">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors z-10" />
           <Input
-            type="text"
+            type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onClear={() => setSearchQuery('')}
             placeholder="Cari nama pemasok atau sales..."
             className="pl-9 bg-gray-50 border-none"
           />

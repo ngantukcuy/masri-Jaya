@@ -184,6 +184,26 @@ function Dashboard({
     initPushNotifications(currentUser.name, currentUser.role);
   }, [currentUser.name, currentUser.role]);
 
+  useEffect(() => {
+    const focusSearchOnEnter = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' || event.defaultPrevented || event.isComposing) return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.closest('input, textarea, select, button, a, [contenteditable="true"]')) return;
+
+      const searchInputs = Array.from(document.querySelectorAll<HTMLInputElement>('[data-search-input]'));
+      const firstVisible = searchInputs.find((input) =>
+        !input.disabled && input.getClientRects().length > 0 && getComputedStyle(input).visibility !== 'hidden'
+      );
+      if (!firstVisible) return;
+      event.preventDefault();
+      firstVisible.focus();
+    };
+
+    document.addEventListener('keydown', focusSearchOnEnter);
+    return () => document.removeEventListener('keydown', focusSearchOnEnter);
+  }, []);
+
   // Muat semua tabel bisnis begitu user login (juga tabel yang dibaca lewat
   // fungsi biasa seperti sesi kas, printer, dan draft keranjang kasir).
   useEffect(() => { void startBusinessRepos(); }, []);

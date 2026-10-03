@@ -1775,9 +1775,10 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
                 <div className="relative">
                   <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 z-10" />
                   <Input
-                    type="text"
+                    type="search"
                     value={auditSearch}
                     onChange={(e) => setAuditSearch(e.target.value)}
+                    onClear={() => setAuditSearch('')}
                     placeholder="Contoh: Fikri, SKU-001..."
                     className="pl-8 h-9"
                   />

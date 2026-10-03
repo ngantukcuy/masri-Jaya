@@ -520,10 +520,11 @@ export default function DebtsView({
           <div className="relative w-full md:max-w-xs group">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors z-10" />
             <Input
-              type="text"
+              type="search"
               placeholder="Cari nama debitur atau ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onClear={() => setSearchQuery('')}
               className="pl-9 h-8 bg-white"
             />
           </div>

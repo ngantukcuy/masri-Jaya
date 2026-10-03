@@ -278,9 +278,10 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
         <div className="relative max-w-sm w-full sm:w-64">
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
           <Input
-            type="text"
+            type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onClear={() => setSearchQuery('')}
             placeholder="Cari no. invoice atau nama pelanggan..."
             className="pl-9"
           />

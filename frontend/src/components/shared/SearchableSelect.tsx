@@ -112,6 +112,7 @@ export default function SearchableSelect({
             <input
               ref={inputRef}
               type="text"
+              data-search-input=""
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={searchPlaceholder}

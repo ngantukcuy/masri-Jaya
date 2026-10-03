@@ -87,9 +87,10 @@ export default function DepositView({ customers, onUpdateCustomers, onAddActivit
       <div className="relative max-w-sm">
         <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
         <Input
-          type="text"
+          type="search"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          onClear={() => setSearchQuery('')}
           placeholder="Cari nama pelanggan..."
           className="pl-9"
         />

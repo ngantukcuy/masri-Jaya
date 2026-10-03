@@ -676,6 +676,12 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
     setShowSavedCartsDialog(false);
   };
 
+  const handleDeleteSavedCart = async (customerId: string, customerName: string) => {
+    const confirmed = await dialog.confirm(`Hapus keranjang ${customerName}? Barang di keranjang aktif tidak akan terpengaruh.`);
+    if (!confirmed) return;
+    clearPersistedPOSState(customerId);
+  };
+
   const handleSelectCustomer = (customer: Customer) => {
     if (customer.id !== selectedCustomer.id) {
       if (cart.length > 0) {
@@ -1036,23 +1042,6 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
     }
   };
 
-  // Keyboard listeners for POS shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'F1') {
-        e.preventDefault();
-        const inp = document.getElementById('barcode-search-input');
-        if (inp) inp.focus();
-      }
-      if (e.key === 'F12') {
-        e.preventDefault();
-        handleCheckout();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [cart, paymentMethod, totalAmount, selectedCustomer]);
-
   useEffect(() => {
     if (!showScannerModal) {
       stopCameraPreview();
@@ -1184,9 +1173,10 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
               <Barcode className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10" />
               <Input 
                 id="barcode-search-input"
-                type="text"
+                type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onClear={() => setSearchQuery('')}
                 onKeyDown={(e) => {
                   // Hardware USB/Bluetooth barcode scanners work as a
                   // "keyboard wedge": they type the barcode digits then
@@ -1209,24 +1199,9 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
                     dialog.alert(`Barcode/SKU "${code}" tidak ditemukan.`);
                   }
                 }}
-                placeholder="Ketik nama, scan pakai HP (F1), atau scan pakai alat USB/Bluetooth..."
-                className={`pl-10 bg-gray-50 border-none ${searchQuery ? 'pr-20' : 'pr-12'}`}
+                placeholder="Ketik nama atau scan pakai alat USB/Bluetooth..."
+                className="pl-10 bg-gray-50 border-none"
               />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    document.getElementById('barcode-search-input')?.focus();
-                  }}
-                  title="Hapus pencarian"
-                  aria-label="Hapus pencarian"
-                  className="absolute right-11 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-5 h-5 rounded-full bg-gray-200 text-gray-500 hover:bg-gray-300 hover:text-gray-700 transition-colors"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] bg-gray-200 text-gray-500 px-1 py-0.5 rounded font-black font-mono">F1</span>
             </div>
 
             <div className="flex gap-2">
@@ -1759,7 +1734,7 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
             size="lg"
             className="w-full py-3.5 h-auto text-sm shadow-md shadow-blue-500/15"
           >
-            Bayar &amp; Cetak Struk (F12)
+            Bayar &amp; Cetak Struk
           </Button>
         </div>
       </Card>
@@ -1969,14 +1944,24 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
                           {savedState.cart.length} jenis barang · {formatQty(itemCount)} total barang
                         </p>
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => handleLoadSavedCart(customerId)}
-                        className="shrink-0"
-                      >
-                        <RotateCcw className="h-3.5 w-3.5" />
-                        Buka keranjang
-                      </Button>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          onClick={() => void handleDeleteSavedCart(customerId, customer?.name || customerId)}
+                          title={`Hapus keranjang ${customer?.name || customerId}`}
+                          aria-label={`Hapus keranjang ${customer?.name || customerId}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleLoadSavedCart(customerId)}
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          Buka keranjang
+                        </Button>
+                      </div>
                     </div>
                     <div className="mt-2 space-y-1 border-t border-dashed border-gray-200 pt-2">
                       {savedState.cart.map((item) => (

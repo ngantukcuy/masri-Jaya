@@ -695,10 +695,11 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
               <div className="relative w-full md:max-w-xs group">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors z-10" />
                 <Input
-                  type="text"
+                  type="search"
                   placeholder="Cari nomor PO atau pemasok..."
                   value={supplierSearch}
                   onChange={(e) => { setSupplierSearch(e.target.value); setSupplierPage(1); }}
+                  onClear={() => { setSupplierSearch(''); setSupplierPage(1); }}
                   className="pl-9 h-8 bg-white"
                 />
               </div>
@@ -935,10 +936,11 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
               <div className="relative w-full md:max-w-xs group">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-600 transition-colors z-10" />
                 <Input
-                  type="text"
+                  type="search"
                   placeholder="Cari deskripsi, ref, atau pencatat..."
                   value={expenseSearch}
                   onChange={(e) => { setExpenseSearch(e.target.value); setExpensePage(1); }}
+                  onClear={() => { setExpenseSearch(''); setExpensePage(1); }}
                   className="pl-9 h-8 bg-white"
                 />
               </div>

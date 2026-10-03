@@ -1390,10 +1390,11 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
             <div className="relative w-full sm:max-w-xs">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
-                type="text"
+                type="search"
                 placeholder="Cari SKU, nama produk..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onClear={() => setSearchQuery('')}
                 className="pl-9 border-none bg-muted"
               />
             </div>
