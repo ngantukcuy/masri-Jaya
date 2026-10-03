@@ -151,7 +151,6 @@ export function DialogProvider({ children }: { children: ReactNode }) {
             <DialogPrimitive.Overlay className="fixed inset-0 z-[200] bg-gray-900/40 backdrop-blur-sm" />
             <DialogPrimitive.Content
               className="fixed inset-0 z-[200] flex items-center justify-center px-4 outline-none"
-              onOpenAutoFocus={(e) => e.preventDefault()}
             >
               <div className="glass-card w-full max-w-sm rounded-2xl p-5 shadow-2xl border border-white/60">
                 <DialogPrimitive.Title asChild>
