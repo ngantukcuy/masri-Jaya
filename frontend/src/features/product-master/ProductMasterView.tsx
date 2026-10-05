@@ -27,7 +27,8 @@ import SearchableSelect from '../../components/shared/SearchableSelect';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
-import { generateSkuCode } from '../../lib/generateSku';
+import { generateBarcodeCode } from '../../lib/generateSku';
+import BarcodePreview from '../../components/shared/BarcodePreview';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -100,12 +101,16 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
   // ---- SKU MASTER (Produk Induk & Produk Eceran) ----
   const [skuMode, setSkuMode] = useState<'induk' | 'eceran'>('induk');
+  const createUniqueBarcode = () => {
+    let barcode = generateBarcodeCode();
+    while (products.some((product) => product.sku === barcode || product.barcode === barcode)) {
+      barcode = generateBarcodeCode();
+    }
+    return barcode;
+  };
 
   const emptySkuForm = {
-    // Kode SKU digenerate SEKALI di sini (bukan pas submit lagi) supaya bisa
-    // ditampilkan ke admin & dipakai sebagai awalan barcode di bawah — SKU
-    // dan barcode jadi nyambung, bukan dua angka acak yang nggak berhubungan.
-    sku: generateSkuCode(),
+    sku: createUniqueBarcode(),
     image: '',
     name: '',
     supplier: '',
@@ -131,7 +136,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
   const [skuForm, setSkuForm] = useState({ ...emptySkuForm });
 
   const emptyEceranForm = {
-    sku: generateSkuCode(),
+    sku: createUniqueBarcode(),
     parentSku: '',
     conversionValue: 1,
     unit: '',
@@ -158,18 +163,11 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
   const kategori2List = categories.filter(c => c.level === 2);
   const kategori3List = categories.filter(c => c.level === 3);
 
-  // Satu-satunya tombol generate yang dipakai di form ini (baik Induk
-  // maupun Eceran): formatnya "SKU-" diikuti angka acak, contoh "SKU-482913".
-  const generateBarcode = () => {
-    const randomDigits = String(Math.floor(100000 + Math.random() * 900000));
-    return `SKU-${randomDigits}`;
-  };
-
   // ---- Scan barcode langsung pakai kamera (mengisi form induk/eceran) ----
   const [scannerTarget, setScannerTarget] = useState<'induk' | 'eceran' | null>(null);
   const handleBarcodeDetected = (code: string) => {
-    if (scannerTarget === 'induk') setSkuForm((prev) => ({ ...prev, barcode: code }));
-    if (scannerTarget === 'eceran') setEceranForm((prev) => ({ ...prev, barcode: code }));
+    if (scannerTarget === 'induk') setSkuForm((prev) => ({ ...prev, sku: code, barcode: code }));
+    if (scannerTarget === 'eceran') setEceranForm((prev) => ({ ...prev, sku: code, barcode: code }));
     setScannerTarget(null);
   };
 
@@ -229,7 +227,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     }
     if (!onUpdateProducts) return;
 
-    const sku = skuForm.sku || generateSkuCode();
+    const sku = skuForm.sku || createUniqueBarcode();
     const locationName = skuLocations.find(l => l.id === skuForm.skuLocationId)?.name || '';
 
     const newProduct: Product = {
@@ -253,7 +251,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
       category1: skuForm.category1,
       category2: skuForm.category2,
       category3: skuForm.category3,
-      barcode: skuForm.barcode,
+      barcode: skuForm.barcode || sku,
       costPrice: skuForm.costPrice,
       minSellPrice: skuForm.minSellPrice,
       standardSellPrice: skuForm.standardSellPrice,
@@ -268,7 +266,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
 
     onUpdateProducts([newProduct, ...products]);
     onAddActivity('Produk Induk Baru', `${newProduct.name} (${sku})`, 0, 'quote');
-    setSkuForm({ ...emptySkuForm, sku: generateSkuCode() });
+    setSkuForm({ ...emptySkuForm, sku: createUniqueBarcode(), barcode: '' });
     dialog.alert(`Produk induk "${newProduct.name}" berhasil disimpan dengan SKU ${sku}.`);
   };
 
@@ -299,7 +297,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     const eceranStock = eceranForm.conversionValue;
     const parentNextStock = parent.stock - 1;
 
-    const sku = eceranForm.sku || generateSkuCode();
+    const sku = eceranForm.sku || createUniqueBarcode();
     const locationName = skuLocations.find(l => l.id === eceranForm.skuLocationId)?.name || '';
 
     const newProduct: Product = {
@@ -323,7 +321,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
       alias: eceranForm.alias,
       parentSku: parent.sku,
       conversionValue: eceranForm.conversionValue,
-      barcode: eceranForm.barcode,
+      barcode: eceranForm.barcode || sku,
       costPrice: eceranForm.costPrice,
       minSellPrice: eceranForm.minSellPrice,
       standardSellPrice: eceranForm.standardSellPrice,
@@ -341,7 +339,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     };
     onUpdateProducts([newProduct, ...products.map(p => (p.sku === parent.sku ? updatedParent : p))]);
     onAddActivity('Produk Eceran Baru', `${newProduct.name} - konversi 1 : ${eceranForm.conversionValue} ${eceranForm.unit}. Stok ${parent.name} ${parent.stock} → ${parentNextStock} ${parent.unit}`, 0, 'quote');
-    setEceranForm({ ...emptyEceranForm, sku: generateSkuCode() });
+    setEceranForm({ ...emptyEceranForm, sku: createUniqueBarcode(), barcode: '' });
     dialog.alert(`Produk eceran "${newProduct.name}" berhasil disimpan dengan SKU ${sku}. Stok awal ${eceranStock} ${eceranForm.unit}, stok ${parent.name} berkurang 1 ${parent.unit} (sisa ${parentNextStock}).`);
   };
 
@@ -665,16 +663,20 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               </div>
 
               <div>
-                <Label><BarcodeIcon className="inline w-3 h-3 mr-1" />Barcode</Label>
+                <Label><BarcodeIcon className="inline w-3 h-3 mr-1" />Kode SKU / Barcode</Label>
                 <div className="flex gap-2">
-                  <Input type="text" value={skuForm.barcode} onChange={(e) => setSkuForm({ ...skuForm, barcode: e.target.value })} placeholder="Scan atau generate barcode..." />
+                  <Input type="text" value={skuForm.barcode || skuForm.sku} onChange={(e) => setSkuForm({ ...skuForm, sku: e.target.value, barcode: e.target.value })} placeholder="Scan atau generate barcode..." />
                   <Button type="button" onClick={() => setScannerTarget('induk')} className="whitespace-nowrap">
                     <ScanLine className="w-3 h-3" /> Scan
                   </Button>
-                  <Button type="button" variant="secondary" onClick={() => setSkuForm({ ...skuForm, barcode: generateBarcode() })} className="bg-gray-900 hover:bg-black text-white whitespace-nowrap">
+                  <Button type="button" variant="secondary" onClick={() => {
+                    const barcode = createUniqueBarcode();
+                    setSkuForm({ ...skuForm, sku: barcode, barcode });
+                  }} className="bg-gray-900 hover:bg-black text-white whitespace-nowrap">
                     Generate
                   </Button>
                 </div>
+                <BarcodePreview value={skuForm.barcode || skuForm.sku} />
               </div>
 
               <div className="grid grid-cols-3 gap-3">
@@ -872,16 +874,20 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               </div>
 
               <div>
-                <Label><BarcodeIcon className="inline w-3 h-3 mr-1" />Barcode Number</Label>
+                <Label><BarcodeIcon className="inline w-3 h-3 mr-1" />Kode SKU / Barcode</Label>
                 <div className="flex gap-2">
-                  <Input type="text" value={eceranForm.barcode} onChange={(e) => setEceranForm({ ...eceranForm, barcode: e.target.value })} placeholder="Scan atau generate barcode..." />
+                  <Input type="text" value={eceranForm.barcode || eceranForm.sku} onChange={(e) => setEceranForm({ ...eceranForm, sku: e.target.value, barcode: e.target.value })} placeholder="Scan atau generate barcode..." />
                   <Button type="button" onClick={() => setScannerTarget('eceran')} className="whitespace-nowrap">
                     <ScanLine className="w-3 h-3" /> Scan
                   </Button>
-                  <Button type="button" variant="secondary" onClick={() => setEceranForm({ ...eceranForm, barcode: generateBarcode() })} className="bg-gray-900 hover:bg-black text-white whitespace-nowrap">
+                  <Button type="button" variant="secondary" onClick={() => {
+                    const barcode = createUniqueBarcode();
+                    setEceranForm({ ...eceranForm, sku: barcode, barcode });
+                  }} className="bg-gray-900 hover:bg-black text-white whitespace-nowrap">
                     Generate
                   </Button>
                 </div>
+                <BarcodePreview value={eceranForm.barcode || eceranForm.sku} />
               </div>
 
               <div className="grid grid-cols-3 gap-3">

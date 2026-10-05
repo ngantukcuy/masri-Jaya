@@ -7,6 +7,7 @@ import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../../components/ui/dialog';
+import BarcodePreview from '../../../components/shared/BarcodePreview';
 
 interface CreateProductModalProps {
   showCreateModal: boolean;
@@ -128,6 +129,9 @@ export default function CreateProductModal({
                   >
                     <ScanLine className="w-3.5 h-3.5" />
                   </Button>
+                </div>
+                <div className="mt-2">
+                  <BarcodePreview value={formSku} />
                 </div>
               </div>
             </div>
