@@ -676,17 +676,9 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
   };
 
   const handleSelectCustomer = (customer: Customer) => {
-    if (customer.id !== selectedCustomer.id) {
-      if (cart.length > 0) {
-        saveCurrentCustomerCart(selectedCustomer);
-      }
-      const savedCart = readPersistedPOSState(customer.id);
-      if (savedCart.cart.length > 0) {
-        restoreCustomerCart(customer.id);
-      } else {
-        resetActiveCart();
-      }
-    }
+    // Changing the buyer during an active sale must not save the order under
+    // the previous buyer or replace its cart with a saved draft. Saved carts
+    // are loaded explicitly from the "Keranjang Customer" dialog.
     setSelectedCustomer(customer);
   };
 
