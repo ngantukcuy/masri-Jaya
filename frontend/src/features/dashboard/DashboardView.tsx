@@ -73,7 +73,7 @@ export default function DashboardView({
   onTabChange, 
   onQuickRestock 
 }: DashboardViewProps) {
-  const [previewKind, setPreviewKind] = useState<'income' | 'expense' | null>(null);
+  const [previewKind, setPreviewKind] = useState<'income' | 'expense' | 'profit' | null>(null);
   const [chartDateFrom, setChartDateFrom] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 11);
@@ -271,8 +271,14 @@ export default function DashboardView({
   const rangeTotalPengeluaran = sumRange('expense');
   const rangeNetProfit = sumRange('profit');
   const rangeMarginPct = rangeTotalRevenue > 0 ? (rangeNetProfit / rangeTotalRevenue) * 100 : 0;
-  const rangeSaleCount = rangeEvents.filter((e) => e.kind === 'income' && e.source === 'Penjualan').length;
-  const rangeTopUpCount = rangeEvents.filter((e) => e.kind === 'income' && e.source === 'Top Up Deposit').length;
+  const incomeSourceLabels = Array.from(new Set(
+    rangeEvents
+      .filter((event) => event.kind === 'income' && event.amount !== 0)
+      .map((event) => event.source === 'Top Up Deposit' || event.source === 'Penarikan Deposit' ? 'Deposit' : event.source)
+  ));
+  const incomeSourceSummary = incomeSourceLabels.length > 2
+    ? `${incomeSourceLabels.slice(0, 2).join(' · ')} · +${incomeSourceLabels.length - 2} sumber`
+    : incomeSourceLabels.join(' · ');
 
   // Kotak 4 "Tagihan Hutang & Piutang" = gabungan piutang dari customer
   // (jatuh tempo/belum lunas) dan hutang ke supplier (bon belum lunas).
@@ -327,6 +333,14 @@ export default function DashboardView({
       <motion.div 
         whileHover={{ y: -4, transition: { duration: 0.2 } }}
         onClick={onClick}
+        onKeyDown={onClick ? (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onClick();
+          }
+        } : undefined}
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
         className={`glass-card glass-card-hover p-5 rounded-2xl flex flex-col justify-between h-32 relative overflow-hidden ${onClick ? 'cursor-pointer' : ''}`}
       >
         <div className="flex items-center justify-between">
@@ -416,7 +430,7 @@ export default function DashboardView({
         {renderKpiCard(
           "Pendapatan Keseluruhan",
           `Rp ${rangeTotalRevenue.toLocaleString('id-ID')}`,
-          `${rangeSaleCount} transaksi${rangeTopUpCount > 0 ? ` · ${rangeTopUpCount} top up deposit` : ''} — klik untuk rincian`,
+          `${incomeSourceLabels.length > 0 ? `Sumber: ${incomeSourceSummary}` : 'Belum ada sumber pendapatan'} — klik untuk rincian`,
           "neutral",
           <DollarSign className="w-4.5 h-4.5" />,
           "bg-emerald-500/10",
@@ -436,11 +450,12 @@ export default function DashboardView({
         {renderKpiCard(
           "Estimasi Untung Bersih",
           `Rp ${rangeNetProfit.toLocaleString('id-ID')}`,
-          `${rangeMarginPct >= 0 ? '+' : ''}${rangeMarginPct.toFixed(1)}% margin dari pendapatan`,
+          `${rangeMarginPct >= 0 ? '+' : ''}${rangeMarginPct.toFixed(1)}% margin — klik untuk rincian`,
           rangeNetProfit >= 0 ? "up" : "down",
           <TrendingUp className="w-4.5 h-4.5" />,
           "bg-blue-500/10",
-          "text-blue-600"
+          "text-blue-600",
+          () => setPreviewKind('profit')
         )}
         {renderKpiCard(
           "Tagihan Hutang & Piutang",
@@ -780,35 +795,35 @@ export default function DashboardView({
               .filter((e) => e.kind === previewKind)
               .sort((a, b) => b.date.getTime() - a.date.getTime());
             const total = items.reduce((s, e) => s + e.amount, 0);
-            const bySource = new Map<string, { count: number; sum: number }>();
+            const bySource = new Map<string, { sum: number }>();
             items.forEach((e) => {
-              const cur = bySource.get(e.source) || { count: 0, sum: 0 };
-              bySource.set(e.source, { count: cur.count + 1, sum: cur.sum + e.amount });
+              const cur = bySource.get(e.source) || { sum: 0 };
+              bySource.set(e.source, { sum: cur.sum + e.amount });
             });
             const fmt = (n: number) => `${n < 0 ? '-' : ''}Rp ${Math.abs(n).toLocaleString('id-ID')}`;
             return (
               <>
                 <DialogHeader>
                   <DialogTitle className="text-sm normal-case tracking-normal">
-                    Rincian {previewKind === 'income' ? 'Pendapatan' : 'Pengeluaran'}
+                    Rincian {previewKind === 'income' ? 'Pendapatan' : previewKind === 'expense' ? 'Pengeluaran' : 'Estimasi Untung Bersih'}
                   </DialogTitle>
                 </DialogHeader>
                 <div className="flex items-center justify-between bg-slate-50 rounded-xl p-3">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total pada periode terpilih</span>
-                  <span className={`text-base font-black ${previewKind === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>{fmt(total)}</span>
+                  <span className={`text-base font-black ${previewKind === 'income' ? 'text-emerald-600' : previewKind === 'expense' ? 'text-red-600' : 'text-blue-600'}`}>{fmt(total)}</span>
                 </div>
 
                 <div className="space-y-1.5">
                   {Array.from(bySource.entries()).map(([source, v]) => (
                     <div key={source} className="flex items-center justify-between text-xs">
-                      <span className="text-slate-600 font-semibold">{source} <span className="text-slate-400 font-normal">({v.count})</span></span>
+                        <span className="text-slate-600 font-semibold">{source}</span>
                       <span className={`font-black ${v.sum < 0 ? 'text-red-600' : 'text-slate-800'}`}>{fmt(v.sum)}</span>
                     </div>
                   ))}
                   {items.length === 0 && <p className="text-center text-xs text-slate-400 py-4">Belum ada data pada periode ini.</p>}
                 </div>
 
-                {items.length > 0 && (
+                {previewKind === 'expense' && items.length > 0 && (
                   <div className="border-t border-slate-100 pt-2 max-h-64 overflow-y-auto divide-y divide-slate-50">
                     {items.slice(0, 200).map((e, i) => (
                       <div key={`${e.source}-${e.label}-${i}`} className="flex items-start justify-between gap-3 py-2 text-[11px]">
@@ -823,8 +838,10 @@ export default function DashboardView({
                 )}
                 <p className="text-[9px] text-slate-400 leading-snug">
                   {previewKind === 'income'
-                    ? 'Penjualan yang dibayar Deposit tidak dihitung lagi karena sudah masuk saat top up. Retur pelanggan mengurangi pendapatan; retur ke supplier menambah sebesar yang sudah dibayar di bonnya.'
-                    : 'Retur ke supplier mengurangi pengeluaran sebesar yang sudah dibayar di bonnya. Retur dari pelanggan tidak menambah pengeluaran.'}
+                    ? 'Rincian dikelompokkan berdasarkan sumber pendapatan, tanpa menampilkan riwayat invoice. Penjualan yang dibayar Deposit tidak dihitung lagi karena sudah masuk saat top up.'
+                    : previewKind === 'expense'
+                      ? 'Retur ke supplier mengurangi pengeluaran sebesar yang sudah dibayar di bonnya. Retur dari pelanggan tidak menambah pengeluaran.'
+                      : 'Estimasi untung berasal dari margin penjualan setelah diskon dan penyesuaian retur pelanggan. Produk tanpa harga modal menggunakan perkiraan margin 35%.'}
                 </p>
               </>
             );

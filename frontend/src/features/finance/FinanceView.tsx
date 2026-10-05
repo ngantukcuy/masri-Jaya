@@ -424,6 +424,10 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   };
 
   const openEditPayment = (payment: POPayment) => {
+    if (!isOwner) {
+      dialog.alert('Hanya Owner yang dapat mengubah pembayaran.');
+      return;
+    }
     setEditingPaymentId(payment.id);
     setPayAmountInput(payment.amount);
     setPayMethod(payment.method === 'Tunai' ? 'Tunai Kas' : payment.method);
@@ -431,6 +435,10 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   };
 
   const handleSavePaymentEdit = () => {
+    if (!isOwner) {
+      dialog.alert('Hanya Owner yang dapat mengubah pembayaran.');
+      return;
+    }
     if (!payingPO || !editingPaymentId || !onUpdatePOs) return;
     const po = payingPO;
     const payment = (po.paymentHistory || []).find((item) => item.id === editingPaymentId);
@@ -452,32 +460,6 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
       requestedBy: undefined,
     };
 
-    if (!isOwner) {
-      const pendingPayment: POPayment = {
-        ...payment,
-        requestStatus: 'Pending',
-        requestAction: 'edit',
-        requestedAmount: payAmountInput,
-        requestedMethod: payMethod,
-        requestedDate: nextDate,
-        requestedBy: currentUser?.name,
-      };
-      const paymentHistory = (po.paymentHistory || []).map((item) => item.id === payment.id ? pendingPayment : item);
-      const updatedPO = { ...po, paymentHistory };
-      onUpdatePOs(pos.map((item) => item.poNumber === po.poNumber ? updatedPO : item));
-      setPayingPO(updatedPO);
-      onAddActivity(
-        `Persetujuan Perubahan Pembayaran: ${po.poNumber}`,
-        `${currentUser?.name || 'Staf'} meminta perubahan pembayaran ${payment.id} untuk ${po.supplier}`,
-        payAmountInput,
-        'overdue',
-        'approvers'
-      );
-      setEditingPaymentId(null);
-      dialog.alert('Permintaan perubahan pembayaran dikirim dan menunggu persetujuan Owner.');
-      return;
-    }
-
     const nextPaidAmount = (po.paidAmount || 0) + payAmountInput - payment.amount;
     if (nextPaidAmount > po.total) {
       dialog.alert(`Pembayaran ini membuat total melebihi nilai bon (${rupiah(po.total)}).`);
@@ -494,39 +476,23 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
   };
 
   const handleDeletePayment = async (payment: POPayment) => {
+    if (!isOwner) {
+      dialog.alert('Hanya Owner yang dapat menghapus pembayaran.');
+      return;
+    }
     if (!payingPO || !onUpdatePOs) return;
     const po = payingPO;
     if (payment.requestStatus === 'Pending') {
       dialog.alert('Selesaikan atau tolak permintaan yang masih menunggu sebelum mengubah pembayaran ini.');
       return;
     }
-    if (!await dialog.confirm(isOwner
-      ? `Hapus pembayaran ${rupiah(payment.amount)} dari bon ${po.poNumber}?`
-      : `Ajukan penghapusan pembayaran ${rupiah(payment.amount)} ke Owner?`
-    )) return;
+    if (!await dialog.confirm(`Hapus pembayaran ${rupiah(payment.amount)} dari bon ${po.poNumber}?`)) return;
 
     if (isOwner && payment.requestAction === 'add' && payment.requestStatus === 'Rejected') {
       const paymentHistory = (po.paymentHistory || []).filter((item) => item.id !== payment.id);
       const updatedPO = { ...po, paymentHistory };
       onUpdatePOs(pos.map((item) => item.poNumber === po.poNumber ? updatedPO : item));
       setPayingPO(updatedPO);
-      return;
-    }
-
-    if (!isOwner) {
-      const paymentHistory = (po.paymentHistory || []).map((item) => item.id === payment.id
-        ? { ...item, requestStatus: 'Pending' as const, requestAction: 'delete' as const, requestedBy: currentUser?.name }
-        : item);
-      const updatedPO = { ...po, paymentHistory };
-      onUpdatePOs(pos.map((item) => item.poNumber === po.poNumber ? updatedPO : item));
-      setPayingPO(updatedPO);
-      onAddActivity(
-        `Persetujuan Penghapusan Pembayaran: ${po.poNumber}`,
-        `${currentUser?.name || 'Staf'} meminta penghapusan pembayaran ${payment.id} untuk ${po.supplier}`,
-        payment.amount,
-        'overdue',
-        'approvers'
-      );
       return;
     }
 
@@ -1164,14 +1130,14 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                                   <Check className="w-3.5 h-3.5" />
                                 </Button>
                               </>
-                            ) : p.requestStatus !== 'Pending' && !(p.requestAction === 'add' && p.requestStatus === 'Rejected' && !isOwner) ? (
+                            ) : isOwner && p.requestStatus !== 'Pending' ? (
                               <>
                                 {!(p.requestAction === 'add' && p.requestStatus === 'Rejected') && (
-                                  <Button type="button" size="icon" variant="outline" title={isOwner ? 'Ubah pembayaran' : 'Ajukan perubahan'} onClick={() => openEditPayment(p)}>
+                                  <Button type="button" size="icon" variant="outline" title="Ubah pembayaran" onClick={() => openEditPayment(p)}>
                                     <Pencil className="w-3.5 h-3.5" />
                                   </Button>
                                 )}
-                                <Button type="button" size="icon" variant="outline" title={isOwner ? 'Hapus pembayaran' : 'Ajukan penghapusan'} onClick={() => void handleDeletePayment(p)}>
+                                <Button type="button" size="icon" variant="outline" title="Hapus pembayaran" onClick={() => void handleDeletePayment(p)}>
                                   <Trash2 className="w-3.5 h-3.5 text-red-600" />
                                 </Button>
                               </>
@@ -1188,7 +1154,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                   <>
                     <Button type="button" variant="outline" className="flex-1" onClick={() => setEditingPaymentId(null)}>Batal</Button>
                     <Button type="button" className="flex-1" onClick={handleSavePaymentEdit}>
-                      {isOwner ? 'Simpan Perubahan' : 'Ajukan Perubahan'}
+                      Simpan Perubahan
                     </Button>
                   </>
                 ) : (

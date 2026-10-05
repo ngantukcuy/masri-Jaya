@@ -10,7 +10,7 @@ import {
   History,
   AlertTriangle,
 } from 'lucide-react';
-import { CashSession, SalesInvoice, ReturnRecord } from '../../types';
+import { CashMutation, CashSession, Expense, PO, POPayment, SalesInvoice, ReturnRecord } from '../../types';
 import {
   openSession,
   closeSession,
@@ -29,15 +29,38 @@ import { Label } from '../../components/ui/label';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '../../components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
+import { toDateInputValue } from '../../lib/dateBuckets';
 
 interface KasHarianViewProps {
   onAddActivity: (title: string, subtitle: string, amount: number, type: 'sale' | 'arrival' | 'overdue' | 'quote', audience?: 'all' | 'approvers') => void;
   salesInvoices?: SalesInvoice[];
   returns?: ReturnRecord[];
+  expenses?: Expense[];
+  pos?: PO[];
   currentUserName?: string;
 }
 
-export default function KasHarianView({ onAddActivity, salesInvoices = [], returns = [], currentUserName }: KasHarianViewProps) {
+const localDateKey = (value: string) => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value.slice(0, 10) : toDateInputValue(date);
+};
+
+const localTime = (value: string) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? 'Hari ini'
+    : date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+};
+
+export default function KasHarianView({
+  onAddActivity,
+  salesInvoices = [],
+  returns = [],
+  expenses = [],
+  pos = [],
+  currentUserName,
+}: KasHarianViewProps) {
   const dialog = useDialog();
   // Sesi kas dibaca langsung dari tabel cash_sessions (+ cash_mutations).
   const allSessions = useRows(db.cashSessions);
@@ -111,6 +134,76 @@ export default function KasHarianView({ onAddActivity, salesInvoices = [], retur
 
   const totals = session ? getMutationTotals(session) : null;
   const selisih = showCloseModal && totals ? actualCashInput - totals.systemTotal : 0;
+  const todayKey = toDateInputValue(new Date());
+  const alreadyShownCashMutationIds = new Set<string>();
+  const hasMatchingCashMutation = (matches: (mutation: CashMutation) => boolean) => {
+    const match = session?.mutations.find((mutation) =>
+      !alreadyShownCashMutationIds.has(mutation.id) && matches(mutation)
+    );
+    if (!match) return false;
+    alreadyShownCashMutationIds.add(match.id);
+    return true;
+  };
+  const displayOnlyMutations: CashMutation[] = [
+    ...pos.flatMap((po) => {
+      const payments: POPayment[] = po.paymentHistory?.length
+        ? po.paymentHistory
+        : (po.paidHistory || []).map((payment, index) => ({
+          id: `LEGACY-${po.poNumber}-${index}`,
+          amount: payment.amount,
+          method: payment.method === 'Tunai Kas' || payment.method === 'Tunai Luar' ||
+            payment.method === 'Transfer' || payment.method === 'Giro' || payment.method === 'Tunai'
+            ? payment.method
+            : 'Tunai',
+          date: payment.date,
+        }));
+
+      return payments.flatMap((payment) => {
+        if (
+          localDateKey(payment.date) !== todayKey ||
+          (payment.requestAction === 'add' && payment.requestStatus)
+        ) return [];
+
+        const isCashPayment = payment.method === 'Tunai Kas' || payment.method === 'Tunai';
+        if (isCashPayment && hasMatchingCashMutation((mutation) =>
+          mutation.type === 'out' &&
+          mutation.category === 'Pembayaran Hutang' &&
+          mutation.amount === payment.amount &&
+          !!mutation.note?.includes(`Bon ${po.poNumber} - ${po.supplier}`)
+        )) return [];
+
+        return [{
+          id: `display-payment-${po.poNumber}-${payment.id}`,
+          type: 'out' as const,
+          category: 'Pembayaran Supplier',
+          amount: payment.amount,
+          note: `${po.poNumber} • ${po.supplier} • ${payment.method} • Tidak dihitung ke saldo kas`,
+          time: localTime(payment.date),
+        }];
+      });
+    }),
+    ...expenses.flatMap((expense) => {
+      if (localDateKey(expense.expenseDate || expense.date) !== todayKey) return [];
+
+      const isApprovedCashExpense = expense.status === 'Approved' && expense.paymentMethod === 'Tunai Kas';
+      if (isApprovedCashExpense && hasMatchingCashMutation((mutation) =>
+        mutation.type === 'out' &&
+        mutation.category === 'Pembayaran Lainnya' &&
+        mutation.amount === expense.amount &&
+        !!mutation.note?.endsWith(`: ${expense.description}`)
+      )) return [];
+
+      return [{
+        id: `display-expense-${expense.id}`,
+        type: 'out' as const,
+        category: `Pengeluaran ${expense.category}`,
+        amount: expense.amount,
+        note: `${expense.description} • ${expense.paymentMethod || 'Metode tidak dicatat'} • ${expense.status} • Tidak dihitung ke saldo kas`,
+        time: 'Hari ini',
+      }];
+    }),
+  ];
+  const displayedMutations = session ? [...session.mutations, ...displayOnlyMutations] : [];
 
   const inCategories = ['Kas Tambahan', 'Top Up Deposit', 'Pembayaran Piutang', 'Retur Pembelian', 'Penjualan Tunai Lainnya'];
   const outCategories = ['Kembalian', 'Retur Penjualan', 'Pembayaran Lainnya', 'Pembelian Stok Lokasi SKU', 'Pembelian Stok Pemasok', 'Transaksi Dibatalkan', 'Pembayaran Hutang', 'Withdraw Deposit'];
@@ -221,10 +314,10 @@ export default function KasHarianView({ onAddActivity, salesInvoices = [], retur
                   <CardTitle>Mutasi Kas Hari Ini</CardTitle>
                 </CardHeader>
                 <div className="divide-y divide-border max-h-[420px] overflow-y-auto">
-                  {session.mutations.length === 0 ? (
+                  {displayedMutations.length === 0 ? (
                     <p className="p-6 text-center text-xs text-muted-foreground">Belum ada mutasi kas tercatat hari ini.</p>
                   ) : (
-                    session.mutations.map((m) => (
+                    displayedMutations.map((m) => (
                       <div key={m.id} className="flex items-center justify-between p-3.5 text-xs">
                         <div className="flex items-center gap-2.5">
                           {m.type === 'in' ? (

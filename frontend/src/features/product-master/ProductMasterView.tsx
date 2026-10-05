@@ -122,6 +122,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
     category2: '',
     category3: '',
     barcode: '',
+    stock: 0,
     costPrice: 0,
     minSellPrice: 0,
     standardSellPrice: 0,
@@ -240,8 +241,8 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
       retailPrice: skuForm.standardSellPrice,
       wholesalePrice: skuForm.standardSellPrice,
       projectPrice: skuForm.minSellPrice,
-      stock: 0,
-      stockStatus: 'Out of Stock',
+      stock: skuForm.stock,
+      stockStatus: stockStatusFor(skuForm.stock),
       lastRestock: new Date().toISOString().slice(0, 10),
       leadTime: '-',
       warehouseLocation: locationName,
@@ -702,6 +703,18 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                   placeholder="Pilih lokasi..."
                   searchPlaceholder="Cari lokasi..."
                 />
+              </div>
+
+              <div>
+                <Label>Stok Awal</Label>
+                <NumberInput
+                  min={0}
+                  value={skuForm.stock}
+                  onChange={(v) => setSkuForm({ ...skuForm, stock: v })}
+                  className={numberInputCls}
+                  placeholder="0"
+                />
+                <p className="mt-1 text-[10px] text-muted-foreground">Isi jumlah stok yang tersedia saat produk didaftarkan.</p>
               </div>
 
               <Button type="submit" size="lg" className="w-full">

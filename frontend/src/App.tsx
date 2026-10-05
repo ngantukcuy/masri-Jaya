@@ -415,6 +415,8 @@ function Dashboard({
                       onAddActivity={handleAddActivity}
                       salesInvoices={salesInvoices}
                       returns={returns}
+                      expenses={expenses}
+                      pos={pos}
                       currentUserName={currentUser?.name}
                     />
                   );
