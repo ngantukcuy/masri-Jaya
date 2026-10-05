@@ -38,41 +38,41 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
           <div className="text-center border-b border-dashed border-border pb-3">
             <span className="text-lg font-black text-foreground tracking-tight block">{storeName}</span>
             {storeProfile?.address && <span className="text-[10px] text-primary font-semibold block mt-0.5">{storeProfile.address}</span>}
-            {storeProfile?.phone && <span className="text-[10px] text-primary font-semibold block mt-1">Tel: {storeProfile.phone}</span>}
+            {storeProfile?.phone && <span className="text-[10px] text-primary font-semibold block mt-1">Telp: {storeProfile.phone}</span>}
             <span className="text-[10px] font-black text-primary tracking-widest block mt-2">STRUK PEMBELIAN</span>
           </div>
 
           <div className="space-y-1.5 text-[10px] py-3">
             <div className="flex justify-between">
-              <span>INVOICE:</span>
+              <span>Invoice:</span>
               <span className="font-bold text-foreground">{lastOrderDetails.invoice}</span>
             </div>
             <div className="flex justify-between">
-              <span>TANGGAL:</span>
+              <span>Tanggal:</span>
               <span>{lastOrderDetails.date}</span>
             </div>
             <div className="flex justify-between">
-              <span>KASIR:</span>
+              <span>Kasir:</span>
               <span className="font-bold text-foreground">{lastOrderDetails.cashierName || cashierName || 'Staff Aktif'}</span>
             </div>
             <div className="flex justify-between">
-              <span>PELANGGAN:</span>
+              <span>Pelanggan:</span>
               <span className="font-bold text-foreground">{lastOrderDetails.customerName}</span>
             </div>
             <div className="flex justify-between">
-              <span>METODE:</span>
+              <span>Pembayaran:</span>
               <span className="font-bold uppercase text-primary">{lastOrderDetails.paymentMethod === 'Cash' ? 'TUNAI' : lastOrderDetails.paymentMethod === 'Split' ? 'BAYAR SEBAGIAN' : (lastOrderDetails.paymentMethod === 'Piutang' && lastOrderDetails.payOnDelivery) ? 'BAYAR DITEMPAT' : lastOrderDetails.paymentMethod}</span>
             </div>
             {lastOrderDetails.paymentMethod === 'Transfer' && lastOrderDetails.transferAccount && (
               <div className="space-y-0.5 border-l-2 border-primary pl-2">
-                <div className="flex justify-between"><span>REKENING:</span><span className="font-bold text-foreground">{lastOrderDetails.transferAccount.name}</span></div>
-                <div className="flex justify-between"><span>NOMOR:</span><span className="font-bold text-foreground">{lastOrderDetails.transferAccount.accountNumber || '-'}</span></div>
+                <div className="flex justify-between"><span>Rekening:</span><span className="font-bold text-foreground">{lastOrderDetails.transferAccount.name}</span></div>
+                <div className="flex justify-between"><span>Nomor:</span><span className="font-bold text-foreground">{lastOrderDetails.transferAccount.accountNumber || '-'}</span></div>
                 {lastOrderDetails.transferAccount.holderName && <div className="flex justify-between"><span>Atas Nama:</span><span>{lastOrderDetails.transferAccount.holderName}</span></div>}
               </div>
             )}
             {lastOrderDetails.fulfillmentMethod && (
               <div className="flex justify-between">
-                <span>PENGAMBILAN:</span>
+                <span>Pengambilan:</span>
                 <span className="font-bold uppercase text-foreground flex items-center gap-1">
                   {lastOrderDetails.fulfillmentMethod === 'Delivery' ? <Truck className="w-3 h-3" /> : <Store className="w-3 h-3" />}
                   {lastOrderDetails.fulfillmentMethod === 'Delivery' ? 'DIANTAR' : 'AMBIL SENDIRI'}
@@ -81,7 +81,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
             )}
             {lastOrderDetails.fulfillmentMethod === 'Delivery' && lastOrderDetails.deliveryAddress && (
               <div className="flex justify-between gap-2">
-                <span className="shrink-0">ALAMAT:</span>
+                <span className="shrink-0">Alamat:</span>
                 <span className="text-right font-bold text-foreground">{lastOrderDetails.deliveryAddress}</span>
               </div>
             )}
