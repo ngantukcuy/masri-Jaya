@@ -64,6 +64,7 @@ import {
 } from './lib/posCartStorage';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { db, type PosCartDraft } from '../../lib/db/repos';
+import { generateInvoiceNumber } from '../../lib/generateInvoiceNumber';
 import { useRows } from '../../lib/db/react';
 import NumberInput from '../../components/shared/NumberInput';
 import { Button } from '../../components/ui/button';
@@ -112,6 +113,7 @@ interface StoreProfileLite {
 interface POSViewProps {
   products: Product[];
   customers: Customer[];
+  salesInvoices: SalesInvoice[];
   /** ID pelanggan default yang diatur di Pengaturan (lihat SettingsView).
    * Kalau null/belum diatur atau pelanggannya sudah tidak ada, POS jatuh
    * balik ke pelanggan umum "Customer" — BUKAN customers[0] (urutan
@@ -140,6 +142,7 @@ interface POSViewProps {
 export default function POSView({ 
   products, 
   customers, 
+  salesInvoices,
   defaultCustomerId,
   bankAccounts = [],
   onUpdateProducts, 
@@ -771,8 +774,7 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
     methodUsed: 'Cash' | 'QRIS' | 'Transfer' | 'Split' | 'Deposit' | 'Piutang' = paymentMethod,
     paymentDetails: PaymentExecutionDetails = {}
   ) => {
-    // Generate Invoice ID
-    const invNumber = `INV-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const invNumber = generateInvoiceNumber(salesInvoices);
 
     // Potong stok fisik sesuai jumlah terjual (boleh desimal untuk produk pecahan).
     const usedBySku = new Map<string, number>();

@@ -389,6 +389,7 @@ function Dashboard({
                     <POSView
                       products={products}
                       customers={customers}
+                      salesInvoices={salesInvoices}
                       defaultCustomerId={defaultCustomerId}
                       bankAccounts={bankAccounts}
                       onUpdateProducts={setProducts}

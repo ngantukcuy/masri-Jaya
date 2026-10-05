@@ -205,7 +205,7 @@ export default function DebtsView({
     const entry = customer.lastTransactions[index];
     if (!entry || entry.amount <= 0) return;
 
-    const invoiceNo = entry.orderName.match(/INV-[\w-]+/)?.[0];
+    const invoiceNo = entry.orderName.match(/INV-[\w-]+/i)?.[0];
     const linkedInvoice = invoiceNo
       ? salesInvoices.find((inv) => inv.invoiceNumber === invoiceNo && inv.customerId === customer.id)
       : undefined;
