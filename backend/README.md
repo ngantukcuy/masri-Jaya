@@ -76,6 +76,7 @@ edge function `send-push` mengirimnya ke perangkat yang role-nya sesuai.
 | Pengeluaran menunggu persetujuan | Owner, Admin |
 | Permintaan hapus transaksi | Owner, Admin |
 | PO baru / PO diterima | Owner, Admin, Stoker |
+| Pengajuan pembayaran bon supplier menunggu persetujuan | Owner, Admin |
 | Pembayaran hutang supplier | Owner, Admin |
 | Top up deposit / tarik deposit / pelunasan piutang pelanggan | Owner, Admin |
 | Kas harian dibuka / ditutup (dengan **selisih** kalau ada) | Owner |

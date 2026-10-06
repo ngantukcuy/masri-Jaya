@@ -862,7 +862,9 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
           price: getCartItemPrice(item),
           originalPrice: getCartItemRegularPrice(item),
           unit: item.product.unit,
-          bonus: item.bonus
+          bonus: item.bonus,
+          // Snapshot modal saat ini; jangan kirim undefined (ditolak database).
+          ...(item.product.costPrice && item.product.costPrice > 0 ? { costPrice: item.product.costPrice } : {})
         })),
         total: totalAmount,
         paymentMethod: methodUsed,

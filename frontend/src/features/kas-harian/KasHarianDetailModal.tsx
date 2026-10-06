@@ -4,6 +4,7 @@ import { CashSession, SalesInvoice, ReturnRecord } from '../../types';
 import { getMutationTotals } from '../../lib/cashSession';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { Badge } from '../../components/ui/badge';
+import { formatQty, roundQty } from '../../lib/quantity';
 
 interface KasHarianDetailModalProps {
   session: CashSession;
@@ -55,9 +56,9 @@ export default function KasHarianDetailModal({ session, salesInvoices, returns, 
     });
   }, [returns, session.id]);
 
-  const jumlahItemTerjual = matchedInvoices.reduce(
-    (acc, inv) => acc + inv.items.reduce((a, i) => a + i.quantity, 0),
-    0
+  // Qty bisa pecahan (0,1 / 0,25 / dst) — dibulatkan supaya tidak muncul noise float 6900.5999999.
+  const jumlahItemTerjual = roundQty(
+    matchedInvoices.reduce((acc, inv) => acc + inv.items.reduce((a, i) => a + i.quantity, 0), 0)
   );
 
   const sumCat = (cats: string[], type: 'in' | 'out') =>
@@ -190,7 +191,7 @@ export default function KasHarianDetailModal({ session, salesInvoices, returns, 
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground font-bold uppercase mb-1">Jumlah Item Terjual</p>
-              <div className="bg-muted border border-border rounded-lg px-3 py-2.5 font-bold text-foreground">{jumlahItemTerjual}</div>
+              <div className="bg-muted border border-border rounded-lg px-3 py-2.5 font-bold text-foreground">{formatQty(jumlahItemTerjual)}</div>
             </div>
           </div>
 

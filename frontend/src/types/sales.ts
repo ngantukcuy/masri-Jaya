@@ -7,6 +7,9 @@ export interface SalesInvoiceItem {
   originalPrice?: number;
   unit?: string;
   bonus?: boolean;
+  /** Snapshot Harga Modal per satuan saat transaksi terjadi. Dipakai Dashboard supaya
+   * untung invoice lama tidak berubah ketika Harga Modal produk di-update lewat bon supplier. */
+  costPrice?: number;
   /** Quantity already included in a printed delivery note. */
   deliveredQuantity?: number;
 }

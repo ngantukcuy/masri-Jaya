@@ -93,15 +93,31 @@ export default function DashboardView({
   // item yang Harga Modalnya belum diisi.
   const productCostBySku = new Map(products.map((p) => [p.sku, p.costPrice]));
   const fallbackMarginRate = 0.35;
+  // Modal yang dipakai: snapshot di item invoice (dicatat saat transaksi). Invoice lama
+  // yang belum punya snapshot memakai Harga Modal produk saat ini sebagai cadangan.
+  const itemCost = (item: { sku: string; costPrice?: number }) =>
+    item.costPrice && item.costPrice > 0 ? item.costPrice : productCostBySku.get(item.sku);
+  const estimateItemProfit = (item: SalesInvoice['items'][number]) => {
+    const cost = itemCost(item);
+    return cost && cost > 0
+      ? (item.price - cost) * item.quantity
+      : item.price * item.quantity * fallbackMarginRate;
+  };
   const estimateInvoiceProfit = (inv: SalesInvoice) => {
-    const itemsProfit = inv.items.reduce((sum, item) => {
-      const cost = productCostBySku.get(item.sku);
-      const itemProfit = cost && cost > 0
-        ? (item.price - cost) * item.quantity
-        : item.price * item.quantity * fallbackMarginRate;
-      return sum + itemProfit;
-    }, 0);
+    const itemsProfit = inv.items.reduce((sum, item) => sum + estimateItemProfit(item), 0);
     return itemsProfit - (inv.discountAmount || 0);
+  };
+  // Item paling merugikan di sebuah invoice — untuk melacak penyebab untung minus.
+  const worstItemNote = (inv: SalesInvoice) => {
+    let worst: { item: SalesInvoice['items'][number]; profit: number } | null = null;
+    inv.items.forEach((item) => {
+      const profit = estimateItemProfit(item);
+      if (!worst || profit < worst.profit) worst = { item, profit };
+    });
+    if (!worst) return '';
+    const w = worst as { item: SalesInvoice['items'][number]; profit: number };
+    const cost = itemCost(w.item);
+    return `${w.item.name}: ${w.item.quantity} × (jual Rp ${w.item.price.toLocaleString('id-ID')} − modal Rp ${(cost ?? 0).toLocaleString('id-ID')})`;
   };
 
   const sameDay = (isoA: string, dateB: Date) => new Date(isoA).toDateString() === dateB.toDateString();
@@ -143,15 +159,15 @@ export default function DashboardView({
   };
 
   type LedgerKind = 'income' | 'expense' | 'profit';
-  interface LedgerEvent { kind: LedgerKind; source: string; label: string; date: Date; amount: number }
+  interface LedgerEvent { kind: LedgerKind; source: string; label: string; date: Date; amount: number; note?: string }
 
   const ledger = useMemo(() => {
     const events: LedgerEvent[] = [];
-    const add = (kind: LedgerKind, source: string, label: string, dateLike: string | Date | null | undefined, amount: number) => {
+    const add = (kind: LedgerKind, source: string, label: string, dateLike: string | Date | null | undefined, amount: number, note?: string) => {
       if (!dateLike || !amount) return;
       const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
       if (isNaN(date.getTime())) return;
-      events.push({ kind, source, label, date, amount });
+      events.push({ kind, source, label, date, amount, note });
     };
 
     // Penjualan
@@ -160,7 +176,8 @@ export default function DashboardView({
       if (!inv.createdAt) return;
       const label = `${inv.invoiceNumber} · ${inv.customerName || '-'}`;
       if (inv.paymentMethod !== 'Deposit') add('income', 'Penjualan', label, inv.createdAt, inv.total);
-      add('profit', 'Penjualan', label, inv.createdAt, estimateInvoiceProfit(inv));
+      const invProfit = estimateInvoiceProfit(inv);
+      add('profit', 'Penjualan', label, inv.createdAt, invProfit, invProfit < 0 ? worstItemNote(inv) : undefined);
     });
 
     // Deposit pelanggan
@@ -212,7 +229,8 @@ export default function DashboardView({
           add('income', 'Retur dari Pelanggan', label, date, -r.totalRefund);
         }
         const itemsProfit = r.items.reduce((sum, item) => {
-          const cost = productCostBySku.get(item.sku);
+          const origItem = invoiceByNumber.get(r.refNumber)?.items.find((i) => i.sku === item.sku);
+          const cost = itemCost({ sku: item.sku, costPrice: origItem?.costPrice });
           const unitMargin = cost && cost > 0 ? item.price - cost : item.price * fallbackMarginRate;
           // Barang baik kembali ke stok (hilang untungnya saja); barang rusak hilang total.
           return sum - (item.condition === 'Rusak' ? item.price * item.quantity : unitMargin * item.quantity);
@@ -823,13 +841,14 @@ export default function DashboardView({
                   {items.length === 0 && <p className="text-center text-xs text-slate-400 py-4">Belum ada data pada periode ini.</p>}
                 </div>
 
-                {previewKind === 'expense' && items.length > 0 && (
+                {(previewKind === 'expense' || previewKind === 'profit') && items.length > 0 && (
                   <div className="border-t border-slate-100 pt-2 max-h-64 overflow-y-auto divide-y divide-slate-50">
-                    {items.slice(0, 200).map((e, i) => (
+                    {(previewKind === 'profit' ? [...items].sort((a, b) => a.amount - b.amount) : items).slice(0, 200).map((e, i) => (
                       <div key={`${e.source}-${e.label}-${i}`} className="flex items-start justify-between gap-3 py-2 text-[11px]">
                         <div className="min-w-0">
                           <p className="font-bold text-slate-700 truncate">{e.label}</p>
                           <p className="text-[9px] text-slate-400">{e.source} · {e.date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                          {e.note && <p className="text-[9px] text-red-500 truncate">{e.note}</p>}
                         </div>
                         <span className={`font-black shrink-0 ${e.amount < 0 ? 'text-red-600' : 'text-slate-800'}`}>{fmt(e.amount)}</span>
                       </div>

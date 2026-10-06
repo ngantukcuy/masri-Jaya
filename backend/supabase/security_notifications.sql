@@ -35,9 +35,13 @@ create table if not exists public.notification_events (
   title      text not null,
   body       text not null default '',
   roles      text[] not null default array['Owner'],
+  source_key text,
   created_at timestamptz not null default now()
 );
+alter table public.notification_events add column if not exists source_key text;
 create index if not exists notification_events_created_idx on public.notification_events (created_at desc);
+create unique index if not exists notification_events_source_key_idx
+  on public.notification_events (source_key) where source_key is not null;
 
 alter table public.staff_credentials  enable row level security;   -- tanpa policy = tertutup
 alter table public.login_lockouts     enable row level security;   -- tanpa policy = tertutup
@@ -80,6 +84,14 @@ returns void language sql security definer set search_path = public as $$
   insert into public.notification_events (kind, title, body, roles) values (p_kind, p_title, p_body, p_roles);
 $$;
 revoke all on function public._notify(text, text, text, text[]) from public, anon, authenticated;
+
+create or replace function public._notify_once(p_kind text, p_title text, p_body text, p_roles text[], p_source_key text)
+returns void language sql security definer set search_path = public as $$
+  insert into public.notification_events (kind, title, body, roles, source_key)
+  values (p_kind, p_title, p_body, p_roles, p_source_key)
+  on conflict (source_key) where source_key is not null do nothing;
+$$;
+revoke all on function public._notify_once(text, text, text, text[], text) from public, anon, authenticated;
 
 create or replace function public._rp(n numeric) returns text language sql immutable as $$
   select 'Rp ' || replace(to_char(coalesce(n,0), 'FM999G999G999G999'), ',', '.');
@@ -315,6 +327,42 @@ begin
 end $$;
 drop trigger if exists trg_notify_po on public.purchase_orders;
 create trigger trg_notify_po after insert or update of status, paid_amount on public.purchase_orders for each row execute function public.trg_notify_po();
+
+-- Permintaan pembayaran bon supplier disimpan sebagai baris anak; kunci
+-- source_key mencegah push duplikat saat daftar pembayaran disimpan ulang.
+alter table public.purchase_order_payments
+  add column if not exists request_status text,
+  add column if not exists request_action text,
+  add column if not exists requested_amount numeric,
+  add column if not exists requested_method text,
+  add column if not exists requested_date text,
+  add column if not exists requested_by text;
+
+create or replace function public.trg_notify_supplier_payment_approval()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_supplier text;
+begin
+  if new.request_status = 'Pending' and coalesce(new.request_action, '') <> '' then
+    select supplier into v_supplier
+    from public.purchase_orders
+    where po_number = new.parent_key;
+
+    perform public._notify_once(
+      'approval_supplier_payment',
+      'Pembayaran supplier menunggu persetujuan',
+      coalesce(new.parent_key, '-') || ' · ' || coalesce(v_supplier, '-') || ' · '
+        || public._rp(new.amount) || ' oleh ' || coalesce(new.requested_by, new.by, '-'),
+      array['Owner','Admin'],
+      'supplier_payment_approval:' || coalesce(new.parent_key, '-') || ':' || coalesce(new.id, new.row_id::text)
+    );
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_notify_supplier_payment_approval on public.purchase_order_payments;
+create trigger trg_notify_supplier_payment_approval
+after insert or update of request_status, request_action on public.purchase_order_payments
+for each row execute function public.trg_notify_supplier_payment_approval();
 
 -- 6) Deposit, penarikan deposit & pelunasan piutang pelanggan — dicatat aplikasi
 --    sebagai baris `activities`, jadi cukup dipantau dari sana.
