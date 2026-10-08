@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Printer, FileDown, Truck, Store, X, CheckCircle2, ArrowLeft, Square, CheckSquare } from 'lucide-react';
+import { Printer, FileDown, Truck, Store, X, CheckCircle2, ArrowLeft, Square, CheckSquare, MessageCircle, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { SalesInvoice } from '../../../types';
 import { generateInvoiceReceiptPDF, generateDeliveryNotePDF, printInvoiceReceipt, printDeliveryNote } from '../../pos/lib/receiptPdf';
@@ -13,6 +13,7 @@ import {
 import { buildInvoiceReceipt, buildDeliveryReceipt } from '../../../lib/printing/escpos';
 import { useDialog } from '../../../components/shared/DialogProvider';
 import { formatQty, lineAmount, roundQty } from '../../../lib/quantity';
+import { shareReceiptImage } from '../../../lib/shareReceipt';
 
 interface StoreProfileLite {
   storeName: string;
@@ -43,6 +44,9 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [activePrinterName, setActivePrinterName] = useState('');
   const storeName = storeProfile?.storeName || 'Toko Saya';
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareHint, setShareHint] = useState<string | null>(null);
 
   // For surat jalan, let the user pick which items are actually being sent out
   // before printing — a single transaksi is often delivered in more than one trip.
@@ -210,6 +214,34 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
     }, 1400);
   };
 
+  // Bagikan struk (gambar, sama persis dengan tampilan di layar) ke WhatsApp.
+  const handleShareWhatsApp = async () => {
+    if (!receiptRef.current || isSharing) return;
+    setIsSharing(true);
+    setShareHint(null);
+    try {
+      const customerPhone = invoice.customerId
+        ? (db.customers.snapshot() as Array<{ id: string; phone?: string }>).find((c) => c.id === invoice.customerId)?.phone
+        : undefined;
+      const customer = invoice.customerName ? ` ${invoice.customerName}` : '';
+      const message =
+        `Halo${customer}, berikut struk pembelian ${invoice.invoiceNumber} dari ${storeName} — ` +
+        `total Rp ${Number(invoice.total || 0).toLocaleString('id-ID')}. Terima kasih sudah berbelanja!`;
+      const result = await shareReceiptImage(receiptRef.current, {
+        filename: `Struk-${String(invoice.invoiceNumber).replace(/[^\w.-]+/g, '_')}.png`,
+        message,
+        phone: customerPhone,
+      });
+      if (result === 'downloaded') {
+        setShareHint('Gambar struk sudah diunduh. Lampirkan di chat WhatsApp yang terbuka.');
+      }
+    } catch (err: any) {
+      dialog.alert(`Gagal membagikan struk: ${err?.message || 'Terjadi kesalahan tidak diketahui.'}`);
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   const markDeliveryComplete = () => {
     if (deliveryRecordedRef.current || docType !== 'delivery' || deliveryItems.length === 0) return;
     deliveryRecordedRef.current = true;
@@ -338,7 +370,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
         exit={{ scale: 0.9, opacity: 0 }}
         className="receipt-print bg-white rounded-2xl max-w-sm w-full p-6 border border-gray-200 shadow-2xl space-y-4 font-mono text-xs text-gray-700 relative overflow-hidden print:p-0 print:shadow-none print:border-none print:static"
       >
-        <div className={`transition-all duration-500 ${isPrintingAnim ? 'animate-pulse scale-[0.99] border-t-4 border-blue-600' : ''}`}>
+        <div ref={receiptRef} className={`transition-all duration-500 ${isPrintingAnim ? 'animate-pulse scale-[0.99] border-t-4 border-blue-600' : ''}`}>
           <div className="text-center border-b border-dashed border-gray-300 pb-4">
             <span className="text-lg font-black text-gray-900 tracking-tight block">{storeName}</span>
             {storeProfile?.address && <span className="text-[10px] text-gray-400 block mt-0.5">{storeProfile.address}</span>}
@@ -535,6 +567,19 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
               <span>{isGeneratingPDF ? 'Membuat...' : 'Cetak PDF'}</span>
             </button>
           </div>
+          {docType === 'invoice' && (
+            <>
+              <button
+                onClick={handleShareWhatsApp}
+                disabled={isSharing}
+                className="w-full flex items-center justify-center gap-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50"
+              >
+                {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+                <span>{isSharing ? 'Menyiapkan struk...' : 'Bagikan ke WhatsApp'}</span>
+              </button>
+              {shareHint && <p className="text-center text-[9px] text-gray-400">{shareHint}</p>}
+            </>
+          )}
           <button
             onClick={onClose}
             className="w-full flex items-center justify-center gap-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold cursor-pointer shadow-md"

@@ -307,8 +307,11 @@ async function buildInvoiceReceiptDoc(invoice: SalesInvoice, storeProfile: Store
     doc.setFontSize(size);
     doc.setFont('JetBrainsMono', bold ? 'bold' : 'normal');
     doc.setTextColor(...color);
-    doc.text(text, pageWidth / 2, y, { align: 'center' });
-    y += lineHeight;
+    // Bungkus teks panjang (mis. nama toko 13pt) supaya tidak terpotong di tepi kertas.
+    doc.splitTextToSize(text, contentWidth).forEach((line: string) => {
+      doc.text(line, pageWidth / 2, y, { align: 'center' });
+      y += lineHeight;
+    });
   };
 
   const row = (left: string, right: string, bold = false, size = 8, color: [number, number, number] = COLOR_BLACK) => {
@@ -543,8 +546,11 @@ async function buildDeliveryNoteDoc(
     doc.setFontSize(size);
     doc.setFont('JetBrainsMono', bold ? 'bold' : 'normal');
     doc.setTextColor(...color);
-    doc.text(text, pageWidth / 2, y, { align: 'center' });
-    y += lineHeight;
+    // Bungkus teks panjang (mis. nama toko 13pt) supaya tidak terpotong di tepi kertas.
+    doc.splitTextToSize(text, contentWidth).forEach((line: string) => {
+      doc.text(line, pageWidth / 2, y, { align: 'center' });
+      y += lineHeight;
+    });
   };
 
   const row = (left: string, right: string, bold = false, size = 7.5, color: [number, number, number] = COLOR_BLACK) => {

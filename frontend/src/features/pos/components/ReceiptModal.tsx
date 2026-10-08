@@ -1,7 +1,10 @@
-import { Printer, FileDown, Truck, Store } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Printer, FileDown, Truck, Store, MessageCircle, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent } from '../../../components/ui/dialog';
 import { Button } from '../../../components/ui/button';
 import { formatQty, lineAmount } from '../../../lib/quantity';
+import { shareReceiptImage } from '../../../lib/shareReceipt';
+import { useDialog } from '../../../components/shared/DialogProvider';
 
 interface StoreProfileLite {
   storeName: string;
@@ -27,11 +30,42 @@ interface ReceiptModalProps {
 
 export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingAnim, isGeneratingPDF, activePrinterName, lastOrderDetails, cashierName, storeProfile }: ReceiptModalProps) {
   const storeName = storeProfile?.storeName || 'Toko Saya';
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareHint, setShareHint] = useState<string | null>(null);
+  const dialog = useDialog();
+
+  // Bagikan struk (gambar, sama persis dengan tampilan di layar) ke WhatsApp.
+  const handleShareWhatsApp = async () => {
+    if (!receiptRef.current || isSharing) return;
+    setIsSharing(true);
+    setShareHint(null);
+    try {
+      const customer = lastOrderDetails.customerName ? ` ${lastOrderDetails.customerName}` : '';
+      const message =
+        `Halo${customer}, terima kasih sudah berbelanja di ${storeName}.\n` +
+        `Berikut struk pembelian ${lastOrderDetails.invoice} — total Rp ${Number(lastOrderDetails.total || 0).toLocaleString('id-ID')}.`;
+      const result = await shareReceiptImage(receiptRef.current, {
+        filename: `Struk-${String(lastOrderDetails.invoice || 'pembelian').replace(/[^\w.-]+/g, '_')}.png`,
+        message,
+        phone: lastOrderDetails.customerPhone,
+      });
+      if (result === 'downloaded') {
+        setShareHint('Gambar struk sudah diunduh. Lampirkan di chat WhatsApp yang terbuka.');
+      }
+    } catch (err: any) {
+      dialog.alert(`Gagal membagikan struk: ${err?.message || 'Terjadi kesalahan tidak diketahui.'}`);
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="receipt-print max-w-sm p-6 font-mono text-xs text-muted-foreground print:p-0 print:shadow-none print:border-none print:static">
         {/* Printing paper feed animation wrapper */}
           <div
+            ref={receiptRef}
             data-receipt-content="true"
             className={`transition-all duration-500 ${isPrintingAnim ? 'animate-pulse scale-[0.99] border-t-4 border-primary' : ''}`}
           >
@@ -199,6 +233,16 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
               <span>{isGeneratingPDF ? 'Membuat...' : 'Cetak PDF'}</span>
             </Button>
           </div>
+          <Button
+            type="button"
+            onClick={handleShareWhatsApp}
+            disabled={isSharing}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+            <span>{isSharing ? 'Menyiapkan struk...' : 'Bagikan ke WhatsApp'}</span>
+          </Button>
+          {shareHint && <p className="text-center text-[9px] text-muted-foreground">{shareHint}</p>}
           <Button type="button" onClick={onClose} className="w-full">
             Selesai
           </Button>

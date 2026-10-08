@@ -895,6 +895,7 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
     const orderDetails = {
       invoice: invNumber,
       customerName: selectedCustomer.name,
+      customerPhone: selectedCustomer.phone,
       items: [...cart],
       subtotal,
       discount: discountAmount,
