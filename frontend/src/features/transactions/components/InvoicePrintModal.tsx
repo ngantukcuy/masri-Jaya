@@ -232,8 +232,10 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
         message,
         phone: customerPhone,
       });
-      if (result === 'downloaded') {
-        setShareHint('Gambar struk sudah diunduh. Lampirkan di chat WhatsApp yang terbuka.');
+      if (result === 'copied') {
+        setShareHint('Gambar struk sudah disalin. Di chat WhatsApp Web yang terbuka, tekan Ctrl+V lalu kirim.');
+      } else if (result === 'downloaded') {
+        setShareHint('Gambar struk sudah diunduh. Lampirkan di chat WhatsApp Web yang terbuka.');
       }
     } catch (err: any) {
       dialog.alert(`Gagal membagikan struk: ${err?.message || 'Terjadi kesalahan tidak diketahui.'}`);

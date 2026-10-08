@@ -8,15 +8,22 @@
 //   Android — tinggal pilih WhatsApp, lalu pilih kontak pelanggan.
 // - HP/tablet (browser): Web Share API dengan file gambar, hasilnya juga
 //   share sheet yang menawarkan WhatsApp.
-// - Desktop/browser tanpa dukungan share file: gambar diunduh, lalu WhatsApp
-//   Web dibuka (ke nomor pelanggan kalau ada) untuk dilampirkan manual.
+// - Desktop: gambar disalin ke clipboard (atau diunduh kalau clipboard
+//   ditolak), lalu WhatsApp Web dibuka ke nomor pelanggan kalau ada.
 
 import { toBlob } from 'html-to-image';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
-export type ShareResult = 'shared' | 'downloaded' | 'cancelled';
+export type ShareResult = 'shared' | 'copied' | 'downloaded' | 'cancelled';
+
+/** HP/tablet (termasuk iPad yang menyamar sebagai Mac). Desktop = false. */
+function isMobileDevice(): boolean {
+  const ua = navigator.userAgent || '';
+  if (/Android|iPhone|iPad|iPod/i.test(ua)) return true;
+  return navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+}
 
 /** Nomor WA Indonesia: buang karakter non-angka, 08xx -> 628xx. */
 export function normalizeWhatsAppNumber(raw?: string): string | null {
@@ -29,25 +36,63 @@ export function normalizeWhatsAppNumber(raw?: string): string | null {
 }
 
 async function renderReceiptBlob(node: HTMLElement): Promise<Blob> {
+  const PAD = 20;
+
   // Ambil warna latar dialog yang sebenarnya supaya teks tidak "hilang"
   // kalau tema aplikasi bukan putih.
   const dialog = node.closest('[role="dialog"]') as HTMLElement | null;
-  const bg = dialog ? getComputedStyle(dialog).backgroundColor : '#ffffff';
-  const options = {
-    pixelRatio: 3, // tajam saat dibuka di WhatsApp
-    backgroundColor: bg && bg !== 'rgba(0, 0, 0, 0)' ? bg : '#ffffff',
-    style: { padding: '20px', margin: '0', animation: 'none', transform: 'none' },
-    cacheBust: true,
-  };
-  let blob: Blob | null = null;
+  const bgRaw = dialog ? getComputedStyle(dialog).backgroundColor : '#ffffff';
+  const bg = bgRaw && bgRaw !== 'rgba(0, 0, 0, 0)' ? bgRaw : '#ffffff';
+
+  // Jangan menangkap node aslinya langsung: node itu ada di dalam dialog
+  // yang punya animasi/transform dan ukurannya dihitung tanpa padding,
+  // akibatnya isi struk terpotong di kanan dan bawah. Sebagai gantinya,
+  // salin struk ke wadah di luar layar yang ukurannya sudah termasuk
+  // padding, lalu tangkap wadah itu.
+  const width = Math.ceil(node.getBoundingClientRect().width);
+  const cs = getComputedStyle(node);
+  const wrapper = document.createElement('div');
+  Object.assign(wrapper.style, {
+    position: 'fixed',
+    top: '0',
+    left: '-100000px',
+    boxSizing: 'border-box',
+    width: `${width + PAD * 2}px`,
+    padding: `${PAD}px`,
+    background: bg,
+    // Sifat teks yang tadinya diwarisi dari dialog harus disalin manual.
+    fontFamily: cs.fontFamily,
+    fontSize: cs.fontSize,
+    lineHeight: cs.lineHeight,
+    letterSpacing: cs.letterSpacing,
+    color: cs.color,
+  } as Partial<CSSStyleDeclaration>);
+
+  const clone = node.cloneNode(true) as HTMLElement;
+  clone.classList.remove('animate-pulse', 'scale-[0.99]', 'border-t-4');
+  clone.style.width = '100%';
+  clone.style.transform = 'none';
+  wrapper.appendChild(clone);
+  document.body.appendChild(wrapper);
+
   try {
-    blob = await toBlob(node, options);
-  } catch {
-    // Kadang gagal saat menyematkan font eksternal — ulangi tanpa font embed.
-    blob = await toBlob(node, { ...options, skipFonts: true });
+    // Tunggu font & layout selesai sebelum difoto.
+    if ('fonts' in document) await (document as Document & { fonts: FontFaceSet }).fonts.ready;
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+
+    const options = { pixelRatio: 3, backgroundColor: bg, cacheBust: true };
+    let blob: Blob | null = null;
+    try {
+      blob = await toBlob(wrapper, options);
+    } catch {
+      // Kadang gagal saat menyematkan font eksternal — ulangi tanpa font embed.
+      blob = await toBlob(wrapper, { ...options, skipFonts: true });
+    }
+    if (!blob) throw new Error('Gagal membuat gambar struk.');
+    return blob;
+  } finally {
+    wrapper.remove();
   }
-  if (!blob) throw new Error('Gagal membuat gambar struk.');
-  return blob;
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -90,29 +135,48 @@ export async function shareReceiptImage(
   const file = new File([blob], opts.filename, { type: 'image/png' });
 
   // --- Browser HP/tablet: Web Share API dengan file ---
+  // Sengaja HANYA di HP/tablet. Di desktop (Windows/Mac) Web Share API akan
+  // membuka dialog berbagi milik sistem operasi, yang biasanya tidak
+  // menawarkan WhatsApp Web — padahal itu yang dibutuhkan di sini.
   const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
-  if (typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
+  if (isMobileDevice() && typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
     try {
       await nav.share({ files: [file], text: opts.message });
       return 'shared';
     } catch (err: any) {
       if (err?.name === 'AbortError') return 'cancelled';
-      // Gagal untuk alasan lain -> lanjut ke jalur unduh di bawah.
+      // Gagal untuk alasan lain -> lanjut ke jalur desktop di bawah.
     }
   }
 
-  // --- Fallback desktop: unduh gambar + buka WhatsApp Web ---
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = opts.filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10_000);
-
+  // --- Desktop: salin gambar ke clipboard + buka WhatsApp Web ---
+  // WhatsApp Web tidak punya link untuk melampirkan gambar otomatis, jadi
+  // gambar disalin dulu; di chat tinggal tekan Ctrl+V lalu kirim.
   const number = normalizeWhatsAppNumber(opts.phone);
-  const waUrl = `https://wa.me/${number ?? ''}?text=${encodeURIComponent(opts.message)}`;
+  const waUrl = `https://web.whatsapp.com/send?${number ? `phone=${number}&` : ''}text=${encodeURIComponent(opts.message)}`;
+
+  let copied = false;
+  try {
+    const ClipboardItemCtor = (window as any).ClipboardItem;
+    if (ClipboardItemCtor && navigator.clipboard?.write) {
+      await navigator.clipboard.write([new ClipboardItemCtor({ 'image/png': blob })]);
+      copied = true;
+    }
+  } catch {
+    // Clipboard ditolak browser — jatuh ke unduh file di bawah.
+  }
+
+  if (!copied) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = opts.filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }
+
   window.open(waUrl, '_blank', 'noopener');
-  return 'downloaded';
+  return copied ? 'copied' : 'downloaded';
 }
