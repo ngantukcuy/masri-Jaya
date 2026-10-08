@@ -50,4 +50,12 @@
          (Play Store tidak akan menyembunyikan app dari device tanpa kamera). -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <!-- Printer thermal Bluetooth: Android 11 ke bawah pakai BLUETOOTH/BLUETOOTH_ADMIN
+         (install-time), Android 12+ pakai BLUETOOTH_CONNECT (diminta saat runtime
+         lewat plugin BluetoothPrinter). Tidak butuh izin lokasi karena app hanya
+         membaca daftar perangkat yang SUDAH paired, tidak scan. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
 </manifest>

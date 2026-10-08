@@ -16,28 +16,62 @@
 // do its own pairing), so "Aktif"/"Offline" status is local, live hardware
 // state, not synced app data.
 
+import {
+  isNativeApp,
+  isNativeBluetoothAvailable,
+  connectNativeBluetooth,
+  listPairedBluetoothDevices,
+  type NativePairedDevice,
+} from './nativeBluetoothPrinter';
+
+export { isNativeApp, listPairedBluetoothDevices, type NativePairedDevice };
+
 export interface PrinterConnectionHandle {
   send: (bytes: Uint8Array) => Promise<void>;
   disconnect: () => void;
 }
 
+// Di APK (Capacitor) Bluetooth lewat plugin native Android, bukan Web Bluetooth.
 export function isBluetoothSupported(): boolean {
+  if (isNativeApp()) return isNativeBluetoothAvailable();
   return typeof navigator !== 'undefined' && 'bluetooth' in navigator;
 }
 
+// WebView di APK tidak punya WebUSB — USB hanya tersedia di browser desktop.
 export function isUsbSupported(): boolean {
+  if (isNativeApp()) return false;
   return typeof navigator !== 'undefined' && 'usb' in navigator;
 }
 
-// The most common service/characteristic UUIDs used by generic (often
-// unbranded) 58mm/80mm ESC/POS Bluetooth LE thermal printers. Printer
-// vendors don't all agree on one standard UUID, so a specific model may use
-// a different pair — if connection succeeds but the service lookup below
-// fails, that's what's going on (see the thrown error message).
-const BLE_PRINT_SERVICE_UUID = '000018f0-0000-1000-8000-00805f9b34fb';
-const BLE_PRINT_CHARACTERISTIC_UUID = '00002af1-0000-1000-8000-00805f9b34fb';
+// Printer thermal BLE tidak punya satu UUID standar — tiap vendor beda. Ini
+// daftar service yang umum dipakai chip printer thermal. Dicoba berurutan;
+// characteristic yang bisa di-write ditemukan otomatis di dalam service.
+const BLE_PRINT_SERVICE_UUIDS = [
+  '000018f0-0000-1000-8000-00805f9b34fb',
+  '0000ffe0-0000-1000-8000-00805f9b34fb',
+  '0000ff00-0000-1000-8000-00805f9b34fb',
+  '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+  'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+  '0000fee7-0000-1000-8000-00805f9b34fb',
+];
 // Bluetooth LE has a small per-write payload limit; chunk long print jobs.
-const BLE_WRITE_CHUNK_SIZE = 180;
+const BLE_WRITE_CHUNK_SIZE = 100;
+
+async function findWritableCharacteristic(server: any): Promise<any | null> {
+  for (const serviceUuid of BLE_PRINT_SERVICE_UUIDS) {
+    try {
+      const service = await server.getPrimaryService(serviceUuid);
+      const characteristics = await service.getCharacteristics();
+      const writable = characteristics.find(
+        (c: any) => c.properties.writeWithoutResponse || c.properties.write
+      );
+      if (writable) return writable;
+    } catch {
+      // Service ini tidak ada di printer — coba UUID berikutnya.
+    }
+  }
+  return null;
+}
 
 export async function connectBluetoothPrinter(
   onDisconnect: () => void
@@ -49,27 +83,32 @@ export async function connectBluetoothPrinter(
   const nav = navigator as Navigator & { bluetooth: any };
   const device = await nav.bluetooth.requestDevice({
     acceptAllDevices: true,
-    optionalServices: [BLE_PRINT_SERVICE_UUID],
+    optionalServices: BLE_PRINT_SERVICE_UUIDS,
   });
 
   const server = await device.gatt.connect();
+  const characteristic = await findWritableCharacteristic(server);
 
-  let characteristic;
-  try {
-    const service = await server.getPrimaryService(BLE_PRINT_SERVICE_UUID);
-    characteristic = await service.getCharacteristic(BLE_PRINT_CHARACTERISTIC_UUID);
-  } catch {
+  if (!characteristic) {
     device.gatt?.disconnect();
     throw new Error(
-      `Printer berhasil dipasangkan tapi service cetak standar tidak ditemukan di device ini. Model printer kamu kemungkinan pakai UUID custom dari vendornya sendiri — cek manual printer untuk service/characteristic UUID yang benar.`
+      'Printer terhubung tapi tidak ditemukan jalur cetak BLE-nya. Printer ini kemungkinan memakai Bluetooth Classic (bukan BLE) — Chrome web tidak bisa mengaksesnya. Pakai aplikasi APK, atau sambungkan lewat kabel USB.'
     );
   }
 
   device.addEventListener('gattserverdisconnected', onDisconnect);
 
+  const useNoResponse = !!characteristic.properties.writeWithoutResponse;
   const send = async (bytes: Uint8Array) => {
     for (let i = 0; i < bytes.length; i += BLE_WRITE_CHUNK_SIZE) {
-      await characteristic.writeValue(bytes.slice(i, i + BLE_WRITE_CHUNK_SIZE));
+      const chunk = bytes.slice(i, i + BLE_WRITE_CHUNK_SIZE);
+      if (useNoResponse) {
+        await characteristic.writeValueWithoutResponse(chunk);
+        // Beri printer waktu mengosongkan buffer supaya data tidak hilang.
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      } else {
+        await characteristic.writeValueWithResponse(chunk);
+      }
     }
   };
 
@@ -79,6 +118,19 @@ export async function connectBluetoothPrinter(
   };
 
   return { handle: { send, disconnect }, deviceName: device.name || 'Printer Bluetooth' };
+}
+
+/**
+ * Khusus APK: sambungkan ke printer yang SUDAH dipasangkan (paired) lewat
+ * Pengaturan Bluetooth HP. Daftar perangkat paired diambil dengan
+ * `listPairedBluetoothDevices()`.
+ */
+export async function connectNativeBluetoothPrinter(
+  device: NativePairedDevice,
+  onDisconnect: () => void
+): Promise<{ handle: PrinterConnectionHandle; deviceName: string }> {
+  const handle = await connectNativeBluetooth(device.address, onDisconnect);
+  return { handle, deviceName: device.name };
 }
 
 export async function connectUsbPrinter(
@@ -204,4 +256,73 @@ export function removePrinterConnection(printerId: string) {
 export function subscribeToPrinterConnections(listener: PrinterConnectionsListener): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
+}
+
+// ---------------------------------------------------------------------------
+// Sambung ulang otomatis (khusus APK)
+//
+// Koneksi Bluetooth hidup di memori app, jadi hilang kalau app ditutup atau
+// printer sempat dimatikan. Supaya kasir tidak perlu masuk Pengaturan tiap
+// kali, printer native yang terakhir dipakai diingat di perangkat ini
+// (localStorage — per-HP, sengaja tidak disimpan di Supabase) dan dicoba
+// disambung ulang otomatis saat mau mencetak.
+
+const SAVED_NATIVE_KEY = 'printer:native-saved';
+
+type SavedNativePrinter = { name: string; address: string; isPrinter: boolean };
+
+function readSavedNative(): Record<string, SavedNativePrinter> {
+  try {
+    return JSON.parse(localStorage.getItem(SAVED_NATIVE_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+export function rememberNativePrinter(printerId: string, device: NativePairedDevice) {
+  try {
+    const all = readSavedNative();
+    all[printerId] = device;
+    localStorage.setItem(SAVED_NATIVE_KEY, JSON.stringify(all));
+  } catch {
+    // localStorage penuh/diblokir — abaikan, sambung ulang otomatis saja yang tidak jalan.
+  }
+}
+
+export function forgetNativePrinter(printerId: string) {
+  try {
+    const all = readSavedNative();
+    delete all[printerId];
+    localStorage.setItem(SAVED_NATIVE_KEY, JSON.stringify(all));
+  } catch {
+    // abaikan
+  }
+}
+
+/** True kalau di perangkat ini ada printer native tersimpan yang belum tersambung. */
+export function hasDisconnectedSavedNativePrinter(): boolean {
+  if (!isNativeApp()) return false;
+  return Object.keys(readSavedNative()).some((id) => !activeConnections.has(id));
+}
+
+/**
+ * Coba sambungkan ulang semua printer native yang tersimpan tapi sedang
+ * tidak tersambung. Tidak pernah melempar error — kalau gagal (printer mati,
+ * di luar jangkauan), dibiarkan tidak tersambung dan pemanggil jatuh ke
+ * cetak PDF seperti biasa.
+ */
+export async function reconnectSavedNativePrinters(): Promise<void> {
+  if (!isNativeApp()) return;
+  const saved = readSavedNative();
+  await Promise.all(
+    Object.entries(saved).map(async ([printerId, device]) => {
+      if (activeConnections.has(printerId)) return;
+      try {
+        const { handle } = await connectNativeBluetoothPrinter(device, () => removePrinterConnection(printerId));
+        registerPrinterConnection(printerId, handle);
+      } catch {
+        // sengaja diam
+      }
+    })
+  );
 }

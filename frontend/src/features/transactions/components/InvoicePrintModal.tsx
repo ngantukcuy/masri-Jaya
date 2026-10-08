@@ -5,7 +5,11 @@ import { SalesInvoice } from '../../../types';
 import { generateInvoiceReceiptPDF, generateDeliveryNotePDF, printInvoiceReceipt, printDeliveryNote } from '../../pos/lib/receiptPdf';
 import { db } from '../../../lib/db/repos';
 import NumberInput from '../../../components/shared/NumberInput';
-import { getPrinterConnections } from '../../../lib/printing/printerConnection';
+import {
+  getPrinterConnections,
+  hasDisconnectedSavedNativePrinter,
+  reconnectSavedNativePrinters,
+} from '../../../lib/printing/printerConnection';
 import { buildInvoiceReceipt, buildDeliveryReceipt } from '../../../lib/printing/escpos';
 import { useDialog } from '../../../components/shared/DialogProvider';
 import { formatQty, lineAmount, roundQty } from '../../../lib/quantity';
@@ -127,7 +131,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
     setPickerStep(false);
   };
 
-  const handlePrintThermal = () => {
+  const handlePrintThermal = (skipReconnect = false) => {
     // The source of truth for "is a printer actually connected right now"
     // is the live Bluetooth/USB registry (printerConnection.ts), not the
     // `printers` table cache below — that cache is populated lazily/async
@@ -137,6 +141,16 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
     const connections = getPrinterConnections();
     const connectedPrinterId = [...connections.keys()][0];
     const handle = connectedPrinterId ? connections.get(connectedPrinterId) : undefined;
+
+    // APK: printer sempat terputus — coba sambung ulang otomatis dulu.
+    if (!handle && !skipReconnect && hasDisconnectedSavedNativePrinter()) {
+      setIsPrintingAnim(true);
+      reconnectSavedNativePrinters().finally(() => {
+        setIsPrintingAnim(false);
+        handlePrintThermal(true);
+      });
+      return;
+    }
 
     const registeredPrinters = (db.printers.snapshot() as PrinterLite[]);
     const connectedPrinterName =
@@ -505,7 +519,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
           )}
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={handlePrintThermal}
+              onClick={() => handlePrintThermal()}
               disabled={isPrintingAnim}
               className="w-full flex items-center justify-center gap-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50"
             >

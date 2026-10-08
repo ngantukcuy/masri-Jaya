@@ -28,7 +28,13 @@ import { setPin, unlockLogin, getLockedStaff } from '../../lib/pinAuth';
 import { uploadProductImage } from '../../lib/uploadProductImage';
 import {
   connectBluetoothPrinter,
+  connectNativeBluetoothPrinter,
+  rememberNativePrinter,
+  forgetNativePrinter,
   connectUsbPrinter,
+  isNativeApp,
+  listPairedBluetoothDevices,
+  type NativePairedDevice,
   isBluetoothSupported,
   isUsbSupported,
   getPrinterConnections,
@@ -203,6 +209,9 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const [printerConnections, setPrinterConnectionsSnapshot] = useState<Map<string, PrinterConnectionHandle>>(() => getPrinterConnections());
   useEffect(() => subscribeToPrinterConnections(setPrinterConnectionsSnapshot), []);
   const [connectingPrinterId, setConnectingPrinterId] = useState<string | null>(null);
+  // Khusus APK: daftar printer Bluetooth yang sudah paired di HP, ditampilkan
+  // sebagai pilihan (di browser, pemilihan device ditangani picker bawaan Chrome).
+  const [nativePicker, setNativePicker] = useState<{ printer: Printer; devices: NativePairedDevice[] } | null>(null);
   const [showAddPrinterForm, setShowAddPrinterForm] = useState(false);
   const [newPrinterName, setNewPrinterName] = useState('');
   const [newPrinterType, setNewPrinterType] = useState<'bluetooth' | 'usb'>('bluetooth');
@@ -571,6 +580,21 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
         triggerToast(`${printer.name} terputus.`);
       };
 
+      // APK: WebView tidak punya Web Bluetooth/WebUSB, jadi pakai plugin native.
+      if (isNativeApp()) {
+        if (printer.connectionType !== 'bluetooth') {
+          triggerToast('Di aplikasi Android, printer disambungkan lewat Bluetooth. Ubah jenis koneksi printer ini ke Bluetooth.');
+          return;
+        }
+        const devices = await listPairedBluetoothDevices();
+        if (devices.length === 0) {
+          dialog.alert('Belum ada perangkat Bluetooth yang dipasangkan di HP ini.\n\nNyalakan printer, buka Pengaturan > Bluetooth di HP, pasangkan (pair) printer-nya dulu (PIN biasanya 0000 atau 1234), lalu kembali ke sini.');
+          return;
+        }
+        setNativePicker({ printer, devices });
+        return;
+      }
+
       const { handle, deviceName } =
         printer.connectionType === 'bluetooth'
           ? await connectBluetoothPrinter(onDisconnect)
@@ -590,9 +614,31 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
     }
   };
 
+  // APK: user memilih salah satu printer paired dari daftar.
+  const handlePickNativePrinter = async (device: NativePairedDevice) => {
+    const printer = nativePicker?.printer;
+    if (!printer) return;
+    setNativePicker(null);
+    setConnectingPrinterId(printer.id);
+    try {
+      const { handle, deviceName } = await connectNativeBluetoothPrinter(device, () => {
+        removePrinterConnection(printer.id);
+        triggerToast(`${printer.name} terputus.`);
+      });
+      registerPrinterConnection(printer.id, handle);
+      rememberNativePrinter(printer.id, device);
+      triggerToast(`Terhubung ke ${deviceName}.`);
+    } catch (err: any) {
+      triggerToast(`Gagal menyambungkan: ${err?.message || 'Terjadi kesalahan tidak diketahui.'}`);
+    } finally {
+      setConnectingPrinterId(null);
+    }
+  };
+
   const handleDisconnectPrinter = (printer: Printer) => {
     printerConnections.get(printer.id)?.disconnect();
     removePrinterConnection(printer.id);
+    forgetNativePrinter(printer.id);
     triggerToast(`${printer.name} diputuskan.`);
   };
 
@@ -628,6 +674,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
   const handleDeletePrinter = async (printer: Printer) => {
     if (!(await dialog.confirm(`Apakah Anda yakin ingin menghapus printer ${printer.name}?`))) return;
     if (printerConnections.has(printer.id)) handleDisconnectPrinter(printer);
+    forgetNativePrinter(printer.id);
     setPrinters(printers.filter((p) => p.id !== printer.id));
     onAddActivity('Printer Dihapus', printer.name, 0, 'overdue');
     triggerToast(`Printer dihapus: ${printer.name}`);
@@ -1125,7 +1172,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
             {!isBluetoothSupported() && !isUsbSupported() && (
               <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800">
                 <AlertOctagon className="w-4 h-4 shrink-0 mt-0.5" />
-                <p className="text-[10px] leading-relaxed">Browser ini tidak mendukung Web Bluetooth maupun WebUSB, jadi printer tidak bisa disambungkan dari sini. Buka halaman ini pakai <strong>Chrome</strong> atau <strong>Edge</strong> terbaru (desktop, atau Android untuk Bluetooth).</p>
+                <p className="text-[10px] leading-relaxed">Browser ini tidak mendukung Web Bluetooth maupun WebUSB, jadi printer tidak bisa disambungkan dari sini. Buka halaman ini pakai <strong>Chrome</strong> atau <strong>Edge</strong> terbaru, atau pakai <strong>aplikasi APK</strong> untuk Bluetooth di HP Android.</p>
               </div>
             )}
 
@@ -1179,6 +1226,33 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
               </form>
             )}
             
+            <Dialog open={!!nativePicker} onOpenChange={(open) => { if (!open) setNativePicker(null); }}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Pilih Printer Bluetooth</DialogTitle>
+                  <DialogDescription>
+                    Perangkat yang sudah dipasangkan di HP ini. Printer belum muncul? Pasangkan dulu lewat Pengaturan &gt; Bluetooth HP.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2 max-h-72 overflow-y-auto">
+                  {nativePicker?.devices.map((d) => (
+                    <button
+                      key={d.address}
+                      type="button"
+                      onClick={() => handlePickNativePrinter(d)}
+                      className="w-full text-left p-3 rounded-xl border border-gray-200 hover:border-blue-400 hover:bg-blue-50 flex items-center gap-3"
+                    >
+                      <Bluetooth className="w-4 h-4 text-blue-600 shrink-0" />
+                      <span className="min-w-0">
+                        <span className="block font-bold text-gray-800 truncate">{d.name}</span>
+                        <span className="block text-[10px] text-gray-400 font-mono">{d.address}{d.isPrinter ? ' • Printer' : ''}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </DialogContent>
+            </Dialog>
+
             <div className="space-y-3">
               {printers.length === 0 && !showAddPrinterForm && (
                 <p className="text-center text-gray-400 py-8 uppercase tracking-wide text-[10px]">Belum ada printer terdaftar. Klik "Tambah Printer" untuk mulai.</p>
@@ -1240,7 +1314,7 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
             </div>
 
             <p className="text-[9px] text-gray-400 leading-relaxed pt-1">
-              Koneksi Bluetooth/USB bersifat per-perangkat: setiap kasir/komputer yang ada di dekat printer perlu memasangkannya sendiri lewat browser-nya masing-masing (persis seperti menyambungkan Bluetooth headset). Daftar nama printer di atas tersimpan bersama, tapi status "Terhubung" hanya berlaku untuk perangkat yang sedang kamu pakai sekarang.
+              Koneksi printer bersifat per-perangkat: setiap kasir/HP/komputer yang ada di dekat printer perlu menyambungkannya sendiri. Di aplikasi Android (APK), pasangkan (pair) printer dulu lewat Pengaturan Bluetooth HP, lalu pilih dari daftar saat klik "Sambungkan". Daftar nama printer di atas tersimpan bersama, tapi status "Terhubung" hanya berlaku untuk perangkat yang sedang kamu pakai sekarang.
             </p>
           </div>
         )}

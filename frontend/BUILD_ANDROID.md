@@ -61,3 +61,21 @@ Kalau kamu tidak mau install Android Studio, ini jalan pintas:
 - App ID: `com.masrijaya.pos` — ini identitas unik app kamu, jangan diubah-ubah setelah publish (kalau nanti daftar ke Play Store, ID ini permanen).
 - Nama app & ikon sudah saya set otomatis (logo "MJ" biru, sama seperti ikon PWA).
 - Setiap kali kamu update kode web-nya, ulangi langkah `npm run android:sync` supaya APK ikut ter-update sebelum di-build ulang.
+
+---
+
+## Printer thermal (Bluetooth) di APK
+
+WebView di dalam APK tidak mendukung Web Bluetooth/WebUSB, jadi APK memakai
+plugin native sendiri: `android/app/src/main/java/com/masrijaya/pos/BluetoothPrinterPlugin.java`
+(Bluetooth Classic / SPP — jenis yang dipakai hampir semua printer thermal 58mm).
+Tidak ada dependency npm tambahan; cukup `npm run android:sync` lalu build ulang di Android Studio.
+
+Cara pakai di HP:
+1. Nyalakan printer, buka **Pengaturan > Bluetooth** HP, pasangkan (pair) printer (PIN biasanya `0000` atau `1234`).
+2. Buka app > **Pengaturan > Printer** > tambah printer (jenis **Bluetooth**) > **Sambungkan** > pilih printer dari daftar.
+3. Android 12+ akan meminta izin "Perangkat di sekitar" — pilih **Izinkan**.
+4. Setelah itu app mengingat printer di HP ini dan mencoba menyambung ulang otomatis saat mencetak.
+
+Di browser (web): tetap pakai Web Bluetooth (printer BLE) / WebUSB di Chrome atau Edge lewat HTTPS.
+Kalau tidak ada printer yang tersambung, cetak otomatis jatuh ke PDF 58mm seperti sebelumnya.

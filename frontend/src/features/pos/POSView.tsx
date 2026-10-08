@@ -52,6 +52,8 @@ import {
   registerPrinterConnection,
   removePrinterConnection,
   subscribeToPrinterConnections,
+  hasDisconnectedSavedNativePrinter,
+  reconnectSavedNativePrinters,
 } from '../../lib/printing/printerConnection';
 import { buildInvoiceReceipt } from '../../lib/printing/escpos';
 import {
@@ -944,7 +946,7 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
   };
 
   // Print the just-completed receipt to the cashier's thermal printer.
-  const handlePrintReceiptSim = () => {
+  const handlePrintReceiptSim = (skipReconnect = false) => {
     // The source of truth for "is a printer actually connected right now"
     // is the live Bluetooth/USB registry (printerConnection.ts), not the
     // `printers` table cache below — that cache is populated lazily/async
@@ -954,6 +956,16 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
     const connections = getPrinterConnections();
     const connectedPrinterId = [...connections.keys()][0];
     const handle = connectedPrinterId ? connections.get(connectedPrinterId) : undefined;
+
+    // APK: printer sempat terputus (dimatikan / app ditutup) — coba sambung ulang otomatis dulu.
+    if (!handle && !skipReconnect && hasDisconnectedSavedNativePrinter()) {
+      setIsPrintingAnim(true);
+      reconnectSavedNativePrinters().finally(() => {
+        setIsPrintingAnim(false);
+        handlePrintReceiptSim(true);
+      });
+      return;
+    }
 
     // Printers registered at all (Supabase, shared across devices) — used
     // only to decide whether to show the "belum ada printer" alert and for
@@ -1830,7 +1842,7 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
         {showCheckoutReceipt && lastOrderDetails && (
           <ReceiptModal
             onClose={() => setShowCheckoutReceipt(false)}
-            onPrint={handlePrintReceiptSim}
+            onPrint={() => handlePrintReceiptSim()}
             onPrintPDF={handlePrintPDF}
             isPrintingAnim={isPrintingAnim}
             isGeneratingPDF={isGeneratingPDF}
