@@ -103,7 +103,10 @@ export function createRepo<T>(table: string): Repo<T> {
   let reloadTimer: ReturnType<typeof setTimeout> | null = null;
   const listeners = new Set<() => void>();
   const keyOf = (item: T) => String((item as Record<string, unknown>)[ts.key] ?? '');
+  // Sengaja TIDAK di-cache: kode lain bisa saja mengubah objek baris di tempat,
+  // dan sidik jari basi akan membuat perubahan tidak pernah tersimpan.
   const fingerprint = (item: T) => JSON.stringify(item);
+  let dirtyWhileHidden = false;
 
   const emit = () => listeners.forEach((l) => l());
   const setRows = (next: T[]) => { rows = next; emit(); };
@@ -148,9 +151,30 @@ export function createRepo<T>(table: string): Repo<T> {
     return out;
   }
 
+  // Baca ulang seluruh tabel, tapi pertahankan OBJEK LAMA untuk baris yang
+  // isinya tidak berubah, dan jangan memicu render sama sekali kalau tidak
+  // ada yang berubah. Sebelumnya setiap event realtime (termasuk "gema" dari
+  // tulisan kita sendiri) mengganti seluruh array dan menggambar ulang semua
+  // daftar yang membaca tabel ini.
   async function reload() {
     try {
-      setRows(await fetchAll());
+      const fetched = await fetchAll();
+      if (!ready) {
+        setRows(fetched);
+      } else {
+        const prev = new Map(rows.map((r) => [keyOf(r), r]));
+        let changed = fetched.length !== rows.length;
+        const merged = fetched.map((item, i) => {
+          const old = prev.get(keyOf(item));
+          if (old !== undefined && fingerprint(old) === fingerprint(item)) {
+            if (rows[i] !== old) changed = true; // urutan berubah
+            return old;
+          }
+          changed = true;
+          return item;
+        });
+        if (changed) setRows(merged);
+      }
     } catch (err) {
       console.error(`[db] Gagal membaca tabel "${table}":`, err);
     } finally {
@@ -163,8 +187,20 @@ export function createRepo<T>(table: string): Repo<T> {
     reloadTimer = setTimeout(() => {
       // Jangan timpa perubahan lokal yang belum selesai ditulis.
       if (pendingWrites > 0) { scheduleReload(); return; }
+      // App di latar belakang / tab tersembunyi: tunda sampai terlihat lagi
+      // supaya tidak membuang baterai dan CPU untuk layar yang tak dilihat.
+      if (typeof document !== 'undefined' && document.hidden) { dirtyWhileHidden = true; return; }
       void reload();
-    }, 400);
+    }, 800);
+  }
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && dirtyWhileHidden) {
+        dirtyWhileHidden = false;
+        scheduleReload();
+      }
+    });
   }
 
   function listenRealtime() {

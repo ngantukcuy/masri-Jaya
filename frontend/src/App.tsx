@@ -341,13 +341,14 @@ function Dashboard({
   // Render active view component
   const renderActiveView = () => {
     return (
-      <AnimatePresence mode="wait">
-        <motion.div
+      // Hanya fade-in singkat, tanpa animasi keluar: dulu halaman lama harus
+      // selesai "keluar" (mode="wait") dulu baru halaman baru masuk, sehingga
+      // pindah menu terasa tertahan dan boros render.
+      <motion.div
           key={currentTab}
-          initial={{ opacity: 0, y: 15, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -15, scale: 0.98 }}
-          transition={{ duration: 0.25, ease: 'easeOut' }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.12, ease: 'easeOut' }}
           className="w-full"
         >
           {/* Error di satu halaman tidak lagi mematikan seluruh aplikasi (layar putih) */}
@@ -600,8 +601,7 @@ function Dashboard({
             })()}
           </Suspense>
           </ErrorBoundary>
-        </motion.div>
-      </AnimatePresence>
+      </motion.div>
     );
   };
 

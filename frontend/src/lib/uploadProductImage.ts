@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { compressImage } from './compressImage';
 
 const BUCKET = 'product-images';
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB, ditegakkan juga di level bucket (lihat backend/supabase/schema.sql)
@@ -23,12 +24,27 @@ export async function uploadProductImage(file: File, folder?: string): Promise<s
     throw new Error('File yang dipilih bukan gambar.');
   }
 
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  // Foto diperkecil dulu di perangkat supaya Kasir tidak berat memuat foto
+  // 4 MB untuk kartu 150 px:
+  // - foto produk (tanpa folder): sisi terpanjang 800 px
+  // - bukti pengeluaran / bayar supplier: 1600 px (masih terbaca jelas)
+  // - QRIS: TIDAK diubah, kompresi bisa membuat kodenya gagal dipindai
+  let toUpload = file;
+  if (!folder) {
+    toUpload = await compressImage(file, { maxDimension: 800, quality: 0.8 });
+  } else if (folder.startsWith('bukti-')) {
+    toUpload = await compressImage(file, { maxDimension: 1600, quality: 0.85 });
+  }
+
+  const safeName = toUpload.name.replace(/[^a-zA-Z0-9._-]/g, '_');
   const path = folder ? `${folder}/${Date.now()}-${safeName}` : `${Date.now()}-${safeName}`;
 
-  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    contentType: file.type,
+  const { error } = await supabase.storage.from(BUCKET).upload(path, toUpload, {
+    contentType: toUpload.type,
     upsert: false,
+    // Nama file unik per upload (timestamp) -> aman di-cache lama oleh
+    // browser/WebView, jadi foto tidak diunduh ulang setiap membuka Kasir.
+    cacheControl: '31536000',
   });
 
   if (error) {

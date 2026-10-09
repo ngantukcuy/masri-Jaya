@@ -6,6 +6,12 @@ import { DialogProvider } from './components/shared/DialogProvider.tsx';
 import ErrorBoundary from './components/shared/ErrorBoundary.tsx';
 import './index.css';
 
+// Di APK, matikan efek blur kaca (lihat `.native-app` di index.css) —
+// efek itu berat untuk WebView Android dan bikin scroll/popup terasa lag.
+if (Capacitor.isNativePlatform()) {
+  document.documentElement.classList.add('native-app');
+}
+
 // After a new deploy, the hashed chunk filenames (DashboardView-xxxx.js etc.)
 // change. A browser that already had the app open, or that has the old
 // index.html cached, will try to fetch a lazy-loaded page's OLD filename,

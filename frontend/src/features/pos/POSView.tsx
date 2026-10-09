@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   User, 
   Trash2, 
@@ -140,6 +140,10 @@ interface POSViewProps {
   /** Jump to the Kas Harian tab — used by the "kas belum dibuka" warning below so the cashier can open it without hunting for the menu. */
   onGoToKasHarian?: () => void;
 }
+
+// Jumlah kartu produk yang digambar per "halaman" di grid Kasir.
+const PRODUCT_PAGE = 24;
+const PRODUCT_COLLATOR = new Intl.Collator('id', { sensitivity: 'base', numeric: true });
 
 export default function POSView({ 
   products, 
@@ -293,14 +297,45 @@ export default function POSView({
   const categories = ['Semua Kategori', ...categoryNames];
 
   // Filtered Products
-  const filteredProducts = products.filter((prod) => {
-    const matchesCategory = selectedCategory === 'Semua Kategori' || prod.category === selectedCategory;
+  // Dihitung ulang hanya saat produk/kategori/pencarian berubah — bukan di
+  // setiap render (mis. tiap item masuk keranjang). Collator dibuat sekali;
+  // `localeCompare` dengan opsi membuat Intl.Collator baru di tiap
+  // perbandingan dan sangat lambat untuk ratusan produk di HP.
+  const filteredProducts = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    const matchesSearch = prod.name.toLowerCase().includes(q) || 
-                          prod.sku.toLowerCase().includes(q) ||
-                          (prod.barcode || '').toLowerCase().includes(q);
-    return matchesCategory && matchesSearch;
-  }).sort((a, b) => a.name.localeCompare(b.name, 'id', { sensitivity: 'base', numeric: true }));
+    return products
+      .filter((prod) => {
+        const matchesCategory = selectedCategory === 'Semua Kategori' || prod.category === selectedCategory;
+        const matchesSearch =
+          prod.name.toLowerCase().includes(q) ||
+          prod.sku.toLowerCase().includes(q) ||
+          (prod.barcode || '').toLowerCase().includes(q);
+        return matchesCategory && matchesSearch;
+      })
+      .sort((a, b) => PRODUCT_COLLATOR.compare(a.name, b.name));
+  }, [products, selectedCategory, searchQuery]);
+
+  // Grid produk digambar bertahap (PRODUCT_PAGE kartu sekali muat) — menggambar
+  // ratusan kartu bergambar sekaligus membuat Kasir berat di HP.
+  const [visibleProductCount, setVisibleProductCount] = useState(PRODUCT_PAGE);
+  const productSentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { setVisibleProductCount(PRODUCT_PAGE); }, [searchQuery, selectedCategory]);
+  const visibleProducts = filteredProducts.slice(0, visibleProductCount);
+  const hasMoreProducts = visibleProductCount < filteredProducts.length;
+  useEffect(() => {
+    const el = productSentinelRef.current;
+    if (!el || !hasMoreProducts) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisibleProductCount((c) => c + PRODUCT_PAGE);
+        }
+      },
+      { rootMargin: '400px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMoreProducts, visibleProductCount]);
 
   const handleAddCustomer = (name: string, loyaltyTier: string, phone?: string) => {
     const nextId = `CUST-${Math.floor(10000 + Math.random() * 90000)}`;
@@ -1380,13 +1415,13 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
 
         {/* Products Grid Canvas */}
         <div className="flex-1 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 auto-rows-max gap-4 pr-1 content-start">
-          {filteredProducts.map((prod) => (
-            <motion.div 
-              whileTap={{ scale: 0.98 }}
+          {visibleProducts.map((prod) => (
+            <div
               onClick={() => handleProductPick(prod)}
               key={prod.sku}
+              className="active:scale-[0.98] transition-transform"
             >
-              <Card className="p-3 flex flex-col justify-between hover:border-primary/50 cursor-pointer group transition-all gap-0">
+              <Card className="p-3 flex flex-col justify-between hover:border-primary/50 cursor-pointer group transition-colors gap-0">
               {/* Product Thumbnail */}
               <div className="w-full h-28 rounded-lg overflow-hidden bg-gray-50 relative border border-gray-100 mb-3">
                 {/* Fallback icon shown when the image fails to load (broken/expired URL) */}
@@ -1396,9 +1431,10 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
                 <img 
                   src={prod.image} 
                   alt={prod.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 relative"
+                  className="w-full h-full object-cover relative"
                   referrerPolicy="no-referrer"
                   loading="lazy"
+                  decoding="async"
                   onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
                   onLoad={(e) => { e.currentTarget.style.visibility = 'visible'; }}
                 />
@@ -1424,8 +1460,19 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
                 </Badge>
               </div>
               </Card>
-            </motion.div>
+            </div>
           ))}
+          {hasMoreProducts && (
+            <div ref={productSentinelRef} className="col-span-full flex justify-center py-3">
+              <button
+                type="button"
+                onClick={() => setVisibleProductCount((c) => c + PRODUCT_PAGE)}
+                className="text-[10px] font-bold text-gray-400 hover:text-primary cursor-pointer"
+              >
+                Memuat produk lainnya… ({visibleProducts.length}/{filteredProducts.length})
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

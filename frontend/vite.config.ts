@@ -4,7 +4,7 @@ import path from 'path';
 import {defineConfig} from 'vite';
 import pkg from './package.json';
 
-export default defineConfig(() => {
+export default defineConfig(({ mode }) => {
   return {
     // Makes the version in package.json (which should be bumped on every
     // release, and is kept in sync with android/app/build.gradle's
@@ -19,7 +19,9 @@ export default defineConfig(() => {
       // flags large first-party JS with no source map). These are only
       // fetched by browser devtools, not by regular page loads, so this
       // doesn't add to what real users download.
-      sourcemap: true,
+      // Kecuali build APK (`--mode android`): di sana file .map ikut dibungkus
+      // ke dalam APK dan hanya membuat ukurannya membengkak, tanpa dipakai.
+      sourcemap: mode !== 'android',
     },
     resolve: {
       alias: {

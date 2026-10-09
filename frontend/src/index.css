@@ -199,3 +199,21 @@ button {
     display: none !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Performa di APK (WebView Android)
+   `backdrop-filter` (blur kaca) sangat berat untuk GPU HP kelas menengah ke
+   bawah: header/sidebar yang selalu tampil dan lapisan gelap di belakang
+   setiap popup dihitung ulang tiap frame saat scroll/animasi. Di APK efeknya
+   dimatikan; latar yang tadinya semi-transparan dibuat solid supaya tetap
+   terbaca. Tampilan web tidak berubah.
+   ------------------------------------------------------------------------- */
+.native-app [class*="backdrop-blur"] {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+.native-app .bg-white\/70,
+.native-app .bg-white\/80,
+.native-app .bg-white\/90 {
+  background-color: #ffffff !important;
+}

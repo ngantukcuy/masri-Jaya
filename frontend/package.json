@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "android:sync": "vite build && npx cap sync android",
+    "android:sync": "vite build --mode android && npx cap sync android",
     "android:open": "npx cap open android"
   },
   "dependencies": {
