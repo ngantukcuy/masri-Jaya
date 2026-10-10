@@ -63,6 +63,12 @@ export interface SalesInvoice {
   paymentAccountName?: string;
   paymentAccountNumber?: string;
   paymentAccountHolder?: string;
+  /** Hanya untuk paymentMethod 'Transfer'. 'Menunggu' = transaksi sudah dicatat dan stok
+   * sudah dipotong, tapi uangnya belum dipastikan masuk ke rekening. 'Dikonfirmasi' =
+   * sudah dicek di mutasi/m-banking. Kosong (invoice lama) = diperlakukan seperti sebelumnya. */
+  transferStatus?: 'Menunggu' | 'Dikonfirmasi';
+  /** ISO timestamp saat transfer ditandai sudah masuk. */
+  transferConfirmedAt?: string;
 }
 
 // ---- Retur (Sales & Purchase Returns) ----

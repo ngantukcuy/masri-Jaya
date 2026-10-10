@@ -491,6 +491,8 @@ create table if not exists public."sales_invoices" (
   "payment_account_name" text,
   "payment_account_number" text,
   "payment_account_holder" text,
+  "transfer_status" text,
+  "transfer_confirmed_at" text,
   db_created_at timestamptz not null default now(),
   db_updated_at timestamptz not null default now()
 );
@@ -520,6 +522,8 @@ alter table public."sales_invoices" add column if not exists "pay_on_delivery" b
 alter table public."sales_invoices" add column if not exists "payment_account_name" text;
 alter table public."sales_invoices" add column if not exists "payment_account_number" text;
 alter table public."sales_invoices" add column if not exists "payment_account_holder" text;
+alter table public."sales_invoices" add column if not exists "transfer_status" text;
+alter table public."sales_invoices" add column if not exists "transfer_confirmed_at" text;
 drop trigger if exists trg_sales_invoices_db_updated on public."sales_invoices";
 create trigger trg_sales_invoices_db_updated before update on public."sales_invoices" for each row execute function public.set_db_updated_at();
 

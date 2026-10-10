@@ -48,9 +48,16 @@ const returStatusLabel: Record<ReturnRecord['status'], string> = {
   Rejected: 'Retur Ditolak',
 };
 
-type DebtPaymentStatus = 'Belum dibayar' | 'Dibayar sebagian' | 'Lunas';
+type DebtPaymentStatus = 'Belum dibayar' | 'Dibayar sebagian' | 'Lunas' | 'Menunggu transfer';
 
 function getDebtPaymentStatus(invoice: SalesInvoice): DebtPaymentStatus | null {
+  // Transfer: hanya invoice yang punya status (dibuat setelah fitur konfirmasi
+  // transfer ada) yang ditampilkan; invoice lama tetap "—" seperti sebelumnya.
+  if (invoice.paymentMethod === 'Transfer') {
+    if (invoice.transferStatus === 'Menunggu') return 'Menunggu transfer';
+    if (invoice.transferStatus === 'Dikonfirmasi') return 'Lunas';
+    return null;
+  }
   if (invoice.paymentMethod !== 'Piutang' && invoice.paymentMethod !== 'Split') return null;
 
   const remainingDebt = Math.max(
@@ -68,6 +75,7 @@ function getDebtPaymentStatus(invoice: SalesInvoice): DebtPaymentStatus | null {
 }
 
 const debtPaymentStatusStyle: Record<DebtPaymentStatus, string> = {
+  'Menunggu transfer': 'bg-amber-50 text-amber-700',
   'Belum dibayar': 'bg-red-50 text-red-700',
   'Dibayar sebagian': 'bg-amber-50 text-amber-700',
   Lunas: 'bg-emerald-50 text-emerald-700',
@@ -98,6 +106,7 @@ function parseInvoiceDate(inv: SalesInvoice): Date | null {
 
 export default function TransactionHistoryView({ salesInvoices, returns = [], onUpdateSalesInvoice, onDeleteSalesInvoice, products, onUpdateProducts, customers, onUpdateCustomers, onAddActivity, currentUser, storeProfile, cashierName }: TransactionHistoryViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [onlyPendingTransfer, setOnlyPendingTransfer] = useState(false);
   const [selected, setSelected] = useState<SalesInvoice | null>(null);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -115,6 +124,23 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
     setPrintTarget((current) => current?.invoice.invoiceNumber === updatedInvoice.invoiceNumber
       ? { ...current, invoice: updatedInvoice }
       : current);
+  };
+
+  // Tandai transfer sudah masuk setelah kasir mengecek mutasi/m-banking.
+  const confirmTransfer = (invoice: SalesInvoice) => {
+    const rekening = invoice.paymentAccountName
+      ? `${invoice.paymentAccountName}${invoice.paymentAccountNumber ? ` (${invoice.paymentAccountNumber})` : ''}`
+      : 'rekening toko';
+    const ok = window.confirm(
+      `Pastikan uang Rp ${invoice.total.toLocaleString('id-ID')} dari ${invoice.customerName} SUDAH masuk ke ${rekening}.\n\nTandai transfer ${invoice.invoiceNumber} sebagai sudah masuk?`
+    );
+    if (!ok) return;
+    handleInvoiceUpdate({
+      ...invoice,
+      transferStatus: 'Dikonfirmasi',
+      transferConfirmedAt: new Date().toISOString(),
+    });
+    onAddActivity('Transfer Dikonfirmasi', invoice.invoiceNumber, invoice.total, 'sale');
   };
 
   const requestDelete = async (invoice: SalesInvoice) => {
@@ -238,6 +264,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
       inv.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       inv.customerName.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
+    if (onlyPendingTransfer && !(inv.paymentMethod === 'Transfer' && inv.transferStatus === 'Menunggu')) return false;
 
     if (dateFrom || dateTo) {
       const invDate = parseInvoiceDate(inv);
@@ -251,7 +278,8 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
   const safePage = Math.min(currentPage, Math.max(1, pageCount));
   const paginatedInvoices = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
-  const isFiltered = Boolean(dateFrom || dateTo || searchQuery);
+  const pendingTransferCount = salesInvoices.filter((inv) => inv.paymentMethod === 'Transfer' && inv.transferStatus === 'Menunggu').length;
+  const isFiltered = Boolean(dateFrom || dateTo || searchQuery || onlyPendingTransfer);
   const totalOmzet = filtered.reduce(
     (acc, inv) => acc + getRemainingTotal(inv, returnsByInvoice.get(inv.invoiceNumber) || []),
     0
@@ -275,6 +303,15 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
+        <Button
+          type="button"
+          variant={onlyPendingTransfer ? 'default' : 'secondary'}
+          onClick={() => { setOnlyPendingTransfer((v) => !v); setCurrentPage(1); }}
+          className={pendingTransferCount > 0 && !onlyPendingTransfer ? 'text-amber-700' : ''}
+        >
+          <Clock className="w-3.5 h-3.5" />
+          Menunggu Transfer{pendingTransferCount > 0 ? ` (${pendingTransferCount})` : ''}
+        </Button>
         <div className="relative max-w-sm w-full sm:w-64">
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
           <Input
@@ -523,6 +560,11 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                   </Button>
                 )}
               </div>
+              {selected.paymentMethod === 'Transfer' && selected.transferStatus === 'Menunggu' && (
+                <Button onClick={() => confirmTransfer(selected)} className="w-full bg-emerald-600 hover:bg-emerald-700">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Tandai Transfer Sudah Masuk
+                </Button>
+              )}
               <div className="flex gap-2 pt-1">
                 {selected.deletionStatus === 'Pending' && canApproveDeletion ? (
                   <>

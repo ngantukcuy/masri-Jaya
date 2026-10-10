@@ -922,7 +922,8 @@ const commitQtyInput = (sku: string, allowDecimal = false) => {
         payOnDelivery: methodUsed === 'Piutang' && paymentDetails.payOnDelivery ? true : undefined,
         paymentAccountName: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.name : undefined,
         paymentAccountNumber: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.accountNumber : undefined,
-        paymentAccountHolder: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.holderName : undefined
+        paymentAccountHolder: methodUsed === 'Transfer' ? paymentDetails.transferAccount?.holderName : undefined,
+        transferStatus: methodUsed === 'Transfer' ? 'Menunggu' : undefined
       });
     }
 

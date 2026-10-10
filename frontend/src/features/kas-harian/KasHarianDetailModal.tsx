@@ -111,7 +111,11 @@ export default function KasHarianDetailModal({ session, salesInvoices, returns, 
 
   const totalTunai = totalBy('Cash') + splitPaid;
   const totalQris = totalBy('QRIS');
-  const totalTransfer = totalBy('Transfer');
+  // Transfer yang belum dikonfirmasi masuk ke rekening tidak boleh dihitung
+  // sebagai transfer diterima — dipisah ke baris sendiri di bawah.
+  const transferInvoices = invoicesBy('Transfer');
+  const totalTransfer = transferInvoices.filter((i) => i.transferStatus !== 'Menunggu').reduce((a, i) => a + i.total, 0);
+  const totalTransferMenunggu = transferInvoices.filter((i) => i.transferStatus === 'Menunggu').reduce((a, i) => a + i.total, 0);
   const totalDeposit = totalBy('Deposit');
   const totalPiutang = totalBy('Piutang') + splitDebt;
   const totalMutasiPenjualan = matchedInvoices.reduce((a, i) => a + i.total, 0);
@@ -120,6 +124,9 @@ export default function KasHarianDetailModal({ session, salesInvoices, returns, 
     { label: 'Total Nominal Tunai', value: totalTunai, masukKas: true },
     { label: 'Total Nominal QRIS', value: totalQris, masukKas: false },
     { label: 'Total Nominal Transfer', value: totalTransfer, masukKas: false },
+    ...(totalTransferMenunggu > 0
+      ? [{ label: 'Transfer Menunggu Konfirmasi', value: totalTransferMenunggu, masukKas: false }]
+      : []),
     { label: 'Total Nominal Deposit', value: totalDeposit, masukKas: false },
     { label: 'Total Nominal Piutang', value: totalPiutang, masukKas: false },
   ];

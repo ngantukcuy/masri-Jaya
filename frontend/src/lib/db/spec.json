@@ -819,6 +819,14 @@
         [
           "paymentAccountHolder",
           "text"
+        ],
+        [
+          "transferStatus",
+          "text"
+        ],
+        [
+          "transferConfirmedAt",
+          "text"
         ]
       ],
       "children": [

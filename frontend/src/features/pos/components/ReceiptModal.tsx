@@ -116,6 +116,7 @@ export default function ReceiptModal({ onClose, onPrint, onPrintPDF, isPrintingA
                 <div className="flex justify-between"><span>Rekening:</span><span className="font-bold text-foreground">{lastOrderDetails.transferAccount.name}</span></div>
                 <div className="flex justify-between"><span>Nomor:</span><span className="font-bold text-foreground">{lastOrderDetails.transferAccount.accountNumber || '-'}</span></div>
                 {lastOrderDetails.transferAccount.holderName && <div className="flex justify-between"><span>Atas Nama:</span><span>{lastOrderDetails.transferAccount.holderName}</span></div>}
+                <div className="flex justify-between"><span>Status:</span><span className="font-bold text-amber-600">MENUNGGU TRANSFER</span></div>
               </div>
             )}
             {lastOrderDetails.fulfillmentMethod && (

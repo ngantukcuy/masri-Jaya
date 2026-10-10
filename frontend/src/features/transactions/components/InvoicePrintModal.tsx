@@ -423,6 +423,14 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
                 <div className="flex justify-between"><span>REKENING:</span><span className="font-bold">{printableInvoice.paymentAccountName}</span></div>
                 <div className="flex justify-between"><span>NOMOR:</span><span className="font-bold">{printableInvoice.paymentAccountNumber || '-'}</span></div>
                 {printableInvoice.paymentAccountHolder && <div className="flex justify-between"><span>PEMILIK:</span><span>{printableInvoice.paymentAccountHolder}</span></div>}
+                {printableInvoice.transferStatus && (
+                  <div className="flex justify-between">
+                    <span>STATUS:</span>
+                    <span className={`font-bold ${printableInvoice.transferStatus === 'Menunggu' ? 'text-amber-600' : 'text-emerald-600'}`}>
+                      {printableInvoice.transferStatus === 'Menunggu' ? 'MENUNGGU TRANSFER' : 'LUNAS'}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
             {printableInvoice.fulfillmentMethod && (
