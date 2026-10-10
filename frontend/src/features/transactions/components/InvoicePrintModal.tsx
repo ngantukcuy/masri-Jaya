@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Printer, FileDown, Truck, Store, X, CheckCircle2, ArrowLeft, Square, CheckSquare, MessageCircle, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { SalesInvoice } from '../../../types';
@@ -13,7 +13,7 @@ import {
 import { buildInvoiceReceipt, buildDeliveryReceipt } from '../../../lib/printing/escpos';
 import { useDialog } from '../../../components/shared/DialogProvider';
 import { formatQty, lineAmount, roundQty } from '../../../lib/quantity';
-import { shareReceiptImage } from '../../../lib/shareReceipt';
+import { shareReceiptImage, primeReceiptImage } from '../../../lib/shareReceipt';
 
 interface StoreProfileLite {
   storeName: string;
@@ -214,6 +214,16 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
     }, 1400);
   };
 
+  // Siapkan gambar struk begitu modal terbuka, supaya tombol Bagikan langsung
+  // membuka share sheet (lihat catatan di shareReceipt.ts).
+  useEffect(() => {
+    if (docType !== 'invoice') return;
+    const timer = setTimeout(() => {
+      if (receiptRef.current) primeReceiptImage(receiptRef.current, String(invoice.invoiceNumber));
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [docType, invoice.invoiceNumber]);
+
   // Bagikan struk (gambar, sama persis dengan tampilan di layar) ke WhatsApp.
   const handleShareWhatsApp = async () => {
     if (!receiptRef.current || isSharing) return;
@@ -231,8 +241,11 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
         filename: `Struk-${String(invoice.invoiceNumber).replace(/[^\w.-]+/g, '_')}.png`,
         message,
         phone: customerPhone,
+        cacheKey: String(invoice.invoiceNumber),
       });
-      if (result === 'copied') {
+      if (result === 'retry') {
+        setShareHint('Struk sudah siap. Tekan tombol Bagikan sekali lagi.');
+      } else if (result === 'copied') {
         setShareHint('Gambar struk sudah disalin. Di chat WhatsApp Web yang terbuka, tekan Ctrl+V lalu kirim.');
       } else if (result === 'downloaded') {
         setShareHint('Gambar struk sudah diunduh. Lampirkan di chat WhatsApp Web yang terbuka.');

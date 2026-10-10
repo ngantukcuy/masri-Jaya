@@ -16,7 +16,7 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
-export type ShareResult = 'shared' | 'copied' | 'downloaded' | 'cancelled';
+export type ShareResult = 'shared' | 'copied' | 'downloaded' | 'cancelled' | 'retry';
 
 /** HP/tablet (termasuk iPad yang menyamar sebagai Mac). Desktop = false. */
 function isMobileDevice(): boolean {
@@ -157,13 +157,51 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
+// Gambar struk di-render sekali lalu disimpan per elemen struk. Dua gunanya:
+// 1. `primeReceiptImage` dipanggil saat modal terbuka, jadi saat tombol
+//    ditekan gambarnya sudah siap dan share sheet bisa dibuka seketika.
+//    Browser HP (Web Share API) hanya mengizinkan share beberapa detik
+//    setelah sentuhan; kalau render gambar baru dimulai saat tombol ditekan
+//    dan makan waktu, izinnya hangus (NotAllowedError).
+// 2. Tekan ulang tidak me-render ulang.
+const imageCache = new WeakMap<HTMLElement, { key: string; promise: Promise<Blob> }>();
+
+function getReceiptBlob(node: HTMLElement, key: string): Promise<Blob> {
+  const cached = imageCache.get(node);
+  if (cached && cached.key === key) return cached.promise;
+  const promise = renderReceiptBlob(node);
+  imageCache.set(node, { key, promise });
+  // Kalau gagal, jangan simpan hasil gagalnya.
+  promise.catch(() => {
+    if (imageCache.get(node)?.promise === promise) imageCache.delete(node);
+  });
+  return promise;
+}
+
+/** Siapkan gambar struk di latar belakang supaya tombol Bagikan instan. */
+export function primeReceiptImage(node: HTMLElement, key: string): void {
+  getReceiptBlob(node, key).catch(() => {});
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 export async function shareReceiptImage(
   node: HTMLElement,
-  opts: { filename: string; message: string; phone?: string }
+  opts: { filename: string; message: string; phone?: string; cacheKey?: string }
 ): Promise<ShareResult> {
-  const blob = await renderReceiptBlob(node);
+  const alreadyPrepared = imageCache.get(node)?.key === (opts.cacheKey ?? opts.filename);
+  const blob = await getReceiptBlob(node, opts.cacheKey ?? opts.filename);
 
-  // --- APK ---
+  // --- APK: share sheet bawaan Android (pilih WhatsApp, lalu kontak) ---
   if (Capacitor.isNativePlatform()) {
     const written = await Filesystem.writeFile({
       path: opts.filename,
@@ -185,27 +223,35 @@ export async function shareReceiptImage(
     }
   }
 
-  const file = new File([blob], opts.filename, { type: 'image/png' });
+  const file = new File([blob], opts.filename, { type: blob.type || 'image/png' });
+  const number = normalizeWhatsAppNumber(opts.phone);
 
-  // --- Browser HP/tablet: Web Share API dengan file ---
-  // Sengaja HANYA di HP/tablet. Di desktop (Windows/Mac) Web Share API akan
-  // membuka dialog berbagi milik sistem operasi, yang biasanya tidak
-  // menawarkan WhatsApp Web — padahal itu yang dibutuhkan di sini.
-  const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
-  if (isMobileDevice() && typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
-    try {
-      await nav.share({ files: [file], text: opts.message });
-      return 'shared';
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return 'cancelled';
-      // Gagal untuk alasan lain -> lanjut ke jalur desktop di bawah.
+  // --- Browser di HP/tablet: share sheet bawaan (Web Share API) ---
+  // Di HP TIDAK PERNAH diarahkan ke WhatsApp Web.
+  if (isMobileDevice()) {
+    const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean };
+    if (typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
+      try {
+        await nav.share({ files: [file], text: opts.message });
+        return 'shared';
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return 'cancelled';
+        // Izin share hangus karena render gambar tadi terlalu lama. Gambar
+        // sekarang sudah siap di cache, jadi tekan sekali lagi langsung jalan.
+        if (err?.name === 'NotAllowedError' && !alreadyPrepared) return 'retry';
+        throw err;
+      }
     }
+    // Browser HP yang tidak bisa membagikan file: unduh gambar lalu buka
+    // aplikasi WhatsApp (wa.me membuka app, bukan WhatsApp Web, di HP).
+    downloadBlob(blob, opts.filename);
+    window.open(`https://wa.me/${number ?? ''}?text=${encodeURIComponent(opts.message)}`, '_blank', 'noopener');
+    return 'downloaded';
   }
 
   // --- Desktop: salin gambar ke clipboard + buka WhatsApp Web ---
   // WhatsApp Web tidak punya link untuk melampirkan gambar otomatis, jadi
   // gambar disalin dulu; di chat tinggal tekan Ctrl+V lalu kirim.
-  const number = normalizeWhatsAppNumber(opts.phone);
   const waUrl = `https://web.whatsapp.com/send?${number ? `phone=${number}&` : ''}text=${encodeURIComponent(opts.message)}`;
 
   let copied = false;
@@ -218,17 +264,7 @@ export async function shareReceiptImage(
   } catch {
     // Clipboard ditolak browser — jatuh ke unduh file di bawah.
   }
-
-  if (!copied) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = opts.filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  }
+  if (!copied) downloadBlob(blob, opts.filename);
 
   window.open(waUrl, '_blank', 'noopener');
   return copied ? 'copied' : 'downloaded';

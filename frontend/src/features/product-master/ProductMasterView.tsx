@@ -27,6 +27,7 @@ import SearchableSelect from '../../components/shared/SearchableSelect';
 import { useDialog } from '../../components/shared/DialogProvider';
 import { CurrentUser, hasPermission } from '../../lib/permissions';
 import NumberInput from '../../components/shared/NumberInput';
+import { formatQty, roundQty } from '../../lib/quantity';
 import { generateBarcodeCode } from '../../lib/generateSku';
 import BarcodePreview from '../../components/shared/BarcodePreview';
 import { Button } from '../../components/ui/button';
@@ -294,7 +295,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
       dialog.alert(`Stok produk induk "${parent.name}" kosong, tidak ada yang bisa dipecah jadi eceran.`);
       return;
     }
-    const eceranStock = eceranForm.conversionValue;
+    const eceranStock = roundQty(eceranForm.conversionValue);
     const parentNextStock = parent.stock - 1;
 
     const sku = eceranForm.sku || createUniqueBarcode();
@@ -338,9 +339,9 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
       stockStatus: stockStatusFor(parentNextStock),
     };
     onUpdateProducts([newProduct, ...products.map(p => (p.sku === parent.sku ? updatedParent : p))]);
-    onAddActivity('Produk Eceran Baru', `${newProduct.name} - konversi 1 : ${eceranForm.conversionValue} ${eceranForm.unit}. Stok ${parent.name} ${parent.stock} → ${parentNextStock} ${parent.unit}`, 0, 'quote');
+    onAddActivity('Produk Eceran Baru', `${newProduct.name} - konversi 1 : ${formatQty(eceranForm.conversionValue)} ${eceranForm.unit}. Stok ${parent.name} ${parent.stock} → ${parentNextStock} ${parent.unit}`, 0, 'quote');
     setEceranForm({ ...emptyEceranForm, sku: createUniqueBarcode(), barcode: '' });
-    dialog.alert(`Produk eceran "${newProduct.name}" berhasil disimpan dengan SKU ${sku}. Stok awal ${eceranStock} ${eceranForm.unit}, stok ${parent.name} berkurang 1 ${parent.unit} (sisa ${parentNextStock}).`);
+    dialog.alert(`Produk eceran "${newProduct.name}" berhasil disimpan dengan SKU ${sku}. Stok awal ${formatQty(eceranStock)} ${eceranForm.unit}, stok ${parent.name} berkurang 1 ${parent.unit} (sisa ${parentNextStock}).`);
   };
 
   // ---- Pecah Stok: bongkar N unit induk jadi eceran (N x nilai konversi) ----
@@ -370,17 +371,17 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
       dialog.alert(`Stok ${parent.name} hanya ${parent.stock} ${parent.unit}, tidak cukup untuk dipecah ${qty}.`);
       return;
     }
-    const added = qty * (eceran.conversionValue || 1);
+    const added = roundQty(qty * (eceran.conversionValue || 1));
     const parentNext = parent.stock - qty;
-    const eceranNext = eceran.stock + added;
+    const eceranNext = roundQty(eceran.stock + added);
     onUpdateProducts(products.map(p => {
       if (p.sku === parent.sku) return { ...p, stock: parentNext, stockStatus: stockStatusFor(parentNext) };
       if (p.sku === eceran.sku) return { ...p, stock: eceranNext, stockStatus: stockStatusFor(eceranNext) };
       return p;
     }));
-    onAddActivity('Pecah Stok Eceran', `${qty} ${parent.unit} ${parent.name} → +${added} ${eceran.unit} ${eceran.name}. Stok induk ${parent.stock} → ${parentNext}`, 0, 'quote');
+    onAddActivity('Pecah Stok Eceran', `${qty} ${parent.unit} ${parent.name} → +${formatQty(added)} ${eceran.unit} ${eceran.name}. Stok induk ${parent.stock} → ${parentNext}`, 0, 'quote');
     setPecahTarget(null);
-    dialog.alert(`Berhasil memecah ${qty} ${parent.unit} ${parent.name}. Stok eceran jadi ${eceranNext} ${eceran.unit}, stok induk sisa ${parentNext} ${parent.unit}.`);
+    dialog.alert(`Berhasil memecah ${qty} ${parent.unit} ${parent.name}. Stok eceran jadi ${formatQty(eceranNext)} ${eceran.unit}, stok induk sisa ${parentNext} ${parent.unit}.`);
   };
 
   const handleDeleteSkuProduct = async (sku: string) => {
@@ -779,7 +780,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label>Nilai konversi</Label>
-                      <NumberInput min={1} value={eceranForm.conversionValue} onChange={(v) => setEceranForm({ ...eceranForm, conversionValue: v })} className={numberInputCls} placeholder="Contoh: 40" />
+                      <NumberInput allowDecimal min={0.001} value={eceranForm.conversionValue} onChange={(v) => setEceranForm({ ...eceranForm, conversionValue: v })} className={numberInputCls} placeholder="Contoh: 40 atau 0,5" />
                     </div>
                     <div>
                       <Label>Pilih Satuan <span className="text-red-500">*</span></Label>
@@ -837,10 +838,10 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
               <div className="bg-primary/5 border border-primary/10 rounded-xl p-3 flex items-center gap-2 text-primary font-bold">
                 <Scale className="w-4 h-4 shrink-0" />
                 <div>
-                  <p>Jumlah produk pecahan / 1 produk = {eceranForm.conversionValue || 0} {eceranForm.unit}</p>
+                  <p>Jumlah produk pecahan / 1 produk = {formatQty(eceranForm.conversionValue || 0)} {eceranForm.unit}</p>
                   {selectedIndukForEceran && (
                     <p className="text-[10px] font-semibold text-primary/80 mt-0.5">
-                      Stok awal eceran: {eceranForm.conversionValue || 0} {eceranForm.unit} • Stok {selectedIndukForEceran.name}: {selectedIndukForEceran.stock} → {Math.max(0, selectedIndukForEceran.stock - 1)} {selectedIndukForEceran.unit}
+                      Stok awal eceran: {formatQty(eceranForm.conversionValue || 0)} {eceranForm.unit} • Stok {selectedIndukForEceran.name}: {selectedIndukForEceran.stock} → {Math.max(0, selectedIndukForEceran.stock - 1)} {selectedIndukForEceran.unit}
                     </p>
                   )}
                 </div>
@@ -949,7 +950,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                           <TableCell className="font-bold text-xs">{p.name}</TableCell>
                           <TableCell className="font-mono text-xs">{p.sku}</TableCell>
                           <TableCell className="text-xs">{parent ? parent.name : '-'}</TableCell>
-                          <TableCell className="text-xs">1 : {p.conversionValue || 1} {p.unit}</TableCell>
+                          <TableCell className="text-xs">1 : {formatQty(p.conversionValue || 1)} {p.unit}</TableCell>
                           <TableCell className="text-right text-xs">{p.stock} {p.unit}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1">
@@ -986,7 +987,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                     <div className="bg-muted/50 rounded-lg p-3 space-y-1">
                       <div className="flex justify-between"><span className="text-muted-foreground">Induk</span><span className="font-bold">{pecahParent ? `${pecahParent.name} (stok ${pecahParent.stock} ${pecahParent.unit})` : '-'}</span></div>
                       <div className="flex justify-between"><span className="text-muted-foreground">Eceran</span><span className="font-bold">{pecahTarget.name} (stok {pecahTarget.stock} {pecahTarget.unit})</span></div>
-                      <div className="flex justify-between"><span className="text-muted-foreground">Konversi</span><span className="font-bold">1 : {pecahTarget.conversionValue} {pecahTarget.unit}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Konversi</span><span className="font-bold">1 : {formatQty(pecahTarget.conversionValue || 1)} {pecahTarget.unit}</span></div>
                     </div>
                     <div>
                       <Label>Jumlah induk yang dipecah{pecahParent ? ` (${pecahParent.unit})` : ''}</Label>
@@ -994,7 +995,7 @@ export default function ProductMasterView({ products, onAddActivity, onUpdatePro
                     </div>
                     {pecahParent && (
                       <div className="bg-primary/5 border border-primary/10 rounded-xl p-3 text-primary font-bold space-y-0.5">
-                        <p>Stok eceran: {pecahTarget.stock} → {pecahTarget.stock + Math.floor(pecahQty || 0) * (pecahTarget.conversionValue || 1)} {pecahTarget.unit}</p>
+                        <p>Stok eceran: {pecahTarget.stock} → {formatQty(pecahTarget.stock + Math.floor(pecahQty || 0) * (pecahTarget.conversionValue || 1))} {pecahTarget.unit}</p>
                         <p>Stok induk: {pecahParent.stock} → {pecahParent.stock - Math.floor(pecahQty || 0)} {pecahParent.unit}</p>
                       </div>
                     )}
