@@ -203,7 +203,62 @@ export default function KasHarianView({
       }];
     }),
   ];
-  const displayedMutations = session ? [...session.mutations, ...displayOnlyMutations] : [];
+
+  // Penjualan NON-tunai (QRIS, Transfer, Deposit, Piutang, dan sisa piutang dari
+  // Bayar Sebagian) selama sesi ini. Ditampilkan di tabel supaya semua transaksi
+  // terlihat, tapi hanya sebagai catatan: tidak masuk Kas Masuk / Total Kas Sistem
+  // karena tidak ada uang fisik yang masuk laci. Penjualan Tunai dan porsi tunai
+  // Bayar Sebagian sudah ada sebagai mutasi sungguhan (dari recordSale).
+  const nonCashSaleMutations: CashMutation[] = session?.openedAtISO
+    ? salesInvoices.flatMap((inv) => {
+        if (!inv.createdAt) return [];
+        const created = new Date(inv.createdAt);
+        if (Number.isNaN(created.getTime()) || created < new Date(session.openedAtISO as string)) return [];
+
+        const base = `Invoice ${inv.invoiceNumber} • ${inv.customerName}`;
+        const time = localTime(inv.createdAt);
+
+        if (inv.paymentMethod === 'QRIS' || inv.paymentMethod === 'Transfer' || inv.paymentMethod === 'Deposit' || inv.paymentMethod === 'Piutang') {
+          const waiting = inv.paymentMethod === 'Transfer' && inv.transferStatus === 'Menunggu' ? ' • Menunggu konfirmasi transfer' : '';
+          return [{
+            id: `display-sale-${inv.invoiceNumber}`,
+            type: 'in' as const,
+            category: `Penjualan ${inv.paymentMethod}`,
+            amount: inv.total,
+            note: `${base}${waiting} • Tidak dihitung ke saldo kas`,
+            time,
+          }];
+        }
+        if (inv.paymentMethod === 'Split') {
+          const remaining = Math.max(0, inv.splitRemainingDebt ?? inv.total - (inv.splitPaidAmount || 0));
+          if (remaining <= 0) return [];
+          return [{
+            id: `display-sale-${inv.invoiceNumber}`,
+            type: 'in' as const,
+            category: 'Penjualan Piutang (Bayar Sebagian)',
+            amount: remaining,
+            note: `${base} • Sisa belum dibayar • Tidak dihitung ke saldo kas`,
+            time,
+          }];
+        }
+        return [];
+      })
+    : [];
+
+  // Urutkan terbaru di atas berdasarkan jam. Baris yang jamnya bukan format
+  // "JJ.MM" (mis. "Hari ini") tetap di bawah dengan urutan aslinya.
+  const toMinutes = (time: string) => {
+    const m = /^(\d{1,2})[.:](\d{2})$/.exec((time || '').trim());
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  };
+  const allMutations = session ? [...session.mutations, ...nonCashSaleMutations, ...displayOnlyMutations] : [];
+  const timedMutations = allMutations
+    .map((m, i) => ({ m, i, k: toMinutes(m.time) }))
+    .filter((x): x is { m: CashMutation; i: number; k: number } => x.k !== null)
+    .sort((a, b) => b.k - a.k || a.i - b.i)
+    .map((x) => x.m);
+  const untimedMutations = allMutations.filter((m) => toMinutes(m.time) === null);
+  const displayedMutations = [...timedMutations, ...untimedMutations];
 
   const inCategories = ['Kas Tambahan', 'Top Up Deposit', 'Pembayaran Piutang', 'Retur Pembelian', 'Penjualan Tunai Lainnya'];
   const outCategories = ['Kembalian', 'Retur Penjualan', 'Pembayaran Lainnya', 'Pembelian Stok Lokasi SKU', 'Pembelian Stok Pemasok', 'Transaksi Dibatalkan', 'Pembayaran Hutang', 'Withdraw Deposit'];
