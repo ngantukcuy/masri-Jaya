@@ -493,6 +493,7 @@ create table if not exists public."sales_invoices" (
   "payment_account_holder" text,
   "transfer_status" text,
   "transfer_confirmed_at" text,
+  "delivery_proof_urls" text[],
   db_created_at timestamptz not null default now(),
   db_updated_at timestamptz not null default now()
 );
@@ -524,6 +525,7 @@ alter table public."sales_invoices" add column if not exists "payment_account_nu
 alter table public."sales_invoices" add column if not exists "payment_account_holder" text;
 alter table public."sales_invoices" add column if not exists "transfer_status" text;
 alter table public."sales_invoices" add column if not exists "transfer_confirmed_at" text;
+alter table public."sales_invoices" add column if not exists "delivery_proof_urls" text[];
 drop trigger if exists trg_sales_invoices_db_updated on public."sales_invoices";
 create trigger trg_sales_invoices_db_updated before update on public."sales_invoices" for each row execute function public.set_db_updated_at();
 
@@ -538,7 +540,8 @@ create table if not exists public."sales_invoice_items" (
   "original_price" numeric,
   "unit" text,
   "bonus" boolean,
-  "delivered_quantity" numeric
+  "delivered_quantity" numeric,
+  "received_quantity" numeric
 );
 alter table public."sales_invoice_items" add column if not exists "sku" text;
 alter table public."sales_invoice_items" add column if not exists "name" text;
@@ -548,6 +551,7 @@ alter table public."sales_invoice_items" add column if not exists "original_pric
 alter table public."sales_invoice_items" add column if not exists "unit" text;
 alter table public."sales_invoice_items" add column if not exists "bonus" boolean;
 alter table public."sales_invoice_items" add column if not exists "delivered_quantity" numeric;
+alter table public."sales_invoice_items" add column if not exists "received_quantity" numeric;
 create index if not exists sales_invoice_items_parent_idx on public."sales_invoice_items" (parent_key, position);
 
 create table if not exists public."sales_invoice_fees" (

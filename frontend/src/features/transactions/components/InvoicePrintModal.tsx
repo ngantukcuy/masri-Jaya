@@ -14,6 +14,7 @@ import { buildInvoiceReceipt, buildDeliveryReceipt } from '../../../lib/printing
 import { useDialog } from '../../../components/shared/DialogProvider';
 import { formatQty, lineAmount, roundQty } from '../../../lib/quantity';
 import { shareReceiptImage, primeReceiptImage } from '../../../lib/shareReceipt';
+import { receivedQty, inTransitQty } from '../../../lib/delivery';
 
 interface StoreProfileLite {
   storeName: string;
@@ -266,6 +267,10 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
       items: invoice.items.map((item, idx) => ({
         ...item,
         deliveredQuantity: roundQty(Math.min(item.quantity, (item.deliveredQuantity || 0) + effectiveDeliveryQty(idx))),
+        // Yang baru dicetak berstatus "dalam pengiriman" sampai dikonfirmasi di
+        // Riwayat Transaksi. Titik awal "sudah sampai" dikunci di jumlah yang
+        // sebelumnya sudah tercetak (data lama dianggap sudah sampai).
+        receivedQuantity: item.receivedQuantity ?? (item.deliveredQuantity || 0),
       })),
     };
     onDeliveryComplete?.(updatedInvoice);
@@ -348,7 +353,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
                   )}
                   <span className="flex-1 min-w-0">
                     <p className={`truncate font-semibold ${complete ? 'text-emerald-700' : 'text-gray-900'}`}>{item.name}</p>
-                    <p className="text-[10px] text-gray-400">Terkirim {formatQty(delivered)} / {formatQty(item.quantity)} {item.unit || ''} {complete ? '• Selesai' : `• Sisa ${formatQty(remaining)}`}</p>
+                    <p className="text-[10px] text-gray-400">Sampai {formatQty(receivedQty(item))} / {formatQty(item.quantity)} {item.unit || ''}{inTransitQty(item) > 0 ? ` • di jalan ${formatQty(inTransitQty(item))}` : ''} {complete ? '• Semua sudah di surat jalan' : `• Sisa ${formatQty(remaining)}`}</p>
                   </span>
                   {!complete && selectedItemIdx.has(idx) && (
                     <NumberInput

@@ -12,6 +12,9 @@ export interface SalesInvoiceItem {
   costPrice?: number;
   /** Quantity already included in a printed delivery note. */
   deliveredQuantity?: number;
+  /** Jumlah yang sudah DIKONFIRMASI sampai ke pelanggan. Kosong (data lama) = dianggap
+   * sama dengan deliveredQuantity. Selisih deliveredQuantity - receivedQuantity = "dalam pengiriman". */
+  receivedQuantity?: number;
 }
 
 export interface SalesInvoice {
@@ -69,6 +72,9 @@ export interface SalesInvoice {
   transferStatus?: 'Menunggu' | 'Dikonfirmasi';
   /** ISO timestamp saat transfer ditandai sudah masuk. */
   transferConfirmedAt?: string;
+  /** Foto bukti terima barang (surat jalan bertanda tangan / barang di lokasi) yang
+   * dilampirkan saat Konfirmasi Pengiriman. Satu foto per konfirmasi. */
+  deliveryProofUrls?: string[];
 }
 
 // ---- Retur (Sales & Purchase Returns) ----

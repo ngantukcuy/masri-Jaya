@@ -827,6 +827,10 @@
         [
           "transferConfirmedAt",
           "text"
+        ],
+        [
+          "deliveryProofUrls",
+          "text[]"
         ]
       ],
       "children": [
@@ -864,6 +868,10 @@
             ],
             [
               "deliveredQuantity",
+              "num"
+            ],
+            [
+              "receivedQuantity",
               "num"
             ]
           ]

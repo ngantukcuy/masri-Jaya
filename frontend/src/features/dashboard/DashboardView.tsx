@@ -21,6 +21,10 @@ import { Label } from '../../components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../../components/ui/dialog';
 import { buildDateBuckets, toDateInputValue } from '../../lib/dateBuckets';
 
+// Transfer yang belum dikonfirmasi masuk ke rekening belum dihitung sebagai
+// pendapatan/laba di Dashboard — baru dihitung setelah ditandai "sudah masuk".
+const isPendingTransfer = (inv: SalesInvoice) => inv.paymentMethod === 'Transfer' && inv.transferStatus === 'Menunggu';
+
 function downloadSalesCSV(salesInvoices: SalesInvoice[]) {
   const escapeCSV = (value: string | number) => {
     const text = String(value);
@@ -125,8 +129,8 @@ export default function DashboardView({
   const yesterday = new Date();
   yesterday.setDate(today.getDate() - 1);
 
-  const todayInvoices = salesInvoices.filter((inv) => inv.createdAt && sameDay(inv.createdAt, today));
-  const yesterdayInvoices = salesInvoices.filter((inv) => inv.createdAt && sameDay(inv.createdAt, yesterday));
+  const todayInvoices = salesInvoices.filter((inv) => inv.createdAt && sameDay(inv.createdAt, today) && !isPendingTransfer(inv));
+  const yesterdayInvoices = salesInvoices.filter((inv) => inv.createdAt && sameDay(inv.createdAt, yesterday) && !isPendingTransfer(inv));
 
   const pctChange = (current: number, previous: number) => {
     if (previous > 0) return ((current - previous) / previous) * 100;
@@ -173,7 +177,7 @@ export default function DashboardView({
     // Penjualan
     const invoiceByNumber = new Map(salesInvoices.map((inv) => [inv.invoiceNumber, inv]));
     salesInvoices.forEach((inv) => {
-      if (!inv.createdAt) return;
+      if (!inv.createdAt || isPendingTransfer(inv)) return;
       const label = `${inv.invoiceNumber} · ${inv.customerName || '-'}`;
       if (inv.paymentMethod !== 'Deposit') add('income', 'Penjualan', label, inv.createdAt, inv.total);
       const invProfit = estimateInvoiceProfit(inv);
@@ -321,6 +325,7 @@ export default function DashboardView({
   const categoryBySku = new Map(products.map((p) => [p.sku, p.category]));
   const categoryRevenue = new Map<string, number>();
   salesInvoices.forEach((inv) => {
+    if (isPendingTransfer(inv)) return;
     inv.items.forEach((item) => {
       const cat = categoryBySku.get(item.sku) || 'Lainnya';
       categoryRevenue.set(cat, (categoryRevenue.get(cat) || 0) + item.price * item.quantity);

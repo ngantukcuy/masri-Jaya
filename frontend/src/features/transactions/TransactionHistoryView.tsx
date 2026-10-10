@@ -12,6 +12,9 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import Pagination, { PAGE_SIZE } from '../../components/shared/Pagination';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../../components/ui/dialog';
 import { formatQty, lineAmount, roundQty } from '../../lib/quantity';
+import NumberInput from '../../components/shared/NumberInput';
+import { uploadProductImage } from '../../lib/uploadProductImage';
+import { getDeliveryState, deliveryStateStyle, receivedQty, inTransitQty, notYetSentQty, printedQty } from '../../lib/delivery';
 
 interface StoreProfileLite {
   storeName: string;
@@ -107,6 +110,11 @@ function parseInvoiceDate(inv: SalesInvoice): Date | null {
 export default function TransactionHistoryView({ salesInvoices, returns = [], onUpdateSalesInvoice, onDeleteSalesInvoice, products, onUpdateProducts, customers, onUpdateCustomers, onAddActivity, currentUser, storeProfile, cashierName }: TransactionHistoryViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [onlyPendingTransfer, setOnlyPendingTransfer] = useState(false);
+  const [onlyNeedDelivery, setOnlyNeedDelivery] = useState(false);
+  // Dialog konfirmasi pengiriman: jumlah yang benar-benar sampai per barang.
+  const [confirmDelivery, setConfirmDelivery] = useState<{ invoice: SalesInvoice; qtys: Record<number, number> } | null>(null);
+  const [deliveryProofFile, setDeliveryProofFile] = useState<File | null>(null);
+  const [isSavingDelivery, setIsSavingDelivery] = useState(false);
   const [selected, setSelected] = useState<SalesInvoice | null>(null);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -124,6 +132,56 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
     setPrintTarget((current) => current?.invoice.invoiceNumber === updatedInvoice.invoiceNumber
       ? { ...current, invoice: updatedInvoice }
       : current);
+  };
+
+  const openConfirmDelivery = (invoice: SalesInvoice) => {
+    const qtys: Record<number, number> = {};
+    invoice.items.forEach((item, idx) => {
+      const transit = inTransitQty(item);
+      if (transit > 0) qtys[idx] = transit; // default: semua yang di jalan sampai
+    });
+    setDeliveryProofFile(null);
+    setConfirmDelivery({ invoice, qtys });
+  };
+
+  // Simpan hasil pengiriman: yang sampai jadi "sudah sampai", yang tidak sampai
+  // kembali jadi "belum dikirim" (muncul lagi di Perlu Diantar & bisa dicetak
+  // surat jalan baru besok).
+  const submitConfirmDelivery = async () => {
+    if (!confirmDelivery || isSavingDelivery) return;
+    const { invoice, qtys } = confirmDelivery;
+    setIsSavingDelivery(true);
+    try {
+      // Foto bukti terima (opsional) diunggah dulu; kalau gagal, konfirmasi
+      // tidak disimpan setengah-setengah.
+      const proofUrl = deliveryProofFile ? await uploadProductImage(deliveryProofFile, 'bukti-pengiriman') : undefined;
+
+      const summary: string[] = [];
+      const items = invoice.items.map((item, idx) => {
+        const transit = inTransitQty(item);
+        if (transit <= 0) return item;
+        const got = roundQty(Math.min(transit, Math.max(0, qtys[idx] ?? transit)));
+        const back = roundQty(transit - got);
+        summary.push(`${item.name} ${formatQty(got)}/${formatQty(transit)}`);
+        return {
+          ...item,
+          receivedQuantity: roundQty(receivedQty(item) + got),
+          deliveredQuantity: roundQty(printedQty(item) - back),
+        };
+      });
+      handleInvoiceUpdate({
+        ...invoice,
+        items,
+        deliveryProofUrls: proofUrl ? [...(invoice.deliveryProofUrls || []), proofUrl] : invoice.deliveryProofUrls,
+      });
+      onAddActivity('Pengiriman Dikonfirmasi', `${invoice.invoiceNumber} • ${summary.join(', ')}`, 0, 'arrival');
+      setConfirmDelivery(null);
+      setDeliveryProofFile(null);
+    } catch (err: any) {
+      window.alert(`Gagal menyimpan konfirmasi: ${err?.message || 'Terjadi kesalahan tidak diketahui.'}`);
+    } finally {
+      setIsSavingDelivery(false);
+    }
   };
 
   // Tandai transfer sudah masuk setelah kasir mengecek mutasi/m-banking.
@@ -265,6 +323,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
       inv.customerName.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
     if (onlyPendingTransfer && !(inv.paymentMethod === 'Transfer' && inv.transferStatus === 'Menunggu')) return false;
+    if (onlyNeedDelivery && !(inv.fulfillmentMethod === 'Delivery' && getDeliveryState(inv) !== 'Terkirim')) return false;
 
     if (dateFrom || dateTo) {
       const invDate = parseInvoiceDate(inv);
@@ -279,7 +338,8 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
   const paginatedInvoices = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const pendingTransferCount = salesInvoices.filter((inv) => inv.paymentMethod === 'Transfer' && inv.transferStatus === 'Menunggu').length;
-  const isFiltered = Boolean(dateFrom || dateTo || searchQuery || onlyPendingTransfer);
+  const needDeliveryCount = salesInvoices.filter((inv) => inv.fulfillmentMethod === 'Delivery' && getDeliveryState(inv) !== 'Terkirim').length;
+  const isFiltered = Boolean(dateFrom || dateTo || searchQuery || onlyPendingTransfer || onlyNeedDelivery);
   const totalOmzet = filtered.reduce(
     (acc, inv) => acc + getRemainingTotal(inv, returnsByInvoice.get(inv.invoiceNumber) || []),
     0
@@ -311,6 +371,15 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
         >
           <Clock className="w-3.5 h-3.5" />
           Menunggu Transfer{pendingTransferCount > 0 ? ` (${pendingTransferCount})` : ''}
+        </Button>
+        <Button
+          type="button"
+          variant={onlyNeedDelivery ? 'default' : 'secondary'}
+          onClick={() => { setOnlyNeedDelivery((v) => !v); setCurrentPage(1); }}
+          className={needDeliveryCount > 0 && !onlyNeedDelivery ? 'text-amber-700' : ''}
+        >
+          <Truck className="w-3.5 h-3.5" />
+          Perlu Diantar{needDeliveryCount > 0 ? ` (${needDeliveryCount})` : ''}
         </Button>
         <div className="relative max-w-sm w-full sm:w-64">
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
@@ -419,22 +488,25 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                         <Printer className="w-3.5 h-3.5" />
                       </Button>
                       {inv.fulfillmentMethod === 'Delivery' && (() => {
-                        const deliveryComplete = inv.items.every((item) => (item.deliveredQuantity || 0) >= item.quantity);
+                        const deliveryState = getDeliveryState(inv);
+                        const deliveryComplete = deliveryState === 'Terkirim';
                         return (
                           <>
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={(e) => { e.stopPropagation(); setPrintTarget({ invoice: inv, docType: 'delivery' }); }}
-                              title={deliveryComplete ? 'Semua barang sudah diantar - Cetak Surat Jalan' : 'Cetak Struk Surat Jalan'}
+                              title={deliveryComplete ? 'Semua barang sudah sampai - Cetak Surat Jalan' : `Cetak Struk Surat Jalan (${deliveryState})`}
                               className={`w-7 h-7 ${deliveryComplete ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}
                             >
                               <Truck className="w-3.5 h-3.5" />
                             </Button>
-                            {deliveryComplete && (
-                              <span title="Semua barang sudah diantar" aria-label="Semua barang sudah diantar">
+                            {deliveryComplete ? (
+                              <span title="Semua barang sudah sampai" aria-label="Semua barang sudah sampai">
                                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                               </span>
+                            ) : (
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap ${deliveryStateStyle[deliveryState]}`}>{deliveryState}</span>
                             )}
                           </>
                         );
@@ -503,6 +575,48 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                 <span>Grand Total</span>
                 <span className="text-blue-600">Rp {selectedTotal.toLocaleString('id-ID')}</span>
               </div>
+
+              {selected.fulfillmentMethod === 'Delivery' && (
+                <div className="space-y-2 pt-2 border-t border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <h5 className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5 text-amber-600" /> Status Pengiriman
+                    </h5>
+                    <Badge className={`border-transparent ${deliveryStateStyle[getDeliveryState(selected)]}`}>{getDeliveryState(selected)}</Badge>
+                  </div>
+                  <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden text-[11px]">
+                    {selected.items.map((it, i) => {
+                      const transit = inTransitQty(it);
+                      const notSent = notYetSentQty(it);
+                      return (
+                        <div key={i} className="flex justify-between gap-3 p-2.5">
+                          <span className="text-gray-700">{it.name}</span>
+                          <span className="text-right shrink-0">
+                            <span className="font-bold text-emerald-600">Sampai {formatQty(receivedQty(it))}</span>
+                            <span className="text-gray-400"> / {formatQty(it.quantity)}</span>
+                            {transit > 0 && <span className="text-amber-600"> • di jalan {formatQty(transit)}</span>}
+                            {notSent > 0 && <span className="text-gray-400"> • belum dikirim {formatQty(notSent)}</span>}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {(selected.deliveryProofUrls || []).length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {(selected.deliveryProofUrls || []).map((url, i) => (
+                        <a key={url} href={url} target="_blank" rel="noopener noreferrer" title={`Bukti terima ${i + 1}`}>
+                          <img src={url} alt={`Bukti terima ${i + 1}`} loading="lazy" decoding="async" referrerPolicy="no-referrer" className="w-16 h-16 object-cover rounded-lg border border-gray-200" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                  {selected.items.some((it) => inTransitQty(it) > 0) && (
+                    <Button onClick={() => openConfirmDelivery(selected)} className="w-full bg-emerald-600 hover:bg-emerald-700">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Konfirmasi Pengiriman
+                    </Button>
+                  )}
+                </div>
+              )}
 
               {selectedReturns.length > 0 && (
                 <div className="space-y-2 pt-2 border-t border-gray-100">
@@ -576,6 +690,59 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
                 )}
               </div>
             </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!confirmDelivery} onOpenChange={(open) => { if (!open) setConfirmDelivery(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Konfirmasi Pengiriman</DialogTitle>
+          </DialogHeader>
+          {confirmDelivery && (
+            <div className="space-y-3 text-xs">
+              <p className="text-gray-500">
+                Isi jumlah yang <b>benar-benar sampai</b> ke pelanggan untuk {confirmDelivery.invoice.invoiceNumber}. Yang tidak sampai
+                kembali jadi "belum dikirim" dan bisa dicetak surat jalan baru besok.
+              </p>
+              <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
+                {confirmDelivery.invoice.items.map((it, idx) => {
+                  const transit = inTransitQty(it);
+                  if (transit <= 0) return null;
+                  return (
+                    <div key={idx} className="flex items-center justify-between gap-3 p-2.5">
+                      <span className="flex-1 min-w-0">
+                        <p className="truncate font-semibold text-gray-900">{it.name}</p>
+                        <p className="text-[10px] text-gray-400">Di jalan {formatQty(transit)} {it.unit || ''}</p>
+                      </span>
+                      <NumberInput
+                        value={confirmDelivery.qtys[idx] ?? 0}
+                        allowDecimal={!Number.isInteger(transit)}
+                        max={transit}
+                        onChange={(value) => setConfirmDelivery((c) => c ? { ...c, qtys: { ...c.qtys, [idx]: value } } : c)}
+                        className="w-24 h-8 text-right font-bold"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Foto Bukti Terima (opsional)</Label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setDeliveryProofFile(e.target.files?.[0] ?? null)}
+                  className="block w-full text-[11px] text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-gray-100 file:text-gray-700 file:font-bold"
+                />
+                {deliveryProofFile && <p className="text-[10px] text-gray-400 truncate">{deliveryProofFile.name}</p>}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="secondary" className="flex-1" disabled={isSavingDelivery} onClick={() => setConfirmDelivery(null)}>Batal</Button>
+                <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" disabled={isSavingDelivery} onClick={submitConfirmDelivery}>
+                  {isSavingDelivery ? 'Menyimpan...' : 'Simpan'}
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>

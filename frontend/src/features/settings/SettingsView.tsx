@@ -45,6 +45,7 @@ import {
 } from '../../lib/printing/printerConnection';
 import { buildTestPrint } from '../../lib/printing/escpos';
 import { useDialog } from '../../components/shared/DialogProvider';
+import { optimizeProductPhotos } from '../../lib/optimizeProductPhotos';
 import { TAB_DEFS, FEATURE_PERMISSION_DEFS, ROLE_DEFAULT_PERMISSIONS, CurrentUser, hasPermission } from '../../lib/permissions';
 import { resetAllBusinessData, backupAllBusinessData, downloadBackupJson } from '../../lib/resetAllData';
 import { Button } from '../../components/ui/button';
@@ -84,6 +85,29 @@ const PERMISSION_DEFS = FEATURE_PERMISSION_DEFS;
 export default function SettingsView({ branches, onUpdateBranches, skuLocations, onUpdateSkuLocations, bankAccounts, onUpdateBankAccounts, onAddActivity, currentUser, customers = [], defaultCustomerId = null, onUpdateDefaultCustomerId }: SettingsViewProps) {
   const dialog = useDialog();
   const can = (key: string) => hasPermission(currentUser, key);
+  // Optimalkan foto produk lama (khusus Owner, di tab Profil Toko).
+  const [photoJob, setPhotoJob] = useState<{ running: boolean; done: number; total: number; message: string | null }>({
+    running: false, done: 0, total: 0, message: null,
+  });
+  const handleOptimizePhotos = async () => {
+    if (photoJob.running) return;
+    const ok = window.confirm(
+      'Kecilkan semua foto produk lama yang berukuran besar?\n\nProses ini mengunggah foto versi kecil dan mengganti foto di tiap produk. Sebaiknya dijalankan saat toko sepi (jangan sambil transaksi) dan biarkan halaman ini terbuka sampai selesai.'
+    );
+    if (!ok) return;
+    setPhotoJob({ running: true, done: 0, total: 0, message: null });
+    try {
+      const r = await optimizeProductPhotos((done, total) => setPhotoJob((j) => ({ ...j, done, total })));
+      const mb = (r.savedBytes / (1024 * 1024)).toFixed(1);
+      setPhotoJob({
+        running: false, done: r.total, total: r.total,
+        message: `Selesai: ${r.optimized} foto dikecilkan (hemat ±${mb} MB), ${r.skipped} dilewati (sudah ringan), ${r.failed} gagal.`,
+      });
+    } catch (err: any) {
+      setPhotoJob((j) => ({ ...j, running: false, message: `Gagal: ${err?.message || 'Terjadi kesalahan tidak diketahui.'}` }));
+    }
+  };
+
   const [activeTab, setActiveTab] = useState<'profile' | 'branches' | 'locations' | 'printers' | 'security' | 'accounts' | 'audit'>('profile');
   const [storeProfile, setStoreProfile] = useState<StoreProfile>({
     storeName: '',
@@ -947,6 +971,20 @@ export default function SettingsView({ branches, onUpdateBranches, skuLocations,
               </Button>
             </div>
           </form>
+        )}
+
+        {activeTab === 'profile' && currentUser?.role === 'Owner' && (
+          <div className="mt-4 p-4 bg-white border border-gray-200 rounded-2xl space-y-2">
+            <h4 className="text-xs font-extrabold text-gray-700 uppercase tracking-widest">Optimalkan Foto Produk</h4>
+            <p className="text-[11px] text-gray-500 leading-relaxed">
+              Foto produk yang diunggah sebelum fitur kompres ada biasanya masih berukuran besar (beberapa MB) dan membuat Kasir berat.
+              Tombol ini mengecilkannya sekali jalan. Foto baru sudah otomatis dikecilkan.
+            </p>
+            <Button type="button" variant="secondary" onClick={handleOptimizePhotos} disabled={photoJob.running}>
+              {photoJob.running ? `Memproses ${photoJob.done}/${photoJob.total || '…'}` : 'Kecilkan Foto Produk Lama'}
+            </Button>
+            {photoJob.message && <p className="text-[11px] font-semibold text-gray-600">{photoJob.message}</p>}
+          </div>
         )}
 
         {/* Tab 2: Branches */}

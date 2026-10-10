@@ -1586,12 +1586,12 @@ export default function ProductsView({ products, onUpdateProducts, onAddActivity
                     <span className="font-extrabold text-foreground">Rp {(selectedProduct.costPrice ?? selectedProduct.retailPrice).toLocaleString('id-ID')} / {selectedProduct.unit}</span>
                   </div>
                   <div className="flex justify-between p-2">
-                    <span className="text-muted-foreground font-medium flex items-center gap-1">Harga Standard <Info className="w-3.5 h-3.5 text-primary" /></span>
-                    <span className="font-extrabold text-foreground">Rp {(selectedProduct.standardSellPrice ?? selectedProduct.wholesalePrice).toLocaleString('id-ID')} / {selectedProduct.unit}</span>
-                  </div>
-                  <div className="flex justify-between p-2">
                     <span className="text-muted-foreground font-medium">Harga Minimum</span>
                     <span className="font-extrabold text-foreground">Rp {selectedProduct.projectPrice.toLocaleString('id-ID')} / {selectedProduct.unit}</span>
+                  </div>
+                  <div className="flex justify-between p-2">
+                    <span className="text-muted-foreground font-medium flex items-center gap-1">Harga Standard <Info className="w-3.5 h-3.5 text-primary" /></span>
+                    <span className="font-extrabold text-foreground">Rp {(selectedProduct.standardSellPrice ?? selectedProduct.wholesalePrice).toLocaleString('id-ID')} / {selectedProduct.unit}</span>
                   </div>
                 </div>
               </div>
