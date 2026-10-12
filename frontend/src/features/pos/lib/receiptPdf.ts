@@ -486,6 +486,7 @@ async function buildDeliveryNoteDoc(
   invoice: SalesInvoice,
   storeProfile: StoreProfileFull | undefined,
   itemsOverride?: SalesInvoice['items'],
+  showPrices = false,
 ): Promise<{ doc: jsPDF; filename: string }> {
   const deliveryItems = itemsOverride && itemsOverride.length > 0 ? itemsOverride : invoice.items;
   const storeName = storeProfile?.storeName || 'Toko Saya';
@@ -523,8 +524,9 @@ async function buildDeliveryNoteDoc(
   deliveryItems.forEach((item) => {
     measurer.setFontSize(7.5);
     const nameLines = measurer.splitTextToSize(item.name, contentWidth);
-    calcY += nameLines.length * lineHeight + lineHeight; // name + qty/unit row
+    calcY += nameLines.length * lineHeight + lineHeight * (showPrices ? 2 : 1); // name + qty/unit and optional price row
   });
+  if (showPrices) calcY += lineHeight * 2; // divider + total
   calcY += lineHeight; // dashedLine
 
   calcY += lineHeight * 4; // notice text (up to 4 wrapped lines, generous)
@@ -596,9 +598,20 @@ async function buildDeliveryNoteDoc(
     y += nameLines.length * lineHeight;
     doc.setFont('JetBrainsMono', 'normal');
     doc.setFontSize(7);
-    doc.text(`  ${formatQty(item.quantity)} ${item.unit || ''}`, marginX, y);
+    const quantityText = `  ${formatQty(item.quantity)} ${item.unit || ''}`;
+    doc.text(quantityText, marginX, y);
     y += lineHeight;
+    if (showPrices) {
+      const unitPrice = item.bonus ? 0 : item.price;
+      const lineTotal = item.bonus ? 0 : lineAmount(item.price, item.quantity);
+      row(`    x Rp ${Math.round(unitPrice).toLocaleString('id-ID')}`, `Rp ${Math.round(lineTotal).toLocaleString('id-ID')}`, false, 7);
+    }
   });
+  if (showPrices) {
+    dashedLine();
+    const deliveryTotal = deliveryItems.reduce((total, item) => total + (item.bonus ? 0 : lineAmount(item.price, item.quantity)), 0);
+    row('TOTAL BARANG:', `Rp ${Math.round(deliveryTotal).toLocaleString('id-ID')}`, true, 8);
+  }
   dashedLine();
 
   doc.setFontSize(7);
@@ -643,8 +656,9 @@ export async function generateDeliveryNotePDF(
   invoice: SalesInvoice,
   storeProfile: StoreProfileFull | undefined,
   itemsOverride?: SalesInvoice['items'],
+  showPrices = false,
 ) {
-  const { doc, filename } = await buildDeliveryNoteDocA5Landscape(invoice, storeProfile, itemsOverride);
+  const { doc, filename } = await buildDeliveryNoteDocA5Landscape(invoice, storeProfile, itemsOverride, showPrices);
   await savePdfDoc(doc, filename);
 }
 
@@ -653,8 +667,9 @@ export async function printDeliveryNote(
   invoice: SalesInvoice,
   storeProfile: StoreProfileFull | undefined,
   itemsOverride?: SalesInvoice['items'],
+  showPrices = false,
 ) {
-  const { doc, filename } = await buildDeliveryNoteDoc(invoice, storeProfile, itemsOverride);
+  const { doc, filename } = await buildDeliveryNoteDoc(invoice, storeProfile, itemsOverride, showPrices);
   await printPdfDoc(doc, filename);
 }
 
@@ -667,6 +682,7 @@ async function buildDeliveryNoteDocA5Landscape(
   invoice: SalesInvoice,
   storeProfile: StoreProfileFull | undefined,
   itemsOverride?: SalesInvoice['items'],
+  showPrices = false,
 ): Promise<{ doc: jsPDF; filename: string }> {
   const deliveryItems = itemsOverride && itemsOverride.length > 0 ? itemsOverride : invoice.items;
   const storeName = storeProfile?.storeName || 'Toko Saya';
@@ -728,7 +744,9 @@ async function buildDeliveryNoteDocA5Landscape(
   y += 3;
 
   // Items table
-  const col = { no: marginX, name: marginX + 10, qty: pageWidth - marginX - 28, unit: pageWidth - marginX - 12 };
+  const col = showPrices
+    ? { no: marginX, name: marginX + 10, qty: pageWidth - marginX - 60, unit: pageWidth - marginX - 42, price: pageWidth - marginX - 25, total: pageWidth - marginX }
+    : { no: marginX, name: marginX + 10, qty: pageWidth - marginX - 28, unit: pageWidth - marginX - 12 };
   setFont(8.5, true);
   doc.setLineWidth(0.3);
   doc.line(marginX, y, pageWidth - marginX, y);
@@ -737,22 +755,40 @@ async function buildDeliveryNoteDocA5Landscape(
   doc.text('Nama Barang', col.name, y);
   doc.text('Jumlah', col.qty, y, { align: 'right' });
   doc.text('Satuan', col.unit, y);
+  if (showPrices) {
+    doc.text('Harga', col.price, y, { align: 'right' });
+    doc.text('Total', col.total, y, { align: 'right' });
+  }
   y += 2;
   doc.line(marginX, y, pageWidth - marginX, y);
   y += 5;
 
   setFont(8.5);
   deliveryItems.forEach((item, idx) => {
-    const nameLines = doc.splitTextToSize(item.name, col.qty - col.name - 20);
+    const nameLines = doc.splitTextToSize(item.name, col.qty - col.name - 8);
     doc.text(String(idx + 1), col.no, y);
     doc.text(nameLines, col.name, y);
     doc.text(formatQty(item.quantity), col.qty, y, { align: 'right' });
     doc.text(item.unit || '-', col.unit, y);
+    if (showPrices) {
+      const unitPrice = item.bonus ? 0 : item.price;
+      const lineTotal = item.bonus ? 0 : lineAmount(item.price, item.quantity);
+      doc.text(`Rp ${Math.round(unitPrice).toLocaleString('id-ID')}`, col.price, y, { align: 'right' });
+      doc.text(`Rp ${Math.round(lineTotal).toLocaleString('id-ID')}`, col.total, y, { align: 'right' });
+    }
     y += Math.max(nameLines.length, 1) * lineHeight;
   });
   y += 1;
   doc.line(marginX, y, pageWidth - marginX, y);
-  y += 8;
+  y += 4;
+  if (showPrices) {
+    const deliveryTotal = deliveryItems.reduce((total, item) => total + (item.bonus ? 0 : lineAmount(item.price, item.quantity)), 0);
+    setFont(9, true);
+    doc.text('TOTAL BARANG', pageWidth - marginX - 52, y);
+    doc.text(`Rp ${Math.round(deliveryTotal).toLocaleString('id-ID')}`, pageWidth - marginX, y, { align: 'right' });
+    y += 6;
+  }
+  y += 2;
 
   setFont(7.5);
   doc.text('Barang di atas telah diperiksa dan diterima dalam kondisi baik serta sesuai jumlah.', marginX, y);

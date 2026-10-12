@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Search, Receipt, Printer, Truck, CornerUpLeft, CalendarRange, CheckCircle2, Trash2, Clock, XCircle } from 'lucide-react';
+import { Search, Receipt, Printer, Truck, CornerUpLeft, CalendarRange, CheckCircle2, Trash2, Clock, XCircle, SlidersHorizontal } from 'lucide-react';
 import { Customer, Product, SalesInvoice, ReturnRecord } from '../../types';
 import InvoicePrintModal from './components/InvoicePrintModal';
 import { reverseSale } from '../../lib/cashSession';
@@ -111,6 +111,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
   const [searchQuery, setSearchQuery] = useState('');
   const [onlyPendingTransfer, setOnlyPendingTransfer] = useState(false);
   const [onlyNeedDelivery, setOnlyNeedDelivery] = useState(false);
+  const [showTransactionFilters, setShowTransactionFilters] = useState(false);
   // Dialog konfirmasi pengiriman: jumlah yang benar-benar sampai per barang.
   const [confirmDelivery, setConfirmDelivery] = useState<{ invoice: SalesInvoice; qtys: Record<number, number> } | null>(null);
   const [deliveryProofFile, setDeliveryProofFile] = useState<File | null>(null);
@@ -363,34 +364,57 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
-        <Button
-          type="button"
-          variant={onlyPendingTransfer ? 'default' : 'secondary'}
-          onClick={() => { setOnlyPendingTransfer((v) => !v); setCurrentPage(1); }}
-          className={pendingTransferCount > 0 && !onlyPendingTransfer ? 'text-amber-700' : ''}
-        >
-          <Clock className="w-3.5 h-3.5" />
-          Menunggu Transfer{pendingTransferCount > 0 ? ` (${pendingTransferCount})` : ''}
-        </Button>
-        <Button
-          type="button"
-          variant={onlyNeedDelivery ? 'default' : 'secondary'}
-          onClick={() => { setOnlyNeedDelivery((v) => !v); setCurrentPage(1); }}
-          className={needDeliveryCount > 0 && !onlyNeedDelivery ? 'text-amber-700' : ''}
-        >
-          <Truck className="w-3.5 h-3.5" />
-          Perlu Diantar{needDeliveryCount > 0 ? ` (${needDeliveryCount})` : ''}
-        </Button>
-        <div className="relative max-w-sm w-full sm:w-64">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
-          <Input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onClear={() => setSearchQuery('')}
-            placeholder="Cari no. invoice atau nama pelanggan..."
-            className="pl-9"
-          />
+        <div className="flex items-end gap-2 w-full sm:w-auto">
+          <div className="relative max-w-sm w-full sm:w-64">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
+            <Input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onClear={() => setSearchQuery('')}
+              placeholder="Cari no. invoice atau nama pelanggan..."
+              className="pl-9"
+            />
+          </div>
+          <div className="relative shrink-0">
+            <Button
+              type="button"
+              variant={showTransactionFilters || onlyPendingTransfer || onlyNeedDelivery ? 'default' : 'outline'}
+              onClick={() => setShowTransactionFilters((open) => !open)}
+              aria-expanded={showTransactionFilters}
+              aria-label="Buka filter transaksi"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              Filter
+              {(onlyPendingTransfer || onlyNeedDelivery) && (
+                <span className="ml-0.5 rounded-full bg-white/20 px-1.5 text-[10px]">
+                  {Number(onlyPendingTransfer) + Number(onlyNeedDelivery)}
+                </span>
+              )}
+            </Button>
+            {showTransactionFilters && (
+              <div className="absolute right-0 top-full z-30 mt-2 flex min-w-52 flex-col gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-xl">
+                <Button
+                  type="button"
+                  variant={onlyPendingTransfer ? 'default' : 'secondary'}
+                  onClick={() => { setOnlyPendingTransfer((value) => !value); setCurrentPage(1); }}
+                  className={pendingTransferCount > 0 && !onlyPendingTransfer ? 'text-amber-700' : ''}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  Menunggu Transfer{pendingTransferCount > 0 ? ` (${pendingTransferCount})` : ''}
+                </Button>
+                <Button
+                  type="button"
+                  variant={onlyNeedDelivery ? 'default' : 'secondary'}
+                  onClick={() => { setOnlyNeedDelivery((value) => !value); setCurrentPage(1); }}
+                  className={needDeliveryCount > 0 && !onlyNeedDelivery ? 'text-amber-700' : ''}
+                >
+                  <Truck className="w-3.5 h-3.5" />
+                  Perlu Diantar{needDeliveryCount > 0 ? ` (${needDeliveryCount})` : ''}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex items-end gap-2">
@@ -444,7 +468,7 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={9} className="p-6 text-center text-gray-400">{isFiltered ? 'Tidak ada transaksi yang cocok dengan pencarian/filter tanggal.' : 'Belum ada transaksi tercatat.'}</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="p-6 text-center text-gray-400">{isFiltered ? 'Tidak ada transaksi yang cocok dengan pencarian/filter.' : 'Belum ada transaksi tercatat.'}</TableCell></TableRow>
             ) : (
               paginatedInvoices.map((inv) => (
                 <TableRow key={inv.invoiceNumber}>

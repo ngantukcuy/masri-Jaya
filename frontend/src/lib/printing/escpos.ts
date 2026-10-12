@@ -238,6 +238,7 @@ export function buildDeliveryReceipt(
   invoice: SalesInvoice,
   storeProfile: ReceiptStoreProfile | undefined,
   itemsOverride?: SalesInvoice['items'],
+  showPrices = false,
 ): Uint8Array {
   const deliveryItems = itemsOverride && itemsOverride.length > 0 ? itemsOverride : invoice.items;
   const storeName = storeProfile?.storeName || 'Toko Saya';
@@ -260,7 +261,19 @@ export function buildDeliveryReceipt(
 
   for (const item of deliveryItems) {
     b.line(item.name);
-    b.line(`  ${formatQty(item.quantity)}${item.unit ? ` ${item.unit}` : ''}`);
+    const quantityUnit = `${formatQty(item.quantity)}${item.unit ? ` ${item.unit}` : ''}`;
+    if (showPrices) {
+      const unitPrice = item.bonus ? 0 : item.price;
+      const lineTotal = item.bonus ? 0 : lineAmount(item.price, item.quantity);
+      b.line(twoColumns(`  ${quantityUnit} x ${formatRupiah(unitPrice)}`, formatRupiah(lineTotal)));
+    } else {
+      b.line(`  ${quantityUnit}`);
+    }
+  }
+  if (showPrices) {
+    const deliveryTotal = deliveryItems.reduce((total, item) => total + (item.bonus ? 0 : lineAmount(item.price, item.quantity)), 0);
+    b.divider('-', RECEIPT_WIDTH);
+    b.bold(true).line(twoColumns('TOTAL BARANG', formatRupiah(deliveryTotal))).bold(false);
   }
   b.divider('-', RECEIPT_WIDTH);
 

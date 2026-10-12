@@ -47,6 +47,27 @@ interface DebtsViewProps {
   currentUser?: CurrentUser | null;
 }
 
+const invoiceDateMonths: Record<string, number> = {
+  januari: 0, februari: 1, maret: 2, april: 3, mei: 4, juni: 5,
+  juli: 6, agustus: 7, september: 8, oktober: 9, november: 10, desember: 11,
+};
+
+function getInvoiceCreatedTime(invoice: SalesInvoice): number {
+  if (invoice.createdAt) {
+    const timestamp = Date.parse(invoice.createdAt);
+    if (!isNaN(timestamp)) return timestamp;
+  }
+
+  const timestamp = Date.parse(invoice.date);
+  if (!isNaN(timestamp)) return timestamp;
+
+  const match = invoice.date.match(/(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/);
+  if (!match) return 0;
+  const month = invoiceDateMonths[match[2].toLowerCase()];
+  if (month === undefined) return 0;
+  return new Date(Number(match[3]), month, Number(match[1])).getTime();
+}
+
 export default function DebtsView({ 
   customers, 
   salesInvoices = [],
@@ -136,13 +157,7 @@ export default function DebtsView({
 
   const handleOpenPayModal = (customer: Customer) => {
     setSelectedCustomerForAction(customer);
-    const customerInvoices = salesInvoices
-      .filter((invoice) => invoice.customerId === customer.id && (invoice.splitRemainingDebt || 0) > 0)
-      .sort((a, b) => {
-        const aDate = a.splitDueDate || a.createdAt || a.date;
-        const bDate = b.splitDueDate || b.createdAt || b.date;
-        return aDate.localeCompare(bDate);
-      });
+    const customerInvoices = getCustomerDebtInvoices(customer);
     const firstInvoice = customerInvoices[0] || null;
     setSelectedDebtInvoice(firstInvoice);
     setPayAmount(firstInvoice?.splitRemainingDebt || customer.currentDebt);
@@ -151,11 +166,7 @@ export default function DebtsView({
 
   const getCustomerDebtInvoices = (customer: Customer) => salesInvoices
     .filter((invoice) => invoice.customerId === customer.id && (invoice.splitRemainingDebt || 0) > 0)
-    .sort((a, b) => {
-      const aDate = a.splitDueDate || a.createdAt || a.date;
-      const bDate = b.splitDueDate || b.createdAt || b.date;
-      return aDate.localeCompare(bDate);
-    });
+    .sort((a, b) => getInvoiceCreatedTime(b) - getInvoiceCreatedTime(a));
 
   const handleOpenAddDebtModal = (customer: Customer) => {
     setSelectedCustomerForAction(customer);

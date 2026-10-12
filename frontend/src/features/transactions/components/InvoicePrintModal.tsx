@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Printer, FileDown, Truck, Store, X, CheckCircle2, ArrowLeft, Square, CheckSquare, MessageCircle, Loader2 } from 'lucide-react';
+import { Printer, FileDown, Truck, Store, X, CheckCircle2, ArrowLeft, Square, CheckSquare, MessageCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'motion/react';
 import { SalesInvoice } from '../../../types';
 import { generateInvoiceReceiptPDF, generateDeliveryNotePDF, printInvoiceReceipt, printDeliveryNote } from '../../pos/lib/receiptPdf';
@@ -48,6 +48,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
   const receiptRef = useRef<HTMLDivElement>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [shareHint, setShareHint] = useState<string | null>(null);
+  const [showDeliveryPrices, setShowDeliveryPrices] = useState(false);
 
   // For surat jalan, let the user pick which items are actually being sent out
   // before printing — a single transaksi is often delivered in more than one trip.
@@ -129,6 +130,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
     : invoice;
 
   const subtotal = printableInvoice.subtotal ?? printableInvoice.items.reduce((acc, it) => acc + lineAmount(it.price, it.quantity), 0);
+  const deliveryTotal = deliveryItems.reduce((total, item) => total + (item.bonus ? 0 : lineAmount(item.price, item.quantity)), 0);
 
   const continueToPrint = () => {
     if (!driverName.trim() || deliveryItems.length === 0) return;
@@ -171,7 +173,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
         try {
           const bytes = docType === 'invoice'
             ? buildInvoiceReceipt(printableInvoice, storeProfile, cashierName, true)
-            : buildDeliveryReceipt(printableInvoice, storeProfile, deliveryItems);
+            : buildDeliveryReceipt(printableInvoice, storeProfile, deliveryItems, showDeliveryPrices);
           await handle.send(bytes);
           markDeliveryComplete();
         } catch (err: any) {
@@ -203,7 +205,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
           if (docType === 'invoice') {
             await printInvoiceReceipt(printableInvoice, storeProfile, cashierName, true);
           } else {
-            await printDeliveryNote(printableInvoice, storeProfile, deliveryItems);
+            await printDeliveryNote(printableInvoice, storeProfile, deliveryItems, showDeliveryPrices);
           }
           markDeliveryComplete();
         } catch (err: any) {
@@ -282,7 +284,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
       if (docType === 'invoice') {
         await generateInvoiceReceiptPDF(invoice, storeProfile, cashierName, true);
       } else {
-        await generateDeliveryNotePDF(printableInvoice, storeProfile, deliveryItems);
+        await generateDeliveryNotePDF(printableInvoice, storeProfile, deliveryItems, showDeliveryPrices);
         markDeliveryComplete();
       }
     } catch (err) {
@@ -390,6 +392,23 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
         exit={{ scale: 0.9, opacity: 0 }}
         className="receipt-print bg-white rounded-2xl max-w-sm w-full p-6 border border-gray-200 shadow-2xl space-y-4 font-mono text-xs text-gray-700 relative overflow-hidden print:p-0 print:shadow-none print:border-none print:static"
       >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] font-bold text-gray-500">
+            {docType === 'delivery' ? 'Tampilan surat jalan' : 'Tampilan struk pembelian'}
+          </span>
+          {docType === 'delivery' && (
+            <button
+              type="button"
+              onClick={() => setShowDeliveryPrices((show) => !show)}
+              aria-pressed={showDeliveryPrices}
+              title={showDeliveryPrices ? 'Sembunyikan harga' : 'Tampilkan harga'}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] font-bold transition-colors ${showDeliveryPrices ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}
+            >
+              {showDeliveryPrices ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+              {showDeliveryPrices ? 'Harga tampil' : 'Tampilkan harga'}
+            </button>
+          )}
+        </div>
         <div ref={receiptRef} className={`transition-all duration-500 ${isPrintingAnim ? 'animate-pulse scale-[0.99] border-t-4 border-blue-600' : ''}`}>
           <div className="text-center border-b border-dashed border-gray-300 pb-4">
             <span className="text-lg font-black text-gray-900 tracking-tight block">{storeName}</span>
@@ -461,7 +480,7 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
             )}
           </div>
 
-          {/* Items list — struk pembelian shows harga, surat jalan only shows jumlah barang */}
+          {/* Items list — surat jalan prices are opt-in */}
           <div className="border-t border-b border-dashed border-gray-300 py-3 space-y-2">
             {printableInvoice.items.map((item, idx) => (
               <div key={idx} className="flex justify-between text-[11px]">
@@ -469,10 +488,11 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
                   <p className="font-bold text-gray-900 truncate">{item.name}</p>
                   <p className="text-[9px] text-gray-400 font-mono">
                     {formatQty(item.quantity)} {item.unit || ''}
+                    {docType === 'delivery' && showDeliveryPrices && ` x Rp ${(item.bonus ? 0 : item.price).toLocaleString('id-ID')}`}
                     {docType === 'invoice' && item.bonus ? <> x <span className="line-through">Rp {(item.originalPrice || 0).toLocaleString('id-ID')}</span> <span className="font-bold text-amber-600">BONUS Rp 0</span></> : docType === 'invoice' && ` x Rp ${item.price.toLocaleString('id-ID')}`}
                   </p>
                 </div>
-                {docType === 'invoice' && (
+                {(docType === 'invoice' || showDeliveryPrices) && (
                   <span className="font-bold text-gray-900">{item.bonus ? <><span className="line-through text-gray-400">Rp {lineAmount(item.originalPrice || 0, item.quantity).toLocaleString('id-ID')}</span> <span className="text-amber-600">Rp 0</span></> : `Rp ${lineAmount(item.price, item.quantity).toLocaleString('id-ID')}`}</span>
                 )}
               </div>
@@ -532,6 +552,14 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
             </div>
           ) : (
             <div className="py-4 space-y-3 text-[10px] text-gray-600">
+              {showDeliveryPrices && (
+                <div className="pb-2 text-right text-[11px]">
+                  <div className="flex justify-between border-t border-dashed border-gray-200 pt-2 font-black text-gray-900">
+                    <span>TOTAL BARANG:</span>
+                    <span>Rp {deliveryTotal.toLocaleString('id-ID')}</span>
+                  </div>
+                </div>
+              )}
               <p>Barang di atas telah diperiksa dan diterima dalam kondisi baik serta sesuai jumlah.</p>
               <div className="grid grid-cols-3 gap-2 pt-4">
                 <div className="text-center space-y-8">
