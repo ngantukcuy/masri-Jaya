@@ -823,7 +823,9 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                 </span>
                 <span className="text-[9px] text-red-500 font-extrabold block mt-0.5">{pendingExpenses.length} Pengajuan Menunggu Owner</span>
               </div>
-              <div className="flex justify-end">
+              
+            </div>
+            <div className="flex justify-end">
                 <Button
                   size="lg"
                   onClick={() => setShowSubmitModal(true)}
@@ -833,7 +835,6 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                   <span>Catat Pengeluaran</span>
                 </Button>
               </div>
-            </div>
           </div>
 
 
