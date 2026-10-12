@@ -703,6 +703,7 @@ export default function DebtsView({
                   <div className="max-h-40 space-y-1.5 overflow-y-auto">
                     {getCustomerDebtInvoices(selectedCustomerForAction).map((invoice) => {
                       const isSelected = selectedDebtInvoice?.invoiceNumber === invoice.invoiceNumber;
+                      const isOverdue = !!invoice.splitDueDate && invoice.splitDueDate < todayIso;
                       return (
                         <button
                           key={invoice.invoiceNumber}
@@ -711,15 +712,20 @@ export default function DebtsView({
                             setSelectedDebtInvoice(invoice);
                             setPayAmount(invoice.splitRemainingDebt || 0);
                           }}
-                          className={`w-full rounded-lg border p-2 text-left text-[10px] ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:border-emerald-300'}`}
+                          className={`w-full rounded-lg border p-2 text-left text-[10px] ${isOverdue
+                            ? isSelected ? 'border-red-500 bg-red-50' : 'border-red-200 bg-red-50/70 hover:border-red-400'
+                            : isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white hover:border-emerald-300'}`}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="font-black text-gray-800">{invoice.invoiceNumber}</span>
+                            <span className={`font-black ${isOverdue ? 'text-red-700' : 'text-gray-800'}`}>{invoice.invoiceNumber}</span>
                             <span className="font-black text-red-600">Rp {(invoice.splitRemainingDebt || 0).toLocaleString('id-ID')}</span>
                           </div>
-                          <div className="mt-0.5 flex justify-between text-gray-500">
+                          <div className={`mt-0.5 flex justify-between ${isOverdue ? 'text-red-600' : 'text-gray-500'}`}>
                             <span>{invoice.date}</span>
-                            <span>Jatuh tempo: {invoice.splitDueDate ? new Date(`${invoice.splitDueDate}T00:00:00`).toLocaleDateString('id-ID') : '-'}</span>
+                            <span>
+                              {isOverdue && <span className="mr-1 font-black">TERLAMBAT</span>}
+                              Jatuh tempo: {invoice.splitDueDate ? new Date(`${invoice.splitDueDate}T00:00:00`).toLocaleDateString('id-ID') : '-'}
+                            </span>
                           </div>
                         </button>
                       );

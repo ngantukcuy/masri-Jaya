@@ -173,13 +173,6 @@ export default function StokPemasokView({
             <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground -ml-2 mb-1">
               <ChevronRight className="w-3.5 h-3.5 rotate-180 mr-1" /> Kembali ke Stok
             </Button>
-            <h2 className="text-xl font-extrabold text-foreground flex items-center gap-2">
-              <Boxes className="w-6 h-6 text-pink-600" />
-              Stok Pemasok &amp; Pesanan Pembelian (PO)
-            </h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Kelola pesanan material ke pabrik/pemasok dan tentukan pengiriman (ke toko atau langsung ke customer).
-            </p>
           </div>
           <Button onClick={() => setShowCreatePOModal(true)} className="gap-2 shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-sm">
             <Plus className="w-4 h-4" />

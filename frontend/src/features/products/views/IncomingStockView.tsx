@@ -36,10 +36,6 @@ export default function IncomingStockView({
         <ChevronRight className="w-3.5 h-3.5 rotate-180" /> Kembali ke Stok
       </Button>
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-black text-foreground">Stok Supplier</h2>
-          <p className="text-xs text-muted-foreground">Kelola produk masuk, harga eceran, dan stok aktual. Klik salah satu bon untuk melihat isinya.</p>
-        </div>
         {incomingTab === 'masuk' && (
           <Button onClick={onTambahProdukMasuk}>
             <Plus className="w-4 h-4" /> Tambah Produk Masuk

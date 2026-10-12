@@ -823,20 +823,19 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
                 </span>
                 <span className="text-[9px] text-red-500 font-extrabold block mt-0.5">{pendingExpenses.length} Pengajuan Menunggu Owner</span>
               </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            
+              <div className="flex justify-end">
                 <Button
                   size="lg"
                   onClick={() => setShowSubmitModal(true)}
-                  className="blue-nowrap text-[10px] bg-blue-500 hover:bg-blue-600 hover:text-white text-white-700 shadow-none"
+                  className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/15 whitespace-nowrap"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Catat Pengeluaran</span>
                 </Button>
+              </div>
+            </div>
           </div>
+
 
           {/* Pengeluaran yang menunggu persetujuan Owner */}
           <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs space-y-4">

@@ -144,14 +144,12 @@ export default function DepositView({ customers, onUpdateCustomers, onAddActivit
                 <TabsList className="bg-gray-100 p-1 rounded-xl w-full gap-0">
                   <TabsTrigger
                     value="topup"
-                    className="flex-1 rounded-lg border-0 data-[state=active]:bg-white data-[state=active]:shadow data-[state=active]:text-emerald-600 text-gray-500"
-                  >
+                    className="h-10 flex-1 inline-flex items-center justify-center rounded-lg border-0 px-2 py-0 pb-0 text-center leading-none data-[state=active]:bg-white data-[state=active]:shadow data-[state=active]:text-emerald-600 text-gray-500">
                     Top Up
                   </TabsTrigger>
                   <TabsTrigger
                     value="withdraw"
-                    className="flex-1 rounded-lg border-0 data-[state=active]:bg-white data-[state=active]:shadow data-[state=active]:text-red-600 text-gray-500"
-                  >
+                    className="h-10 flex-1 inline-flex items-center justify-center rounded-lg border-0 px-2 py-0 pb-0 text-center leading-none data-[state=active]:bg-white data-[state=active]:shadow data-[state=active]:text-red-600 text-gray-500">
                     Tarik / Withdraw
                   </TabsTrigger>
                 </TabsList>
