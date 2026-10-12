@@ -385,12 +385,12 @@ export default function InvoicePrintModal({ invoice, docType, onClose, onDriverA
   }
 
   return (
-    <div className="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-center justify-center z-[150] p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-start justify-center z-[150] p-4 overflow-y-auto">
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
-        className="receipt-print bg-white rounded-2xl max-w-sm w-full p-6 border border-gray-200 shadow-2xl space-y-4 font-mono text-xs text-gray-700 relative overflow-hidden print:p-0 print:shadow-none print:border-none print:static"
+        className="receipt-print my-auto bg-white rounded-2xl max-w-sm w-full p-6 border border-gray-200 shadow-2xl space-y-4 font-mono text-xs text-gray-700 relative overflow-hidden print:p-0 print:shadow-none print:border-none print:static"
       >
         <div className="flex items-center justify-between gap-2">
           <span className="text-[11px] font-bold text-gray-500">

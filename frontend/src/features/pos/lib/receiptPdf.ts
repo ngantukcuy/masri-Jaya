@@ -744,9 +744,14 @@ async function buildDeliveryNoteDocA5Landscape(
   y += 3;
 
   // Items table
-  const col = showPrices
-    ? { no: marginX, name: marginX + 10, qty: pageWidth - marginX - 60, unit: pageWidth - marginX - 42, price: pageWidth - marginX - 25, total: pageWidth - marginX }
-    : { no: marginX, name: marginX + 10, qty: pageWidth - marginX - 28, unit: pageWidth - marginX - 12 };
+  const col = {
+    no: marginX,
+    name: marginX + 10,
+    qty: pageWidth - marginX - (showPrices ? 60 : 28),
+    unit: pageWidth - marginX - (showPrices ? 42 : 12),
+    price: pageWidth - marginX - 25,
+    total: pageWidth - marginX,
+  };
   setFont(8.5, true);
   doc.setLineWidth(0.3);
   doc.line(marginX, y, pageWidth - marginX, y);
