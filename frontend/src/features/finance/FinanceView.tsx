@@ -825,16 +825,16 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
               </div>
               
             </div>
-            <div className="flex justify-end">
-                <Button
-                  size="lg"
-                  onClick={() => setShowSubmitModal(true)}
-                  className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/15 whitespace-nowrap"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Catat Pengeluaran</span>
-                </Button>
-              </div>
+            <div className="flex h-full items-end justify-end">
+              <Button
+                size="lg"
+                onClick={() => setShowSubmitModal(true)}
+                className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/15 whitespace-nowrap"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Catat Pengeluaran</span>
+              </Button>
+            </div>
           </div>
 
 
