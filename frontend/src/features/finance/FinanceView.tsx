@@ -825,7 +825,7 @@ export default function FinanceView({ expenses, onUpdateExpenses, onAddActivity,
               </div>
               
             </div>
-            <div className="flex h-full items-end justify-end">
+            <div className="flex h-full items-end justify-end lg:col-start-4">
               <Button
                 size="lg"
                 onClick={() => setShowSubmitModal(true)}
