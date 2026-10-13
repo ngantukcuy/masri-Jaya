@@ -173,9 +173,8 @@ export default function Sidebar({
       {/* Brand Header */}
       <div className="flex items-center justify-between mb-8 px-2 border-b border-slate-100 pb-5">
         <div className="flex flex-col">
-          <div className="text-2xl font-black tracking-tighter italic uppercase text-slate-900 flex items-center gap-1.5">
-            <span>Masri</span>
-            <span className="text-primary">/ jaya</span>
+          <div className="flex items-center">
+            <img src="/icon-maskable-512.png" alt="Masri Jaya" className="h-12 w-12 object-contain" />
           </div>
           <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.3em] mt-1.5">SISTEM ERP MATERIAL / v{__APP_VERSION__}</p>
         </div>

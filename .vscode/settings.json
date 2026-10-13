@@ -6,5 +6,12 @@
   "deno.disablePaths": [
     "./frontend"
   ],
-  "typescript.tsserver.experimental.enableProjectDiagnostics": false
+  "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+  "python-envs.pythonProjects": [
+    {
+      "path": "frontend/android/app/src/main/assets/public/assets",
+      "envManager": "ms-python.python:venv",
+      "packageManager": "ms-python.python:pip"
+    }
+  ]
 }
