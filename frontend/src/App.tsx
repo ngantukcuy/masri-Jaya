@@ -650,7 +650,7 @@ function Dashboard({
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="relative w-72 h-full flex flex-col z-10"
+              className="relative w-20 h-full flex flex-col z-10"
             >
               <Sidebar
                 currentTab={currentTab}
@@ -692,24 +692,28 @@ function Dashboard({
         {canAccessTab(currentUser, 'dashboard') && (
           <button
             onClick={() => handleTabChange('dashboard')}
+            aria-label="Dasbor"
+            title="Dasbor"
+            aria-current={currentTab === 'dashboard' ? 'page' : undefined}
             className={`flex flex-col items-center gap-1 py-1 px-3 transition-all ${
               currentTab === 'dashboard' ? 'text-blue-600 font-extrabold scale-105' : 'text-slate-400 font-bold'
             }`}
           >
-            <LayoutDashboard className="w-5 h-5" />
-            <span className="text-[9px] uppercase tracking-wider">Dasbor</span>
+            <LayoutDashboard className="w-6 h-6" />
           </button>
         )}
 
         {canAccessTab(currentUser, 'products') && (
           <button
             onClick={() => handleTabChange('products')}
+            aria-label="Stok"
+            title="Stok"
+            aria-current={currentTab === 'products' ? 'page' : undefined}
             className={`flex flex-col items-center gap-1 py-1 px-3 transition-all ${
               currentTab === 'products' ? 'text-blue-600 font-extrabold scale-105' : 'text-slate-400 font-bold'
             }`}
           >
-            <Boxes className="w-5 h-5" />
-            <span className="text-[9px] uppercase tracking-wider">Stok</span>
+            <Boxes className="w-6 h-6" />
           </button>
         )}
 
@@ -717,32 +721,37 @@ function Dashboard({
         {canAccessTab(currentUser, 'pos') && (
           <button
             onClick={() => handleTabChange('pos')}
+            aria-label="Kasir"
+            title="Kasir"
+            aria-current={currentTab === 'pos' ? 'page' : undefined}
             className={`relative -top-4 w-12 h-12 rounded-full flex flex-col items-center justify-center transition-all shadow-lg cursor-pointer ${
               currentTab === 'pos'
                 ? 'bg-blue-600 text-white scale-110 border-2 border-white shadow-blue-500/40 font-black'
                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-2 border-white'
             }`}
           >
-            <ShoppingBag className="w-5 h-5" />
-            <span className="text-[7px] uppercase tracking-tighter mt-0.5">Kasir</span>
+            <ShoppingBag className="w-6 h-6" />
           </button>
         )}
 
         {canAccessTab(currentUser, 'debts') && (
           <button
             onClick={() => handleTabChange('debts')}
+            aria-label="Hutang"
+            title="Hutang"
+            aria-current={currentTab === 'debts' ? 'page' : undefined}
             className={`flex flex-col items-center gap-1 py-1 px-3 transition-all ${currentTab === 'debts' ? 'text-blue-600 font-extrabold scale-105' : 'text-slate-400 font-bold'}`}>
-            <Receipt className="w-5 h-5" />
-            <span className="text-[9px] uppercase tracking-wider">Hutang</span>
+            <Receipt className="w-6 h-6" />
           </button>
         )}
 
         <button
           onClick={() => setIsMobileMenuOpen(true)}
+          aria-label="Lainnya"
+          title="Lainnya"
           className="flex flex-col items-center gap-1 py-1 px-3 text-slate-400 font-bold transition-all"
         >
-          <Menu className="w-5 h-5 text-slate-400" />
-          <span className="text-[9px] uppercase tracking-wider">Lainnya</span>
+          <Menu className="w-6 h-6 text-slate-400" />
         </button>
       </div>
     </div>

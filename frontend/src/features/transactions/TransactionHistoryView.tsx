@@ -364,8 +364,8 @@ export default function TransactionHistoryView({ salesInvoices, returns = [], on
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
-        <div className="flex items-end gap-2 w-full sm:w-auto">
-          <div className="relative max-w-sm w-full sm:w-64">
+        <div className="flex w-full items-end gap-2 sm:w-auto">
+          <div className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 z-10" />
             <Input
               type="search"

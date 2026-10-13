@@ -141,7 +141,9 @@ export default function Sidebar({
   const navButtonCls = (isActive: boolean, isChild = false) =>
     cn(
       'w-full justify-start gap-3 h-auto px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl',
+      isMobile && 'justify-center gap-0 px-2',
       isChild && 'pl-9 py-2',
+      isMobile && isChild && 'pl-2',
       isActive
         ? 'neu-pill-active text-primary border border-slate-200/60 hover:bg-transparent'
         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 bg-transparent shadow-none'
@@ -154,10 +156,11 @@ export default function Sidebar({
         key={item.id}
         variant="ghost"
         onClick={() => onTabChange(item.id)}
+        title={item.label}
         className={navButtonCls(isActive, isChild)}
       >
         <Icon className={`${isChild ? 'w-3.5 h-3.5' : 'w-4 h-4'} ${isActive ? 'text-primary' : 'text-slate-400'}`} />
-        <span>{item.label}</span>
+        <span className={isMobile ? 'sr-only' : undefined}>{item.label}</span>
       </Button>
     );
   };
@@ -166,28 +169,28 @@ export default function Sidebar({
     <aside
       className={`h-screen flex flex-col py-6 px-4 shrink-0 z-50 ${
         isMobile
-          ? 'w-full bg-white/95 border-r border-slate-200 shadow-2xl'
+          ? 'w-full bg-white/95 border-r border-slate-200 shadow-2xl px-2'
           : 'w-64 sticky left-0 top-0 bg-white/70 backdrop-blur-xl border-r border-slate-200/50 shadow-sm'
       }`}
     >
       {/* Brand Header */}
-      <div className="flex items-center justify-between mb-8 px-2 border-b border-slate-100 pb-5">
-        <div className="flex flex-col">
+      <div className={`flex items-center justify-between mb-8 border-b border-slate-100 pb-5 ${isMobile ? 'relative justify-center px-0' : 'px-2'}`}>
+        <div className={`flex flex-col ${isMobile ? 'items-center' : ''}`}>
           <div className="flex items-center">
-            <img src="/icon-maskable-512.png" alt="Masri Jaya" className="h-12 w-12 object-contain" />
+            <img src="/icon-maskable-512.png" alt="Masri Jaya" className={`${isMobile ? 'h-8 w-8' : 'h-12 w-12'} object-contain`} />
           </div>
-          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.3em] mt-1.5">SISTEM ERP MATERIAL / v{__APP_VERSION__}</p>
+          <p className={`text-[9px] text-slate-500 font-bold uppercase tracking-[0.3em] mt-1.5 ${isMobile ? 'sr-only' : ''}`}>SISTEM ERP MATERIAL / v{__APP_VERSION__}</p>
         </div>
         {isMobile && onClose && (
-          <Button variant="ghost" size="icon" onClick={onClose} className="text-slate-500">
-            <X className="w-5 h-5" />
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Tutup menu" title="Tutup menu" className="absolute right-0 top-0 h-7 w-7 text-slate-500">
+            <X className="w-4 h-4" />
           </Button>
         )}
       </div>
 
       {/* Nav Menu */}
       <nav className="flex-1 space-y-1.5 overflow-y-auto pr-1">
-        <span className="block text-[10px] font-bold text-slate-400 mb-3 px-3 uppercase tracking-[0.2em]">MENU UTAMA</span>
+        <span className={`block text-[10px] font-bold text-slate-400 mb-3 px-3 uppercase tracking-[0.2em] ${isMobile ? 'sr-only' : ''}`}>MENU UTAMA</span>
         {visibleNavItems.map((item) => {
           if (!item.children) {
             const isActive = currentTab === item.id;
@@ -205,16 +208,18 @@ export default function Sidebar({
                 onClick={() => toggleGroup(item.id)}
                 className={cn(
                   'w-full justify-between gap-2 h-auto px-3.5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl',
+                  isMobile && 'justify-center px-2',
                   groupActive
                     ? 'neu-pill-active text-primary border border-slate-200/60 hover:bg-transparent'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 bg-transparent shadow-none'
                 )}
+                title={item.label}
               >
-                <span className="flex items-center gap-3">
+                <span className={`flex items-center gap-3 ${isMobile ? 'gap-0' : ''}`}>
                   <Icon className={`w-4 h-4 ${groupActive ? 'text-primary' : 'text-slate-400'}`} />
-                  <span>{item.label}</span>
+                  <span className={isMobile ? 'sr-only' : undefined}>{item.label}</span>
                 </span>
-                <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''} ${groupActive ? 'text-primary' : 'text-slate-400'}`} />
+                <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${isMobile ? 'sr-only' : ''} ${isOpen ? 'rotate-180' : ''} ${groupActive ? 'text-primary' : 'text-slate-400'}`} />
               </Button>
               {isOpen && (
                 <div className="mt-1 space-y-1">
@@ -225,7 +230,7 @@ export default function Sidebar({
           );
         })}
 
-        <span className="block text-[10px] font-bold text-slate-400 mb-1.5 mt-4 px-3 uppercase tracking-[0.2em]">LAINNYA</span>
+        <span className={`block text-[10px] font-bold text-slate-400 mb-1.5 mt-4 px-3 uppercase tracking-[0.2em] ${isMobile ? 'sr-only' : ''}`}>LAINNYA</span>
         {visibleExtraItems.map((item) => renderNavButton(item, currentTab === item.id))}
       </nav>
 
@@ -235,10 +240,14 @@ export default function Sidebar({
         <Button
           variant="ghost"
           onClick={() => dialog.alert("Pusat bantuan siap melayani! Hubungi dukungan Masri Jaya.")}
-          className="w-full justify-start gap-3 h-auto px-3.5 py-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 bg-transparent shadow-none rounded-xl text-xs font-bold uppercase tracking-wider"
+          title="Bantuan"
+          className={cn(
+            "w-full justify-start gap-3 h-auto px-3.5 py-2.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100/50 bg-transparent shadow-none rounded-xl text-xs font-bold uppercase tracking-wider",
+            isMobile && "justify-center gap-0 px-2"
+          )}
         >
           <HelpCircle className="w-4 h-4 text-slate-400" />
-          <span>Bantuan</span>
+          <span className={isMobile ? 'sr-only' : undefined}>Bantuan</span>
         </Button>
         <Button
           variant="ghost"
@@ -248,10 +257,14 @@ export default function Sidebar({
               onLogout();
             }
           }}
-          className="w-full justify-start gap-3 h-auto px-3.5 py-2.5 text-red-600 hover:bg-red-50 hover:text-red-700 bg-transparent shadow-none rounded-xl text-xs font-bold uppercase tracking-wider"
+          title="Keluar"
+          className={cn(
+            "w-full justify-start gap-3 h-auto px-3.5 py-2.5 text-red-600 hover:bg-red-50 hover:text-red-700 bg-transparent shadow-none rounded-xl text-xs font-bold uppercase tracking-wider",
+            isMobile && "justify-center gap-0 px-2"
+          )}
         >
           <LogOut className="w-4 h-4 text-red-500" />
-          <span>Keluar</span>
+          <span className={isMobile ? 'sr-only' : undefined}>Keluar</span>
         </Button>
       </div>
     </aside>
