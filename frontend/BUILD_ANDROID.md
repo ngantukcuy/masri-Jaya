@@ -59,7 +59,7 @@ Kalau kamu tidak mau install Android Studio, ini jalan pintas:
 ## Perlu diketahui
 
 - App ID: `com.masrijaya.pos` — ini identitas unik app kamu, jangan diubah-ubah setelah publish (kalau nanti daftar ke Play Store, ID ini permanen).
-- Nama app & ikon sudah disetel. Ikon Android memakai aset logo di `public/icon-512.png` dan foreground adaptif memakai `public/icon-maskable-512.png`; setelah menggantinya, jalankan ulang `npm run android:sync` sebelum build APK.
+- Nama app & ikon sudah disetel. Ikon Android memakai aset logo di `public/icon-512.png` dan foreground adaptif memakai `public/icon-maskable-512.png`. Splash screen native juga menampilkan logo yang sama di atas latar biru. Setelah mengganti aset logo, jalankan ulang `npm run android:sync` sebelum build APK.
 - Setiap kali kamu update kode web-nya, ulangi langkah `npm run android:sync` supaya APK ikut ter-update sebelum di-build ulang.
 
 ---
