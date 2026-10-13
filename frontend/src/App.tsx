@@ -650,7 +650,7 @@ function Dashboard({
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="relative w-20 h-full flex flex-col z-10"
+              className="relative w-72 h-full flex flex-col z-10"
             >
               <Sidebar
                 currentTab={currentTab}
@@ -688,71 +688,87 @@ function Dashboard({
       </div>
 
       {/* Mobile Glassmorphic Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden p-3 bg-white/80 backdrop-blur-lg border-t border-slate-200/60 flex justify-around items-center shadow-lg shadow-slate-900/10 h-16">
+      <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden px-3 bg-white/80 backdrop-blur-lg border-t border-slate-200/60 flex justify-around items-center shadow-lg shadow-slate-900/10 h-16">
         {canAccessTab(currentUser, 'dashboard') && (
-          <button
+          <motion.button
             onClick={() => handleTabChange('dashboard')}
             aria-label="Dasbor"
             title="Dasbor"
             aria-current={currentTab === 'dashboard' ? 'page' : undefined}
-            className={`flex flex-col items-center gap-1 py-1 px-3 transition-all ${
-              currentTab === 'dashboard' ? 'text-blue-600 font-extrabold scale-105' : 'text-slate-400 font-bold'
+            animate={{ y: currentTab === 'dashboard' ? -7 : 0, scale: currentTab === 'dashboard' ? 1.08 : 1 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 24 }}
+            whileTap={{ scale: 0.92 }}
+            className={`flex h-11 w-11 items-center justify-center rounded-xl transition-colors ${
+              currentTab === 'dashboard' ? 'bg-blue-50 text-blue-600' : 'text-slate-400'
             }`}
           >
             <LayoutDashboard className="w-6 h-6" />
-          </button>
+          </motion.button>
         )}
 
         {canAccessTab(currentUser, 'products') && (
-          <button
+          <motion.button
             onClick={() => handleTabChange('products')}
             aria-label="Stok"
             title="Stok"
             aria-current={currentTab === 'products' ? 'page' : undefined}
-            className={`flex flex-col items-center gap-1 py-1 px-3 transition-all ${
-              currentTab === 'products' ? 'text-blue-600 font-extrabold scale-105' : 'text-slate-400 font-bold'
+            animate={{ y: currentTab === 'products' ? -7 : 0, scale: currentTab === 'products' ? 1.08 : 1 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 24 }}
+            whileTap={{ scale: 0.92 }}
+            className={`flex h-11 w-11 items-center justify-center rounded-xl transition-colors ${
+              currentTab === 'products' ? 'bg-blue-50 text-blue-600' : 'text-slate-400'
             }`}
           >
             <Boxes className="w-6 h-6" />
-          </button>
+          </motion.button>
         )}
 
-        {/* Center elevated POS button */}
         {canAccessTab(currentUser, 'pos') && (
-          <button
+          <motion.button
             onClick={() => handleTabChange('pos')}
             aria-label="Kasir"
             title="Kasir"
             aria-current={currentTab === 'pos' ? 'page' : undefined}
-            className={`relative -top-4 w-12 h-12 rounded-full flex flex-col items-center justify-center transition-all shadow-lg cursor-pointer ${
-              currentTab === 'pos'
-                ? 'bg-blue-600 text-white scale-110 border-2 border-white shadow-blue-500/40 font-black'
-                : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border-2 border-white'
+            animate={{ y: currentTab === 'pos' ? -7 : 0, scale: currentTab === 'pos' ? 1.08 : 1 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 24 }}
+            whileTap={{ scale: 0.92 }}
+            className={`flex h-11 w-11 items-center justify-center rounded-xl transition-colors ${
+              currentTab === 'pos' ? 'bg-blue-50 text-blue-600' : 'text-slate-400'
             }`}
           >
             <ShoppingBag className="w-6 h-6" />
-          </button>
+          </motion.button>
         )}
 
         {canAccessTab(currentUser, 'debts') && (
-          <button
+          <motion.button
             onClick={() => handleTabChange('debts')}
             aria-label="Hutang"
             title="Hutang"
             aria-current={currentTab === 'debts' ? 'page' : undefined}
-            className={`flex flex-col items-center gap-1 py-1 px-3 transition-all ${currentTab === 'debts' ? 'text-blue-600 font-extrabold scale-105' : 'text-slate-400 font-bold'}`}>
+            animate={{ y: currentTab === 'debts' ? -7 : 0, scale: currentTab === 'debts' ? 1.08 : 1 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 24 }}
+            whileTap={{ scale: 0.92 }}
+            className={`flex h-11 w-11 items-center justify-center rounded-xl transition-colors ${
+              currentTab === 'debts' ? 'bg-blue-50 text-blue-600' : 'text-slate-400'
+            }`}>
             <Receipt className="w-6 h-6" />
-          </button>
+          </motion.button>
         )}
 
-        <button
+        <motion.button
           onClick={() => setIsMobileMenuOpen(true)}
           aria-label="Lainnya"
           title="Lainnya"
-          className="flex flex-col items-center gap-1 py-1 px-3 text-slate-400 font-bold transition-all"
+          animate={{ y: !['dashboard', 'products', 'pos', 'debts'].includes(currentTab) ? -7 : 0, scale: !['dashboard', 'products', 'pos', 'debts'].includes(currentTab) ? 1.08 : 1 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 24 }}
+          whileTap={{ scale: 0.92 }}
+          className={`flex h-11 w-11 items-center justify-center rounded-xl transition-colors ${
+            !['dashboard', 'products', 'pos', 'debts'].includes(currentTab) ? 'bg-blue-50 text-blue-600' : 'text-slate-400'
+          }`}
         >
-          <Menu className="w-6 h-6 text-slate-400" />
-        </button>
+          <Menu className="w-6 h-6" />
+        </motion.button>
       </div>
     </div>
   );
